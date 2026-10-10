@@ -41,6 +41,8 @@ function apiNode(
 
 /** REST's containers: each API, placed by its `order`. */
 export const restExplorerTree: KindExplorerTree = {
+  scriptContainers: ['api', 'folder'],
+  movable: { api: 'apiId', folder: 'folderId', 'rest-request': 'requestId' },
   kind: 'rest',
   containers: ({ rest }) =>
     (rest?.apis ?? []).map((api) => ({

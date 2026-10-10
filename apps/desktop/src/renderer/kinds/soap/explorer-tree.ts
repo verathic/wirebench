@@ -108,6 +108,7 @@ function interfaceNode(
  * interface summary carries no `order` on the wire; its position is the project's own order.
  */
 export const soapExplorerTree: KindExplorerTree = {
+  scriptContainers: ['interface'],
   kind: 'soap',
   containers: ({ interfaces, requests, conflicted }) =>
     interfaces.map((summary, index) => ({ order: index, node: interfaceNode(summary, requests, conflicted) })),

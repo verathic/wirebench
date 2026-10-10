@@ -34,6 +34,7 @@ function wsApiNode(
 
 /** WebSocket's containers: each API, placed by its `order`. Its folders ride in REST's list. */
 export const wsExplorerTree: KindExplorerTree = {
+  movable: { 'ws-api': 'apiId', 'ws-request': 'requestId' },
   kind: 'websocket',
   containers: ({ rest, ws }) =>
     (ws?.apis ?? []).map((api) => ({

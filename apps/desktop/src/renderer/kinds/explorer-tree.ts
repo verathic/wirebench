@@ -9,6 +9,7 @@ import type {
   ExplorerConflictTargets,
   ExplorerGrpcData,
   ExplorerNode,
+  ExplorerNodeKind,
   ExplorerRestData,
   ExplorerWsData,
 } from '../features/explorer/tree-nodes.js';
@@ -35,4 +36,8 @@ export interface OrderedNode {
 export interface KindExplorerTree {
   readonly kind: KindId;
   containers(data: ProjectTreeData): readonly OrderedNode[];
+  /** The kind's rows **Switch on scripts…** is offered on. */
+  readonly scriptContainers?: readonly ExplorerNodeKind[];
+  /** The kind's rows a `move-node` mutation can move, and the id it addresses each by. */
+  readonly movable?: Partial<Record<ExplorerNodeKind, 'apiId' | 'folderId' | 'requestId'>>;
 }

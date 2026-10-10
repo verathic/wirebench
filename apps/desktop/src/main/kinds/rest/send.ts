@@ -2,7 +2,7 @@
  * REST's steps of a desktop send (spec §5.5): the item with the editor's draft, its live events, its
  * summary, History and audit row.
  */
-import { applyAuth, composeUrl, restItemFor } from '@wirebench/engine';
+import { applyAuth, composeUrl, restEffectiveAuth, restItemFor } from '@wirebench/engine';
 import type { RestContractResult, RestSendInput, SentRequest } from '@wirebench/engine';
 import { toSseRowWire } from '../../engine-wire.js';
 import { redactHeaders } from '../../redact.js';
@@ -11,6 +11,7 @@ import { recordRest, summariseRest } from '../../send/record.js';
 import { withSentSigningHeaders } from '../../webhook-send.js';
 import type { RestExchangeSummary } from '../../../shared/wire-types.js';
 import type { KindSend } from '../kind-main.js';
+import { apiKeyMasks } from '../key-masks.js';
 
 export const restSend: KindSend<'rest'> = {
   selected(project, requestId, draft) {
@@ -88,6 +89,10 @@ export const restSend: KindSend<'rest'> = {
       { ...(settings.encodeUrl !== undefined ? { encode: settings.encodeUrl } : {}) },
     );
     return { status: null, outcome: 'failed', durationMs: failed.durationMs, method: request.method, url };
+  },
+
+  keyMasks(item) {
+    return apiKeyMasks(restEffectiveAuth(item));
   },
 };
 

@@ -2,12 +2,13 @@
  * SOAP's steps of a desktop send (spec §5.5): the item with the editor's override, its summary,
  * History and audit row. A SOAP send reports no live events.
  */
-import { soapItemFor } from '@wirebench/engine';
+import { soapEffectiveAuth, soapItemFor } from '@wirebench/engine';
 import type { SentRequest, SoapSendInput } from '@wirebench/engine';
 import type { HistoryNameFallback } from '../../send/record.js';
 import { recordSoap, summariseSoap } from '../../send/record.js';
 import type { Recorded } from '../../send/exchange.js';
 import type { KindSend } from '../kind-main.js';
+import { apiKeyMasks } from '../key-masks.js';
 
 export const soapSend: KindSend<'soap'> = {
   selected(project, requestId, draft) {
@@ -62,6 +63,11 @@ export const soapSend: KindSend<'soap'> = {
     return input === undefined
       ? undefined
       : { status: null, outcome: 'failed', durationMs: failed.durationMs, method: 'POST', url: input.endpoint };
+  },
+
+  keyMasks(item) {
+    const auth = soapEffectiveAuth(item);
+    return auth === undefined ? {} : apiKeyMasks(auth);
   },
 };
 

@@ -35,6 +35,8 @@ function grpcApiNode(
 
 /** gRPC's containers: each API, placed by its `order`. Its folders ride in REST's list. */
 export const grpcExplorerTree: KindExplorerTree = {
+  scriptContainers: ['grpc-api'],
+  movable: { 'grpc-api': 'apiId', 'grpc-request': 'requestId' },
   kind: 'grpc',
   containers: ({ rest, grpc }) =>
     (grpc?.apis ?? []).map((api) => ({

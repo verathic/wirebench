@@ -3,7 +3,7 @@
  * its summary, History and audit row. The session itself (its contract checks, its close) is
  * `exchange.ts`'s, which the shared kind's `interactive` flag keys.
  */
-import { wsItemFor } from '@wirebench/engine';
+import { wsEffectiveAuth, wsItemFor } from '@wirebench/engine';
 import type { SentRequest, WsExchange } from '@wirebench/engine';
 import { toWsFrameWire, toWsHandshakeWire } from '../../engine-wire.js';
 import { recordWs, reportWsHandshakeFailure, summariseWs } from '../../send/record.js';
@@ -84,6 +84,12 @@ export const wsSend: KindSend<'websocket'> = {
     return exchange === undefined
       ? undefined
       : { status: null, outcome: 'failed', durationMs: failed.durationMs, method: null, url: exchange.url };
+  },
+
+  keyMasks(item) {
+    // A WebSocket session masks its URL's key alone, as the app always has: its rows mask headers by name.
+    const auth = wsEffectiveAuth(item);
+    return auth.type === 'api-key' && auth.in === 'query' ? { keyParams: [auth.name] } : {};
   },
 };
 

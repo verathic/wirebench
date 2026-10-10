@@ -568,7 +568,9 @@ function mocksGroup(projectId: string, mocks: readonly ExplorerMock[]): Explorer
 }
 
 /** The containers **Switch on scripts…** is offered on. */
-const SCRIPT_CONTAINERS: ReadonlySet<ExplorerNodeKind> = new Set(['interface', 'api', 'grpc-api', 'folder']);
+const SCRIPT_CONTAINERS: ReadonlySet<ExplorerNodeKind> = new Set(
+  EXPLORER_TREES.flatMap((tree) => tree.scriptContainers ?? []),
+);
 
 /** The ids of the requests under `nodes` whose scripts are off. */
 function scriptsOffUnder(nodes: readonly ExplorerNode[], off: ReadonlySet<string>): string[] {
@@ -612,6 +614,11 @@ function valuesGroup(projectId: string, values: readonly ScriptValueWire[]): Exp
   ];
 }
 
+/** Each kind's movable rows, and the id a `move-node` mutation addresses each by. */
+const MOVABLE: Partial<Record<ExplorerNodeKind, 'apiId' | 'folderId' | 'requestId'>> = Object.fromEntries(
+  EXPLORER_TREES.flatMap((tree) => Object.entries(tree.movable ?? {})),
+);
+
 /**
  * The entity id a `move-node` mutation addresses for one row, or `undefined` for a row that cannot
  * be moved — an interface, an operation, a project, or a SOAP request, none of which the
@@ -621,21 +628,9 @@ export function restEntityId(node: ExplorerNode | undefined): string | undefined
   if (node === undefined) {
     return undefined;
   }
-  if (node.kind === 'api' || node.kind === 'grpc-api' || node.kind === 'ws-api') {
-    return node.apiId;
-  }
-  if (node.kind === 'folder' || node.kind === 'webhook-folder') {
-    return node.folderId;
-  }
-  if (
-    node.kind === 'rest-request' ||
-    node.kind === 'grpc-request' ||
-    node.kind === 'ws-request' ||
-    node.kind === 'webhook-request'
-  ) {
-    return node.requestId;
-  }
-  return undefined;
+  const field =
+    node.kind === 'webhook-folder' ? 'folderId' : node.kind === 'webhook-request' ? 'requestId' : MOVABLE[node.kind];
+  return field === undefined ? undefined : node[field];
 }
 
 /**

@@ -56,7 +56,6 @@ import type {
   WorkerFrameCheckerOptions,
   WsCallInput,
   WsExchange,
-  WsFrameContract,
 } from '@wirebench/engine';
 import { requestSentEvent } from '../audit/desktop-events.js';
 import type { HistoryService } from '../history-service.js';
@@ -66,12 +65,13 @@ import { callbackUrlFor, type WebhookUrlSource } from '../webhook-send.js';
 import { editorAssertionResults } from './assertions.js';
 import { adHocSoapItem, AD_HOC_ID, type DraftOf } from './draft.js';
 import { kindSend } from '../kinds/kind-send.js';
+import type { KeyMasks } from '../kinds/kind-main.js';
 import { wsSent } from '../kinds/ws/send.js';
+import { wsSessionOf, type WsSession } from '../kinds/ws/session.js';
 import { isInteractive, kindById } from '../../shared/kinds/kind-module.js';
 import { desktopSendHost, type DesktopSend, type DesktopSendDeps } from './host.js';
 import { toWireEvent } from './live.js';
 import { type HistoryLabel, type HistoryNameFallback } from './record.js';
-import { withContracts, wsContractChecks, type WsContractChecks } from './ws-contract.js';
 import type {
   ExchangeSummary,
   GrpcExchangeSummary,
@@ -86,7 +86,6 @@ import type {
   WsLiveEvent,
   WsRequestPatchWire,
 } from '../../shared/wire-types.js';
-import { toWsFrameContractWire } from '../engine-wire.js';
 
 export interface SendOptions<D extends DraftOf = DraftOf> {
   readonly draft: D;
@@ -456,8 +455,8 @@ async function sendReserved(
     scripts.kind === 'on' && deps.scripts !== undefined
       ? scriptedSend(deps.scripts, scripts.request, context)
       : undefined;
-  // A WebSocket session's events are always read: its frames are checked, its handshake opens it.
-  const session = item.kind === 'websocket' ? wsSessionOf(deps, sendId, requestId, send, options.onLive) : undefined;
+  // An interactive session's events are always read: its frames are checked, its handshake opens it.
+  const session = isInteractive(item.kind) ? wsSessionOf(deps, sendId, requestId, send, options.onLive) : undefined;
   const handle = openExchange(item, host, {
     scope,
     interactive: options.interactive === true,
@@ -509,66 +508,6 @@ async function sendReserved(
     // The contract worker ends with the session however it ended: a close, a drop, a quit.
     await session?.dispose();
   }
-}
-
-/** A WebSocket session as the desktop follows it: opened or not, and its frames' contract checks. */
-interface WsSession {
-  /** True once the handshake has opened the session. */
-  readonly opened: () => boolean;
-  /** Told each live event before it is handed on. */
-  seen(event: LiveEvent): void;
-  /** Told each live event after it is handed on. */
-  forwarded(event: LiveEvent): void;
-  /** The exchange with its frames' check results, once every check has answered or run out of time. */
-  checked(exchange: WsExchange): Promise<WsExchange>;
-  dispose(): Promise<void>;
-}
-
-/**
- * A WebSocket session's follower. Its contract is asked for here and never awaited: frames flow
- * while it loads, and one that fails leaves the session unchecked with one console line. Each frame
- * is checked on a worker after its own `frame` event, and its result follows as a `contract` event.
- */
-function wsSessionOf(
-  deps: SendThroughEngineDeps,
-  sendId: string,
-  requestId: string,
-  send: DesktopSend,
-  onLive: SendOptions['onLive'],
-): WsSession {
-  let handshakeSeen = false;
-  const onContract = (index: number, contract: WsFrameContract): void => {
-    try {
-      onLive?.({ kind: 'contract', sendId, index, contract: toWsFrameContractWire(contract) });
-    } catch (error) {
-      console.warn(
-        `[ws] a live event ("contract") for send "${sendId}" could not be delivered: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  };
-  const checks: WsContractChecks | undefined = wsContractChecks(
-    sendId,
-    deps.project.wsContractFor?.(requestId),
-    deps.wsFrameChecker,
-    onContract,
-    deps.registry.frameCheckers,
-  );
-  return {
-    // The host's handshake row is written as the socket opens; the live event follows it.
-    opened: () => handshakeSeen || send.handshakeLogged === true,
-    seen: (event) => {
-      if (event.protocol === 'websocket' && event.kind === 'handshake') handshakeSeen = true;
-    },
-    forwarded: (event) => {
-      if (event.protocol === 'websocket' && event.kind === 'frame') checks?.check(event.frame);
-    },
-    checked: async (exchange) => (checks === undefined ? exchange : withContracts(exchange, await checks.settle())),
-    dispose: async () => {
-      await checks?.dispose();
-    },
-  };
 }
 
 type Located = NonNullable<ReturnType<NonNullable<SendThroughEngineDeps['project']['runContextFor']>>> & {
@@ -910,19 +849,8 @@ function tokenText(ref: string): Promise<string | undefined> {
 }
 
 /** The names of an API key in the query or a header, from the item's effective credentials. */
-function keyMasks(item: SelectedRequest): Pick<DesktopSend, 'keyParams' | 'keyHeaders'> {
-  if (item.kind === 'websocket') {
-    // A WebSocket session masks its URL's key alone, as the app always has: its rows mask headers by name.
-    const auth = wsEffectiveAuth(item);
-    return auth.type === 'api-key' && auth.in === 'query' ? { keyParams: [auth.name] } : {};
-  }
-  const auth =
-    item.kind === 'rest' ? restEffectiveAuth(item) : item.kind === 'soap' ? soapEffectiveAuth(item) : undefined;
-  if (auth?.type !== 'api-key') return {};
-  // The one query parameter an API key may be configured to travel in, so the URL is masked wherever
-  // it is logged even when the key is called something this build has never heard of; and the
-  // header one may travel in, masked by name wherever the request's headers are shown.
-  return auth.in === 'query' ? { keyParams: [auth.name] } : auth.in === 'header' ? { keyHeaders: [auth.name] } : {};
+function keyMasks(item: SelectedRequest): KeyMasks {
+  return kindSend(item.kind).keyMasks?.(item) ?? {};
 }
 
 /**

@@ -186,7 +186,12 @@ export interface KindSend<K extends KindId> {
   sentAudit(exchange: ExchangeOf<K>, summary: SendSummary): AuditedSend;
   /** What the audit log keeps of a send that failed on the wire; undefined when it never reached it. */
   failedAudit(item: ItemOf<K>, failed: HeldFailure): AuditedSend | undefined;
+  /** The API key names the item's effective credentials put in its URL or headers; absent: none. */
+  keyMasks?(item: ItemOf<K>): KeyMasks;
 }
+
+/** The query parameter and header names a send masks wherever its request is shown. */
+export type KeyMasks = Pick<DesktopSend, 'keyParams' | 'keyHeaders'>;
 
 /** What one project's search documents are built from. */
 export interface KindSearchContext {
