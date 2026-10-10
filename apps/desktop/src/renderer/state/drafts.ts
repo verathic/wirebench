@@ -23,7 +23,7 @@ import type {
   WsRequestPatchWire,
 } from '../../shared/wire-types.js';
 
-interface DraftsState {
+export interface DraftsState {
   /** Pending patch per request id. A request with no entry has nothing unsaved. */
   readonly requests: Readonly<Record<string, RequestPatchWire>>;
   /** Records an edit, merging it over whatever is already pending for that request. */
