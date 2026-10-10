@@ -471,7 +471,7 @@ describe('buildExplorerTree with gRPC APIs', () => {
 
     const folderNode = grpcApi?.children?.[0];
     expect(folderNode?.kind).toBe('folder');
-    expect(folderNode?.grpc).toBe(true);
+    expect(folderNode?.ownerKind).toBe('grpc');
     expect(folderNode?.children?.[0]).toMatchObject({
       id: 'grpc:grpc-2',
       kind: 'grpc-request',
@@ -537,7 +537,7 @@ describe('buildExplorerTree with WebSocket APIs', () => {
 
     const folderNode = wsApi?.children?.[0];
     expect(folderNode?.kind).toBe('folder');
-    expect(folderNode?.ws).toBe(true);
+    expect(folderNode?.ownerKind).toBe('websocket');
     expect(folderNode?.children?.[0]).toMatchObject({
       id: 'ws:ws-2',
       kind: 'ws-request',

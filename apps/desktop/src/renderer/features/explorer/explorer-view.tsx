@@ -4,7 +4,6 @@ import { forwardRef } from 'react';
 import { ListOuterElement, Tree } from 'react-arborist';
 import {
   Box,
-  Cable,
   ChevronDown,
   ChevronRight,
   FileDown,
@@ -14,14 +13,10 @@ import {
   Forward,
   ListOrdered,
   Server,
-  Globe,
   Inbox,
   Link,
   Link2,
   Loader2,
-  Network,
-  Plug,
-  Radio,
   RefreshCw,
   UnfoldVertical,
   Webhook,
@@ -36,8 +31,7 @@ import { useProjectStore } from '../../state/project.js';
 import { useUiStore } from '../../state/ui.js';
 import { useWorkspaceStore } from '../../state/workspace.js';
 import { MethodBadge } from '../rest-api/method-badge.js';
-import { MethodKindBadge } from '../grpc-editor/method-kind-badge.js';
-import { WsBadge } from '../ws-editor/badge.js';
+import { explorerDeletion, explorerRole } from '../../kinds/index.js';
 import { ExplorerContextMenu } from './context-menu.js';
 import { workspaceActions } from '../workspace/workspace-actions.js';
 import { explorerActions } from './explorer-actions.js';
@@ -80,13 +74,6 @@ function useElementSize<T extends HTMLElement>(): [React.RefObject<T | null>, { 
 
 const NODE_ICON: Partial<Record<ExplorerNode['kind'], React.ComponentType<{ size: number }>>> = {
   project: Box,
-  interface: Plug,
-  endpoints: Folder,
-  operations: Folder,
-  binding: Network,
-  api: Globe,
-  'grpc-api': Radio,
-  'ws-api': Cable,
   folder: Folder,
   'webhook-collection': Forward,
   'webhook-folder': Folder,
@@ -120,13 +107,7 @@ const FocusableListOuter = forwardRef<HTMLDivElement, React.ComponentProps<typeo
 const ROW_TESTID: Partial<Record<ExplorerNode['kind'], string>> = {
   project: 'explorer-project-row',
   'project-missing': 'explorer-project-missing',
-  api: 'api-row',
   folder: 'folder-row',
-  'rest-request': 'rest-request-row',
-  'grpc-api': 'grpc-api-row',
-  'grpc-request': 'grpc-request-row',
-  'ws-api': 'ws-api-row',
-  'ws-request': 'ws-request-row',
   'webhook-collection': 'webhook-collection-row',
   'webhook-folder': 'webhook-folder-row',
   'webhook-request': 'webhook-request-row',
@@ -171,7 +152,8 @@ function MockRunningBadge({ mockId }: { readonly mockId: string }) {
 }
 
 function NodeRow({ node, style, dragHandle }: NodeRendererProps<ExplorerNode>) {
-  const Icon = NODE_ICON[node.data.kind];
+  const role = explorerRole(node.data.kind);
+  const Icon = role?.icon ?? NODE_ICON[node.data.kind];
   const indent = typeof style.paddingLeft === 'number' ? style.paddingLeft : 0;
   const rowStyle = { ...style, paddingLeft: indent + ROW_PADDING_LEFT };
   return (
@@ -179,7 +161,7 @@ function NodeRow({ node, style, dragHandle }: NodeRendererProps<ExplorerNode>) {
       <div
         ref={dragHandle}
         style={rowStyle}
-        data-testid={ROW_TESTID[node.data.kind] ?? 'explorer-tree-row'}
+        data-testid={role?.testId ?? ROW_TESTID[node.data.kind] ?? 'explorer-tree-row'}
         data-tree-id={node.id}
         {...(node.data.projectId !== undefined ? { 'data-project-id': node.data.projectId } : {})}
         // No `role`/`aria-selected`/`tabIndex` here: react-arborist's own row wrapper is the
@@ -194,17 +176,14 @@ function NodeRow({ node, style, dragHandle }: NodeRendererProps<ExplorerNode>) {
           e.stopPropagation();
           node.select();
           if (
-            node.data.kind === 'request' ||
-            node.data.kind === 'rest-request' ||
-            node.data.kind === 'grpc-request' ||
-            node.data.kind === 'ws-request' ||
+            role?.click === 'open' ||
             node.data.kind === 'webhook-request' ||
             node.data.kind === 'catch-url' ||
             node.data.kind === 'sequence' ||
             node.data.kind === 'mock'
           ) {
             node.activate();
-          } else if (node.data.kind === 'api' || node.data.kind === 'grpc-api' || node.data.kind === 'ws-api') {
+          } else if (role?.click === 'open-and-fold') {
             // An API opens its tab AND folds, unlike an interface: the tab is where its base URL
             // and credentials live, and the row is also the container the user is about to expand.
             node.activate();
@@ -249,18 +228,15 @@ function NodeRow({ node, style, dragHandle }: NodeRendererProps<ExplorerNode>) {
             hard against the name. Right-aligning it lines the method labels up with each other and
             every name in the tree with every other, however wide GET, DELETE or PROPFIND is. */}
         <span className="flex w-6 shrink-0 items-center justify-end overflow-hidden" data-testid="explorer-row-gutter">
-          {(node.data.kind === 'rest-request' || node.data.kind === 'webhook-request') &&
-          node.data.method !== undefined ? (
+          {role?.Gutter !== undefined ? (
+            <role.Gutter node={node.data} />
+          ) : node.data.kind === 'webhook-request' && node.data.method !== undefined ? (
             <MethodBadge
               method={node.data.method}
               title={`${node.data.method} ${node.data.label}`}
               compact
               className="w-auto"
             />
-          ) : node.data.kind === 'grpc-request' && node.data.methodKind !== undefined ? (
-            <MethodKindBadge kind={node.data.methodKind} compact />
-          ) : node.data.kind === 'ws-request' ? (
-            <WsBadge />
           ) : (
             Icon !== undefined && <Icon size={13} />
           )}
@@ -319,12 +295,12 @@ function NodeRow({ node, style, dragHandle }: NodeRendererProps<ExplorerNode>) {
             </button>
           </span>
         )}
-        {(node.data.kind === 'api' || node.data.kind === 'grpc-api' || node.data.kind === 'ws-api') && (
+        {role?.badge !== undefined && (
           <span
             data-testid="explorer-api-badge"
             className="shrink-0 rounded-full bg-surface-base px-1.5 text-xs text-fg-subtle"
           >
-            {node.data.kind === 'api' ? 'REST' : node.data.kind === 'grpc-api' ? 'gRPC' : 'WS'}
+            {role.badge}
           </span>
         )}
         {node.data.kind === 'project' && node.data.linked === true && (
@@ -595,22 +571,14 @@ export function ExplorerView() {
                 }
               }}
               disableEdit={(node) =>
-                node.kind !== 'request' &&
+                explorerRole(node.kind)?.rename === undefined &&
                 node.kind !== 'project' &&
-                node.kind !== 'api' &&
                 node.kind !== 'folder' &&
-                node.kind !== 'rest-request' &&
-                node.kind !== 'grpc-api' &&
-                node.kind !== 'grpc-request' &&
-                node.kind !== 'ws-api' &&
-                node.kind !== 'ws-request' &&
                 node.kind !== 'sequence' &&
                 node.kind !== 'mock'
               }
               disableDrag={(node) =>
-                node.kind !== 'rest-request' &&
-                node.kind !== 'grpc-request' &&
-                node.kind !== 'ws-request' &&
+                explorerRole(node.kind)?.movable !== true &&
                 node.kind !== 'folder' &&
                 node.kind !== 'webhook-request' &&
                 node.kind !== 'webhook-folder'
@@ -636,9 +604,7 @@ export function ExplorerView() {
                 const parent = parentNode?.data;
                 if (
                   parent === undefined ||
-                  (parent.kind !== 'api' &&
-                    parent.kind !== 'grpc-api' &&
-                    parent.kind !== 'ws-api' &&
+                  (explorerRole(parent.kind)?.dropTarget !== true &&
                     parent.kind !== 'folder' &&
                     parent.kind !== 'webhook-collection' &&
                     parent.kind !== 'webhook-folder')
@@ -670,32 +636,9 @@ export function ExplorerView() {
                   // A project has no editor of its own; its tab opens from `onSelect`.
                   return;
                 }
-                if (node.data.kind === 'interface') {
-                  explorerActions.showInterface(node.data.interfaceId);
-                  return;
-                }
-                if (node.data.kind === 'api') {
-                  explorerActions.openApi(node.data.apiId);
-                  return;
-                }
-                if (node.data.kind === 'rest-request') {
-                  explorerActions.openRestRequest(node.data.requestId);
-                  return;
-                }
-                if (node.data.kind === 'grpc-api') {
-                  explorerActions.openGrpcApi(node.data.apiId);
-                  return;
-                }
-                if (node.data.kind === 'grpc-request') {
-                  explorerActions.openGrpcRequest(node.data.requestId);
-                  return;
-                }
-                if (node.data.kind === 'ws-api') {
-                  explorerActions.openWsApi(node.data.apiId);
-                  return;
-                }
-                if (node.data.kind === 'ws-request') {
-                  explorerActions.openWsRequest(node.data.requestId);
+                const role = explorerRole(node.data.kind);
+                if (role !== undefined) {
+                  role.open?.(node.data);
                   return;
                 }
                 if (node.data.kind === 'webhook-request') {
@@ -732,7 +675,6 @@ export function ExplorerView() {
                   // A group row has nothing to open; a click folds it. A value has nothing to open either.
                   return;
                 }
-                explorerActions.openRequest(node.data.requestId);
               }}
               onSelect={(nodes) => {
                 const node = nodes[0]?.data;
@@ -772,46 +714,18 @@ export function ExplorerView() {
                 if (trimmed.length === 0 || trimmed === node.label) {
                   return;
                 }
-                if (node.kind === 'request' && node.requestId !== undefined) {
-                  useProjectStore.getState().updateRequest(node.requestId, { name: trimmed });
+                const role = explorerRole(node.kind);
+                if (role?.rename !== undefined) {
+                  role.rename(node, trimmed);
+                  return;
                 }
                 if (node.kind === 'project' && node.projectId !== undefined) {
                   projectRowActions.commitRename(node.projectId, trimmed);
-                }
-                if (node.kind === 'api' && node.apiId !== undefined) {
-                  void useProjectStore.getState().updateApi(node.apiId, { name: trimmed }).catch(reportRenameFailure);
                 }
                 if (node.kind === 'folder' && node.folderId !== undefined) {
                   void useProjectStore
                     .getState()
                     .updateFolder(node.folderId, { name: trimmed })
-                    .catch(reportRenameFailure);
-                }
-                if (node.kind === 'rest-request' && node.requestId !== undefined) {
-                  void useProjectStore
-                    .getState()
-                    .updateRestRequest(node.requestId, { name: trimmed })
-                    .catch(reportRenameFailure);
-                }
-                if (node.kind === 'grpc-api' && node.apiId !== undefined) {
-                  void useProjectStore
-                    .getState()
-                    .updateGrpcApi(node.apiId, { name: trimmed })
-                    .catch(reportRenameFailure);
-                }
-                if (node.kind === 'grpc-request' && node.requestId !== undefined) {
-                  void useProjectStore
-                    .getState()
-                    .updateGrpcRequest(node.requestId, { name: trimmed })
-                    .catch(reportRenameFailure);
-                }
-                if (node.kind === 'ws-api' && node.apiId !== undefined) {
-                  void useProjectStore.getState().updateWsApi(node.apiId, { name: trimmed }).catch(reportRenameFailure);
-                }
-                if (node.kind === 'ws-request' && node.requestId !== undefined) {
-                  void useProjectStore
-                    .getState()
-                    .updateWsRequest(node.requestId, { name: trimmed })
                     .catch(reportRenameFailure);
                 }
                 // openapi-webhooks-import §3.1: a webhook folder/request is a REST folder/request
@@ -840,26 +754,13 @@ export function ExplorerView() {
               }}
               onDelete={({ nodes }) => {
                 for (const node of nodes) {
-                  if (node.data.kind === 'project' && node.data.projectId !== undefined) {
+                  const role = explorerRole(node.data.kind);
+                  if (role !== undefined) {
+                    role.remove?.(node.data);
+                  } else if (node.data.kind === 'project' && node.data.projectId !== undefined) {
                     projectRowActions.remove(node.data.projectId);
-                  } else if (node.data.kind === 'interface') {
-                    requestRemoveInterface(node.data.interfaceId);
-                  } else if (node.data.kind === 'request') {
-                    requestDeleteRequest(node.data.requestId);
-                  } else if (node.data.kind === 'api') {
-                    explorerActions.removeApi(node.data.apiId);
                   } else if (node.data.kind === 'folder') {
                     explorerActions.removeFolder(node.data.folderId);
-                  } else if (node.data.kind === 'rest-request') {
-                    explorerActions.deleteRestRequest(node.data.requestId);
-                  } else if (node.data.kind === 'grpc-api') {
-                    explorerActions.removeGrpcApi(node.data.apiId);
-                  } else if (node.data.kind === 'grpc-request') {
-                    explorerActions.deleteGrpcRequest(node.data.requestId);
-                  } else if (node.data.kind === 'ws-api') {
-                    explorerActions.removeWsApi(node.data.apiId);
-                  } else if (node.data.kind === 'ws-request') {
-                    explorerActions.deleteWsRequest(node.data.requestId);
                   } else if (node.data.kind === 'webhook-folder') {
                     explorerActions.removeFolder(node.data.folderId);
                   } else if (node.data.kind === 'webhook-request') {
@@ -912,17 +813,16 @@ export function ExplorerView() {
           }
         }}
         title={
-          confirmDeleteNode?.kind === 'api' ||
-          confirmDeleteNode?.kind === 'grpc-api' ||
-          confirmDeleteNode?.kind === 'ws-api'
-            ? 'Delete API?'
-            : confirmDeleteNode?.kind === 'folder'
-              ? 'Delete folder?'
-              : confirmDeleteNode?.kind === 'sequence'
-                ? 'Delete sequence?'
-                : confirmDeleteNode?.kind === 'mock'
-                  ? 'Delete mock?'
-                  : 'Delete request?'
+          confirmDeleteNode === undefined
+            ? 'Delete request?'
+            : (explorerDeletion(confirmDeleteNode.kind)?.title ??
+              (confirmDeleteNode.kind === 'folder'
+                ? 'Delete folder?'
+                : confirmDeleteNode.kind === 'sequence'
+                  ? 'Delete sequence?'
+                  : confirmDeleteNode.kind === 'mock'
+                    ? 'Delete mock?'
+                    : 'Delete request?'))
         }
         description={
           confirmDeleteNode === undefined
@@ -941,24 +841,17 @@ export function ExplorerView() {
           }
           const store = useProjectStore.getState();
           const { kind, id } = confirmDeleteNode;
+          const deletion = explorerDeletion(kind);
           const done =
-            kind === 'api'
-              ? store.removeApi(id)
-              : kind === 'grpc-api'
-                ? store.removeGrpcApi(id)
-                : kind === 'ws-api'
-                  ? store.removeWsApi(id)
-                  : kind === 'folder'
-                    ? store.removeFolder(id)
-                    : kind === 'grpc-request'
-                      ? store.removeGrpcRequest(id)
-                      : kind === 'ws-request'
-                        ? store.removeWsRequest(id)
-                        : kind === 'sequence'
-                          ? store.removeSequence(id)
-                          : kind === 'mock'
-                            ? store.removeMock(id)
-                            : store.removeRestRequest(id);
+            deletion !== undefined
+              ? deletion.remove(id)
+              : kind === 'folder'
+                ? store.removeFolder(id)
+                : kind === 'sequence'
+                  ? store.removeSequence(id)
+                  : kind === 'mock'
+                    ? store.removeMock(id)
+                    : Promise.reject(new Error(`Nothing deletes a ${kind}`));
           void done.catch((error: unknown) => {
             showToast(error instanceof Error ? error.message : 'Delete failed');
           });

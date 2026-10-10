@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { RendererKind } from '../renderer-kind.js';
+import { restExplorer } from './explorer.js';
 
 // Split out for the same reason as the SOAP editor: its raw-body editor is Monaco.
 const RestEditor = lazy(async () => {
@@ -15,6 +16,7 @@ const ApiTab = lazy(async () => {
 /** REST in the renderer: its request editor and its API tab. */
 export const restRenderer: RendererKind = {
   kind: 'rest',
+  explorer: restExplorer,
   tabs: [
     {
       kind: 'rest-request',

@@ -56,4 +56,19 @@ describe('renderer kinds (kind modules spec §6)', () => {
       expect(`${TAB_KINDS[kind as keyof typeof TAB_KINDS]?.prefix ?? ''}x-1`).toBe(opener('x-1'));
     }
   });
+
+  it('gives each explorer node kind at most one owning kind', () => {
+    const owned = RENDERER_KINDS.flatMap((kind) => Object.keys(kind.explorer.nodes));
+    expect(new Set(owned).size).toBe(owned.length);
+  });
+
+  it('lets every kind whose APIs hold folders make a request in one', () => {
+    for (const kind of RENDERER_KINDS.filter((candidate) => candidate.kind !== 'soap')) {
+      expect(kind.explorer.newRequestIn, kind.kind).toBeTypeOf('function');
+    }
+    // A cURL line describes an HTTP request: only REST takes one.
+    expect(RENDERER_KINDS.filter((kind) => kind.explorer.importCurlIn !== undefined).map((kind) => kind.kind)).toEqual([
+      'rest',
+    ]);
+  });
 });

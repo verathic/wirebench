@@ -1,9 +1,9 @@
 import { Fragment, useRef, type ReactNode } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
-import { recreateRequest, type RecreateMode } from '../request-editor/request-actions.js';
 import { useMockRunsStore } from '../../state/mock-runs.js';
 import { explorerActions } from './explorer-actions.js';
-import { exportCollection, type CollectionExportTarget } from './export-collection.js';
+import { exportItems, groups, type ExplorerMenuGroup, type ExplorerMenuItem } from './menu-items.js';
+import { explorerRole, kindExplorer } from '../../kinds/index.js';
 import { projectRowActions } from './project-actions.js';
 import type { ExplorerNode } from './tree-nodes.js';
 import { webhooksActions } from '../webhooks/webhooks-actions.js';
@@ -22,24 +22,12 @@ const REVEAL_LABEL = /mac/i.test(navigator.userAgent)
 const ITEM_CLASS =
   'flex cursor-pointer items-center rounded px-2 py-1.5 text-sm text-fg-default outline-none data-[highlighted]:bg-accent-muted';
 
+export type { ExplorerMenuGroup, ExplorerMenuItem } from './menu-items.js';
+
 export interface ExplorerContextMenuProps {
   readonly node: ExplorerNode;
   readonly children: ReactNode;
 }
-
-/** One right-click menu entry: what it says, and what it does. */
-export interface ExplorerMenuItem {
-  readonly key: string;
-  readonly label: string;
-  readonly run: () => void;
-}
-
-/**
- * Items that belong together, drawn between two separator rules. Grouping is the menu's only
- * structure: it says "these do the same sort of thing", and it puts the entries that rename or
- * remove something at the bottom, away from the ones reached for by reflex.
- */
-export type ExplorerMenuGroup = readonly ExplorerMenuItem[];
 
 /**
  * The right-click menu for one explorer node, as data: which items a node of this kind offers,
@@ -68,23 +56,13 @@ function withScriptsGroup(node: ExplorerNode, menu: readonly ExplorerMenuGroup[]
   return [...menu.slice(0, 1), [item], ...menu.slice(1)];
 }
 
-/** **Export as Postman Collection…** and **Export as OpenCollection…** for a project, API or interface. */
-function exportItems(target: CollectionExportTarget): ExplorerMenuItem[] {
-  return [
-    {
-      key: 'export-postman',
-      label: 'Export as Postman Collection…',
-      run: () => void exportCollection(target, 'postman'),
-    },
-    {
-      key: 'export-opencollection',
-      label: 'Export as OpenCollection…',
-      run: () => void exportCollection(target, 'opencollection'),
-    },
-  ];
-}
-
 function menuGroupsOf(node: ExplorerNode): readonly ExplorerMenuGroup[] {
+  // A node a protocol kind owns gets that kind's menu.
+  const role = explorerRole(node.kind);
+  if (role !== undefined) {
+    return role.menu?.(node) ?? [];
+  }
+
   if (node.kind === 'project' && node.projectId !== undefined) {
     const projectId = node.projectId;
     return groups(
@@ -141,181 +119,22 @@ function menuGroupsOf(node: ExplorerNode): readonly ExplorerMenuGroup[] {
     );
   }
 
-  if (node.kind === 'interface') {
-    return groups(
-      [
-        {
-          key: 'show-interface',
-          label: 'Show Interface Viewer',
-          run: () => explorerActions.showInterface(node.interfaceId),
-        },
-      ],
-      [
-        {
-          key: 'update-definition',
-          label: 'Update Definition…',
-          run: () => explorerActions.updateDefinition(node.interfaceId),
-        },
-        {
-          key: 'export-definition',
-          label: 'Export Definition…',
-          run: () => explorerActions.exportDefinition(node.interfaceId),
-        },
-        ...(node.interfaceId !== undefined ? exportItems({ containerId: node.interfaceId }) : []),
-        {
-          key: 'generate-docs',
-          label: 'Generate Documentation…',
-          run: () => explorerActions.generateDocs(node.interfaceId),
-        },
-        {
-          key: 'check-wsi',
-          label: 'Check WSDL WS-I compliance',
-          run: () => explorerActions.checkWsiWsdl(node.interfaceId),
-        },
-      ],
-      [
-        {
-          key: 'copy-url',
-          label: 'Copy definition URL',
-          run: () => explorerActions.copyDefinitionUrl(node.interfaceId),
-        },
-        { key: 'import-another', label: 'Import another WSDL…', run: () => explorerActions.importAnother() },
-      ],
-      [
-        {
-          key: 'new-mock',
-          label: 'New Mock',
-          run: () => explorerActions.newMock(node.interfaceId),
-        },
-      ],
-      [{ key: 'remove', label: 'Remove interface', run: () => explorerActions.removeInterface(node.interfaceId) }],
-    );
-  }
-
-  if (node.kind === 'binding' && node.interfaceId !== undefined) {
-    return groups([
-      {
-        key: 'new-mock',
-        label: 'New Mock of this binding',
-        run: () => explorerActions.newMock(node.interfaceId, node.bindingName),
-      },
-    ]);
-  }
-
-  if (node.kind === 'operation') {
-    return groups(
-      [
-        {
-          key: 'new-request',
-          label: 'New request',
-          run: () => explorerActions.newRequest(node.interfaceId, node.bindingName, node.operationName),
-        },
-      ],
-      [
-        {
-          key: 'copy-soap-action',
-          label: 'Copy SOAPAction',
-          run: () => explorerActions.copySoapAction(node.soapAction),
-        },
-      ],
-    );
-  }
-
-  if (node.kind === 'request') {
-    // The three Recreate variants call the shared action directly (the explorer action only
-    // covers "keep values"); the id is optional on the node type, so guard once here.
-    const recreate = (mode: RecreateMode) => (): void => {
-      if (node.requestId !== undefined) {
-        void recreateRequest(node.requestId, mode);
-      }
-    };
-    // No *Open*: a single click on the row already opens it, so the entry only restated what
-    // the row's own default does.
-    return groups(
-      [
-        {
-          key: 'recreate',
-          label: 'Recreate request (keep values)',
-          run: () => explorerActions.recreateRequest(node.requestId),
-        },
-        { key: 'recreate-discard', label: 'Recreate (discard values)', run: recreate('discard-values') },
-        { key: 'recreate-empty', label: 'Create empty', run: recreate('empty') },
-      ],
-      // Clone sits with Rename and Delete: all three are about this request as a thing you
-      // name, copy or throw away, rather than about the envelope inside it.
-      [
-        { key: 'clone', label: 'Clone', run: () => explorerActions.cloneRequest(node.requestId) },
-        { key: 'rename', label: 'Rename…', run: () => explorerActions.renameRequest(node.requestId) },
-        { key: 'delete', label: 'Delete', run: () => explorerActions.deleteRequest(node.requestId) },
-      ],
-    );
-  }
-
-  if (node.kind === 'api' && node.apiId !== undefined) {
-    const apiId = node.apiId;
-    return groups(
-      [
-        { key: 'open', label: 'Open', run: () => explorerActions.openApi(apiId) },
-        { key: 'new-folder', label: 'New folder', run: () => explorerActions.newFolder(apiId) },
-        { key: 'new-request', label: 'New request', run: () => explorerActions.newRestRequest(apiId) },
-        { key: 'import-curl', label: 'Import cURL…', run: () => explorerActions.importCurlInto(apiId) },
-      ],
-      // Only an API imported from a definition has one to read again, and one to import webhooks
-      // and callbacks from.
-      node.hasDefinition === true
-        ? [
-            {
-              key: 'update-definition',
-              label: 'Update Definition…',
-              run: () => explorerActions.updateRestDefinition(apiId),
-            },
-            { key: 'import-webhooks', label: 'Import webhooks…', run: () => explorerActions.importWebhooks(apiId) },
-            { key: 'new-mock', label: 'New Mock', run: () => explorerActions.newMock(apiId) },
-          ]
-        : [],
-      exportItems({ containerId: apiId }),
-      [{ key: 'rename', label: 'Rename…', run: () => explorerActions.renameNode('api', apiId) }],
-      [{ key: 'delete', label: 'Delete', run: () => explorerActions.removeApi(apiId) }],
-    );
-  }
-
-  if (node.kind === 'grpc-api' && node.apiId !== undefined) {
-    const apiId = node.apiId;
-    return groups(
-      [
-        { key: 'open', label: 'Open', run: () => explorerActions.openGrpcApi(apiId) },
-        { key: 'new-folder', label: 'New folder', run: () => explorerActions.newFolder(apiId) },
-        { key: 'new-request', label: 'New request', run: () => explorerActions.newGrpcRequest(apiId) },
-      ],
-      exportItems({ containerId: apiId }),
-      [{ key: 'rename', label: 'Rename…', run: () => explorerActions.renameNode('grpc-api', apiId) }],
-      [{ key: 'delete', label: 'Delete', run: () => explorerActions.removeGrpcApi(apiId) }],
-    );
-  }
-
   if (node.kind === 'folder' && node.apiId !== undefined && node.folderId !== undefined) {
     const { apiId, folderId } = { apiId: node.apiId, folderId: node.folderId };
-    const grpc = node.grpc === true;
-    const ws = node.ws === true;
+    // The folder's kind makes its requests; a cURL line describes an HTTP request, which only a
+    // kind that offers `importCurlIn` can hold.
+    const owner = kindExplorer(node.ownerKind ?? 'rest');
+    const newRequestIn = owner?.newRequestIn;
+    const importCurlIn = owner?.importCurlIn;
     return groups(
       [
         { key: 'new-folder', label: 'New folder', run: () => explorerActions.newFolder(apiId, folderId) },
-        {
-          key: 'new-request',
-          label: 'New request',
-          run: () =>
-            grpc
-              ? explorerActions.newGrpcRequest(apiId, folderId)
-              : ws
-                ? explorerActions.newWsRequest(apiId, folderId)
-                : explorerActions.newRestRequest(apiId, folderId),
-        },
-        // A cURL line describes an HTTP request, which only a REST folder can hold.
-        ...(grpc || ws
+        ...(newRequestIn === undefined
           ? []
-          : [
-              { key: 'import-curl', label: 'Import cURL…', run: () => explorerActions.importCurlInto(apiId, folderId) },
-            ]),
+          : [{ key: 'new-request', label: 'New request', run: () => newRequestIn(apiId, folderId) }]),
+        ...(importCurlIn === undefined
+          ? []
+          : [{ key: 'import-curl', label: 'Import cURL…', run: () => importCurlIn(apiId, folderId) }]),
       ],
       [
         { key: 'rename', label: 'Rename…', run: () => explorerActions.renameNode('folder', folderId) },
@@ -323,18 +142,6 @@ function menuGroupsOf(node: ExplorerNode): readonly ExplorerMenuGroup[] {
         { key: 'auth', label: 'Auth…', run: () => explorerActions.editFolderAuth(folderId) },
       ],
       [{ key: 'delete', label: 'Delete', run: () => explorerActions.removeFolder(folderId) }],
-    );
-  }
-
-  if (node.kind === 'rest-request' && node.requestId !== undefined) {
-    const requestId = node.requestId;
-    // No *Open*, for the same reason a SOAP request row has none: a single click already opens it.
-    return groups(
-      [
-        { key: 'duplicate', label: 'Duplicate', run: () => explorerActions.duplicateRestRequest(requestId) },
-        { key: 'rename', label: 'Rename…', run: () => explorerActions.renameNode('rest-request', requestId) },
-      ],
-      [{ key: 'delete', label: 'Delete', run: () => explorerActions.deleteRestRequest(requestId) }],
     );
   }
 
@@ -380,17 +187,6 @@ function menuGroupsOf(node: ExplorerNode): readonly ExplorerMenuGroup[] {
     );
   }
 
-  if (node.kind === 'grpc-request' && node.requestId !== undefined) {
-    const requestId = node.requestId;
-    return groups(
-      [
-        { key: 'duplicate', label: 'Duplicate', run: () => explorerActions.duplicateGrpcRequest(requestId) },
-        { key: 'rename', label: 'Rename…', run: () => explorerActions.renameNode('grpc-request', requestId) },
-      ],
-      [{ key: 'delete', label: 'Delete', run: () => explorerActions.deleteGrpcRequest(requestId) }],
-    );
-  }
-
   if (node.kind === 'sequences' && node.projectId !== undefined) {
     const projectId = node.projectId;
     return groups([{ key: 'new-sequence', label: 'New Sequence', run: () => explorerActions.newSequence(projectId) }]);
@@ -428,41 +224,6 @@ function menuGroupsOf(node: ExplorerNode): readonly ExplorerMenuGroup[] {
     );
   }
 
-  if (node.kind === 'ws-api' && node.apiId !== undefined) {
-    const apiId = node.apiId;
-    return groups(
-      [
-        { key: 'open', label: 'Open', run: () => explorerActions.openWsApi(apiId) },
-        { key: 'new-folder', label: 'New folder', run: () => explorerActions.newFolder(apiId) },
-        { key: 'new-request', label: 'New request', run: () => explorerActions.newWsRequest(apiId) },
-      ],
-      exportItems({ containerId: apiId }),
-      [{ key: 'rename', label: 'Rename…', run: () => explorerActions.renameNode('ws-api', apiId) }],
-      [{ key: 'delete', label: 'Delete', run: () => explorerActions.removeWsApi(apiId) }],
-    );
-  }
-
-  if (node.kind === 'ws-request' && node.requestId !== undefined) {
-    const requestId = node.requestId;
-    return groups(
-      [
-        { key: 'duplicate', label: 'Duplicate', run: () => explorerActions.duplicateWsRequest(requestId) },
-        { key: 'rename', label: 'Rename…', run: () => explorerActions.renameNode('ws-request', requestId) },
-      ],
-      [{ key: 'delete', label: 'Delete', run: () => explorerActions.deleteWsRequest(requestId) }],
-    );
-  }
-
-  if (node.kind === 'endpoint') {
-    return groups([
-      {
-        key: 'copy-address',
-        label: 'Copy address',
-        run: () => explorerActions.copyEndpointAddress(node.address),
-      },
-    ]);
-  }
-
   // webhook-capture §4.2: a viewer sees what it may run and nothing else.
   if (node.kind === 'webhooks') {
     return groups(
@@ -491,11 +252,6 @@ function menuGroupsOf(node: ExplorerNode): readonly ExplorerMenuGroup[] {
   }
 
   return [];
-}
-
-/** Drops the groups a node left empty, so no menu ever draws a rule against nothing. */
-function groups(...candidates: readonly ExplorerMenuGroup[]): readonly ExplorerMenuGroup[] {
-  return candidates.filter((group) => group.length > 0);
 }
 
 /** Every item the menu offers, in order, with the grouping flattened away. */

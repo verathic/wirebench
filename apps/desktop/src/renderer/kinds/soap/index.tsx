@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { RendererKind } from '../renderer-kind.js';
+import { soapExplorer } from './explorer.js';
 
 // Monaco is by far the heaviest thing the renderer loads, so the request editor — the only
 // thing that pulls it in — is split out and fetched the first time a request tab is opened.
@@ -16,6 +17,7 @@ const InterfaceEditor = lazy(async () => {
 /** SOAP in the renderer: its request editor and its interface viewer. */
 export const soapRenderer: RendererKind = {
   kind: 'soap',
+  explorer: soapExplorer,
   tabs: [
     {
       kind: 'request',

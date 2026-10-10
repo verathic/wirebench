@@ -3,7 +3,6 @@ import type {
   GrpcMethodKindWire,
   GrpcRequestWire,
   InterfaceSummary,
-  OperationSummaryWire,
   RestApiWire,
   RestFolderWire,
   RestRequestWire,
@@ -12,6 +11,9 @@ import type {
   WsApiWire,
   WsRequestWire,
 } from '../../../shared/wire-types.js';
+import type { KindId } from '../../../shared/kinds/kind-module.js';
+import { EXPLORER_TREES } from '../../kinds/explorer-trees.js';
+import type { ProjectTreeData } from '../../kinds/explorer-tree.js';
 import type { ProjectOrder, RequestDraft } from '../../state/project.js';
 
 /** The kinds of node the explorer tree renders; also gates which context menu/commands apply. */
@@ -96,13 +98,11 @@ export interface ExplorerNode {
   /** Set on `grpc-request` nodes: the streaming shape its badge shows. */
   readonly methodKind?: GrpcMethodKindWire;
   /**
-   * Set on `folder` nodes that sit inside a gRPC API. A folder row is one kind for every protocol
-   * (it renames, moves and deletes the same way), but "New request" inside it has to know which
-   * kind of request to make.
+   * Set on `folder` nodes: the kind whose API the folder sits in. A folder row is one kind for every
+   * protocol (it renames, moves and deletes the same way), but "New request" inside it has to know
+   * which kind of request to make.
    */
-  readonly grpc?: boolean;
-  /** Set on `folder` nodes that sit inside a WebSocket API, for the same reason as {@link grpc}. */
-  readonly ws?: boolean;
+  readonly ownerKind?: KindId;
   /** Set on `project`/`project-missing` nodes: the project this root stands for. */
   readonly projectId?: string;
   /** Set on `project` nodes: whether the folder is linked from outside the workspace. */
@@ -175,244 +175,6 @@ export interface ExplorerConflictTargets {
 /** No conflicts — the default so every existing call site (and test) needs no change. */
 const NO_CONFLICTS: ExplorerConflictTargets = { projectIds: new Set(), requestIds: new Set() };
 
-function endpointsNode(interfaceId: string, summary: InterfaceSummary): ExplorerNode {
-  const children: ExplorerNode[] = summary.services.flatMap((service) =>
-    service.ports.map((port) => ({
-      id: `endpoint:${interfaceId}:${service.name}:${port.name}`,
-      kind: 'endpoint' as const,
-      label: port.address !== undefined ? `${port.name} — ${port.address}` : port.name,
-      ...(port.address !== undefined ? { address: port.address } : {}),
-    })),
-  );
-  return { id: `endpoints:${interfaceId}`, kind: 'endpoints', label: 'Endpoints', children };
-}
-
-function requestNodes(
-  interfaceId: string,
-  operation: OperationSummaryWire,
-  requests: readonly RequestDraft[],
-  conflicted: ExplorerConflictTargets,
-): ExplorerNode[] {
-  return requests
-    .filter(
-      (r) => r.interfaceId === interfaceId && r.bindingName === operation.binding && r.operationName === operation.name,
-    )
-    .map((r) => ({
-      id: `req:${r.id}`,
-      kind: 'request' as const,
-      label: r.name,
-      requestId: r.id,
-      ...(r.orphaned === true ? { orphaned: true } : {}),
-      ...(conflicted.requestIds.has(r.id) ? { conflicted: true } : {}),
-    }));
-}
-
-function operationNode(
-  interfaceId: string,
-  operation: OperationSummaryWire,
-  requests: readonly RequestDraft[],
-  conflicted: ExplorerConflictTargets,
-): ExplorerNode {
-  return {
-    id: `op:${interfaceId}:${operation.binding}:${operation.name}`,
-    kind: 'operation',
-    label: operation.name,
-    interfaceId,
-    bindingName: operation.binding,
-    operationName: operation.name,
-    ...(operation.soapAction !== undefined ? { soapAction: operation.soapAction } : {}),
-    children: requestNodes(interfaceId, operation, requests, conflicted),
-  };
-}
-
-function sortedOperations(operations: readonly OperationSummaryWire[]): OperationSummaryWire[] {
-  return [...operations].sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function operationsNode(
-  interfaceId: string,
-  summary: InterfaceSummary,
-  requests: readonly RequestDraft[],
-  conflicted: ExplorerConflictTargets,
-): ExplorerNode {
-  const bindings = [...new Set(summary.operations.map((op) => op.binding))];
-
-  if (bindings.length <= 1) {
-    const children = sortedOperations(summary.operations).map((op) =>
-      operationNode(interfaceId, op, requests, conflicted),
-    );
-    return { id: `operations:${interfaceId}`, kind: 'operations', label: 'Operations', children };
-  }
-
-  const children: ExplorerNode[] = bindings.map((binding) => {
-    const bindingLocal = summary.operations.find((op) => op.binding === binding)?.bindingLocal ?? binding;
-    const opsForBinding = sortedOperations(summary.operations.filter((op) => op.binding === binding));
-    return {
-      id: `binding:${interfaceId}:${binding}`,
-      kind: 'binding' as const,
-      label: bindingLocal,
-      interfaceId,
-      bindingName: binding,
-      children: opsForBinding.map((op) => operationNode(interfaceId, op, requests, conflicted)),
-    };
-  });
-
-  return { id: `operations:${interfaceId}`, kind: 'operations', label: 'Operations', children };
-}
-
-function interfaceNode(
-  summary: InterfaceSummary,
-  requests: readonly RequestDraft[],
-  conflicted: ExplorerConflictTargets,
-): ExplorerNode {
-  return {
-    id: `iface:${summary.id}`,
-    kind: 'interface',
-    label: summary.name,
-    interfaceId: summary.id,
-    ...(summary.problems.length > 0 ? { problemCount: summary.problems.length } : {}),
-    children: [endpointsNode(summary.id, summary), operationsNode(summary.id, summary, requests, conflicted)],
-  };
-}
-
-/**
- * The folders and requests directly inside one container, interleaved by `order` so the two kinds
- * sort together — a folder the user dragged below a request stays below it.
- */
-function restChildren(
-  api: RestApiWire,
-  parentId: string | undefined,
-  folders: readonly RestFolderWire[],
-  requests: readonly RestRequestWire[],
-): ExplorerNode[] {
-  const folderNodes = folders
-    .filter((folder) => folder.apiId === api.id && folder.parentId === parentId)
-    .sort((a, b) => a.order - b.order)
-    .map((folder) => folderNode(api, folder, folders, requests));
-
-  const requestNodes = requests
-    .filter((request) => request.apiId === api.id && request.folderId === parentId)
-    .sort((a, b) => a.order - b.order)
-    .map((request) => restRequestNode(api, request));
-
-  return [...folderNodes, ...requestNodes];
-}
-
-function folderNode(
-  api: RestApiWire,
-  folder: RestFolderWire,
-  folders: readonly RestFolderWire[],
-  requests: readonly RestRequestWire[],
-): ExplorerNode {
-  return {
-    id: `folder:${folder.id}`,
-    kind: 'folder',
-    label: folder.name,
-    apiId: api.id,
-    folderId: folder.id,
-    children: restChildren(api, folder.id, folders, requests),
-  };
-}
-
-function restRequestNode(api: RestApiWire, request: RestRequestWire): ExplorerNode {
-  return {
-    id: `rest:${request.id}`,
-    kind: 'rest-request',
-    label: request.name,
-    requestId: request.id,
-    apiId: api.id,
-    method: request.method,
-    ...(request.folderId !== undefined ? { folderId: request.folderId } : {}),
-    ...(request.orphaned === true ? { orphaned: true } : {}),
-  };
-}
-
-/**
- * One API row and everything under it. An API is always internal (it has children, even when the
- * list is empty), so it folds like an interface rather than opening on a single click.
- */
-function apiNode(
-  api: RestApiWire,
-  folders: readonly RestFolderWire[],
-  requests: readonly RestRequestWire[],
-): ExplorerNode {
-  return {
-    id: `api:${api.id}`,
-    kind: 'api',
-    label: api.name,
-    apiId: api.id,
-    // `cache`, not just a source: an update compares against the cached document, so an API
-    // without one cannot be updated and must not offer the menu item.
-    ...(api.definition?.cache === true ? { hasDefinition: true } : {}),
-    children: restChildren(api, undefined, folders, requests),
-  };
-}
-
-/** The folders and requests directly inside one gRPC container, interleaved by `order` like REST. */
-function grpcChildren(
-  api: GrpcApiWire,
-  parentId: string | undefined,
-  folders: readonly RestFolderWire[],
-  requests: readonly GrpcRequestWire[],
-): ExplorerNode[] {
-  const folderNodes = folders
-    .filter((folder) => folder.apiId === api.id && folder.parentId === parentId)
-    .sort((a, b) => a.order - b.order)
-    .map((folder) => grpcFolderNode(api, folder, folders, requests));
-
-  const requestNodes = requests
-    .filter((request) => request.apiId === api.id && request.folderId === parentId)
-    .sort((a, b) => a.order - b.order)
-    .map((request) => grpcRequestNode(api, request));
-
-  return [...folderNodes, ...requestNodes];
-}
-
-function grpcFolderNode(
-  api: GrpcApiWire,
-  folder: RestFolderWire,
-  folders: readonly RestFolderWire[],
-  requests: readonly GrpcRequestWire[],
-): ExplorerNode {
-  return {
-    id: `folder:${folder.id}`,
-    kind: 'folder',
-    label: folder.name,
-    apiId: api.id,
-    folderId: folder.id,
-    grpc: true,
-    children: grpcChildren(api, folder.id, folders, requests),
-  };
-}
-
-function grpcRequestNode(api: GrpcApiWire, request: GrpcRequestWire): ExplorerNode {
-  return {
-    id: `grpc:${request.id}`,
-    kind: 'grpc-request',
-    label: request.name,
-    requestId: request.id,
-    apiId: api.id,
-    methodKind: request.methodKind,
-    ...(request.folderId !== undefined ? { folderId: request.folderId } : {}),
-    ...(request.orphaned === true ? { orphaned: true } : {}),
-  };
-}
-
-/** One gRPC API row and everything under it; folds like a REST API. */
-function grpcApiNode(
-  api: GrpcApiWire,
-  folders: readonly RestFolderWire[],
-  requests: readonly GrpcRequestWire[],
-): ExplorerNode {
-  return {
-    id: `grpc-api:${api.id}`,
-    kind: 'grpc-api',
-    label: api.name,
-    apiId: api.id,
-    children: grpcChildren(api, undefined, folders, requests),
-  };
-}
-
 /**
  * What one project contributes to the tree for gRPC. Folders are not here: a gRPC API's folders
  * ride in {@link ExplorerRestData.folders} beside the REST ones (they are the same shape on the
@@ -421,70 +183,6 @@ function grpcApiNode(
 export interface ExplorerGrpcData {
   readonly apis: readonly GrpcApiWire[];
   readonly requests: readonly GrpcRequestWire[];
-}
-
-/** The folders and requests directly inside one WebSocket container, interleaved like REST and gRPC. */
-function wsChildren(
-  api: WsApiWire,
-  parentId: string | undefined,
-  folders: readonly RestFolderWire[],
-  requests: readonly WsRequestWire[],
-): ExplorerNode[] {
-  const folderNodes = folders
-    .filter((folder) => folder.apiId === api.id && folder.parentId === parentId)
-    .sort((a, b) => a.order - b.order)
-    .map((folder) => wsFolderNode(api, folder, folders, requests));
-
-  const requestNodes = requests
-    .filter((request) => request.apiId === api.id && request.folderId === parentId)
-    .sort((a, b) => a.order - b.order)
-    .map((request) => wsRequestNode(api, request));
-
-  return [...folderNodes, ...requestNodes];
-}
-
-function wsFolderNode(
-  api: WsApiWire,
-  folder: RestFolderWire,
-  folders: readonly RestFolderWire[],
-  requests: readonly WsRequestWire[],
-): ExplorerNode {
-  return {
-    id: `folder:${folder.id}`,
-    kind: 'folder',
-    label: folder.name,
-    apiId: api.id,
-    folderId: folder.id,
-    ws: true,
-    children: wsChildren(api, folder.id, folders, requests),
-  };
-}
-
-function wsRequestNode(api: WsApiWire, request: WsRequestWire): ExplorerNode {
-  return {
-    id: `ws:${request.id}`,
-    kind: 'ws-request',
-    label: request.name,
-    requestId: request.id,
-    apiId: api.id,
-    ...(request.folderId !== undefined ? { folderId: request.folderId } : {}),
-    ...(request.orphaned === true ? { orphaned: true } : {}),
-  };
-}
-
-/** One WebSocket API row and everything under it; folds like a REST or gRPC API. */
-function wsApiNode(
-  api: WsApiWire,
-  folders: readonly RestFolderWire[],
-  requests: readonly WsRequestWire[],
-): ExplorerNode {
-  return {
-    id: `ws-api:${api.id}`,
-    kind: 'ws-api',
-    label: api.name,
-    apiId: api.id,
-    children: wsChildren(api, undefined, folders, requests),
-  };
 }
 
 /**
@@ -740,16 +438,16 @@ export function buildExplorerTree(
             ...(project.message !== undefined ? { message: project.message } : {}),
           },
         ]
-      : orderedChildren(
-          (order.find((group) => group.projectId === project.id)?.interfaceIds ?? [])
+      : orderedChildren({
+          interfaces: (order.find((group) => group.projectId === project.id)?.interfaceIds ?? [])
             .map((id) => interfaces[id])
             .filter((summary): summary is InterfaceSummary => summary !== undefined),
-          rest[project.id],
           requests,
           conflicted,
-          grpc[project.id],
-          ws[project.id],
-        )
+          rest: rest[project.id],
+          grpc: grpc[project.id],
+          ws: ws[project.id],
+        })
           .map((node) => (scriptsOff.size === 0 ? node : withScriptsOff(node, scriptsOff)))
           .concat(webhookCollectionGroup(project.id, webhookCollections[project.id], rest[project.id]))
           .concat(sequencesGroup(project.id, sequences[project.id] ?? []))
@@ -772,40 +470,14 @@ export function buildExplorerTree(
 }
 
 /**
- * A project's interfaces and APIs as one list, in `order`.
- *
- * An interface summary carries no `order` on the wire — its position is the project's own
- * `interfaceIds` order — so interfaces keep that relative order and an API is placed among them by
- * its `order` index, which is what `move-node` and `add-api` maintain on disk.
+ * A project's containers as one list, in `order`: each kind adds its own (`EXPLORER_TREES`), and
+ * a stable sort keeps two that claim the same index in the kinds' order (interfaces first, then
+ * REST, then gRPC, then WebSocket) rather than letting the tree reshuffle between snapshots.
  */
-function orderedChildren(
-  interfaces: readonly InterfaceSummary[],
-  rest: ExplorerRestData | undefined,
-  requests: readonly RequestDraft[],
-  conflicted: ExplorerConflictTargets,
-  grpc: ExplorerGrpcData | undefined,
-  ws: ExplorerWsData | undefined,
-): ExplorerNode[] {
-  const nodes = interfaces.map((summary, index) => ({
-    order: index,
-    node: interfaceNode(summary, requests, conflicted),
-  }));
-  const apis = [...(rest?.apis ?? [])].map((api) => ({
-    order: api.order,
-    node: apiNode(api, rest?.folders ?? [], rest?.requests ?? []),
-  }));
-  const grpcApis = [...(grpc?.apis ?? [])].map((api) => ({
-    order: api.order,
-    node: grpcApiNode(api, rest?.folders ?? [], grpc?.requests ?? []),
-  }));
-  const wsApis = [...(ws?.apis ?? [])].map((api) => ({
-    order: api.order,
-    node: wsApiNode(api, rest?.folders ?? [], ws?.requests ?? []),
-  }));
-  // A stable sort keeps an interface and an API that claim the same index in a fixed order
-  // (interfaces first, then REST, then gRPC, then WebSocket), rather than letting the tree
-  // reshuffle between snapshots.
-  return [...nodes, ...apis, ...grpcApis, ...wsApis].sort((a, b) => a.order - b.order).map((entry) => entry.node);
+function orderedChildren(data: ProjectTreeData): ExplorerNode[] {
+  return EXPLORER_TREES.flatMap((tree) => tree.containers(data))
+    .sort((left, right) => left.order - right.order)
+    .map((entry) => entry.node);
 }
 
 /**

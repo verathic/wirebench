@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { RendererKind } from '../renderer-kind.js';
+import { grpcExplorer } from './explorer.js';
 
 // Split out like the REST editor: its message editor is Monaco.
 const GrpcEditor = lazy(async () => {
@@ -15,6 +16,7 @@ const GrpcApiTab = lazy(async () => {
 /** gRPC in the renderer: its request editor and its API tab. */
 export const grpcRenderer: RendererKind = {
   kind: 'grpc',
+  explorer: grpcExplorer,
   tabs: [
     {
       kind: 'grpc-request',
