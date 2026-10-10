@@ -11,7 +11,7 @@
  * `import type`, `export type` and imports whose every specifier is an inline `type`. A dynamic
  * `import()` (and so `lazy()`) is a boundary that runs after `main.tsx`, so it is not followed.
  */
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,7 +24,16 @@ const posixRelative = (from: string, to: string): string => relative(from, to).s
 const desktopRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Module files (relative to the alias root) that build zod schemas at load time. */
-const FORBIDDEN_FILES = ['shared/ipc.ts', 'shared/wire-types.ts', 'shared/ssh-wire.ts'];
+const FORBIDDEN_FILES = [
+  'shared/ipc.ts',
+  'shared/wire-types.ts',
+  'shared/wire-base.ts',
+  'shared/ssh-wire.ts',
+  ...['soap', 'rest', 'grpc', 'ws'].flatMap((kind) => [
+    `shared/kinds/${kind}/wire.ts`,
+    `shared/kinds/${kind}/channels.ts`,
+  ]),
+];
 /** Bare specifiers whose value import must not reach the renderer's eager chain. */
 const FORBIDDEN_PACKAGES = ['@wirebench/engine'];
 
@@ -110,7 +119,30 @@ function eagerViolations(entry: string, srcDir: string): Violation[] {
   return violations;
 }
 
+/** Every `.ts` file under `dir`, relative to `srcDir`, `/`-separated. */
+function filesUnder(dir: string, srcDir: string): string[] {
+  return readdirSync(dir, { recursive: true, encoding: 'utf8' })
+    .filter((file) => file.endsWith('.ts'))
+    .map((file) => posixRelative(srcDir, join(dir, file)));
+}
+
 describe('renderer eager imports', () => {
+  it('lists every file under shared/kinds/ that imports zod or a listed module as forbidden', () => {
+    const srcDir = join(desktopRoot, 'src');
+    const sharedDir = join(srcDir, 'shared');
+    const forbidden = new Set(FORBIDDEN_FILES);
+    const unlisted = filesUnder(join(sharedDir, 'kinds'), srcDir).filter((file) => {
+      const path = join(srcDir, file);
+      const builds = valueImports(path, readFileSync(path, 'utf-8')).some((specifier) => {
+        if (specifier === 'zod') return true;
+        const target = resolveLocal(path, specifier, sharedDir);
+        return target !== undefined && forbidden.has(posixRelative(srcDir, target));
+      });
+      return builds && !forbidden.has(file);
+    });
+    expect(unlisted).toEqual([]);
+  });
+
   it('reach no zod-schema module and no bare @wirebench/engine as a value from main.tsx', () => {
     const srcDir = join(desktopRoot, 'src');
     expect(eagerViolations(join(srcDir, 'renderer/main.tsx'), srcDir)).toEqual([]);

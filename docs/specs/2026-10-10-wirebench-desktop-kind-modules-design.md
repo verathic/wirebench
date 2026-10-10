@@ -135,9 +135,18 @@ apps/desktop/src/shared/
     rest/  kind.ts  wire.ts  channels.ts      (webhooks, SSE, OpenAPI, Postman, HAR, .http)
     grpc/  kind.ts  wire.ts  channels.ts
     ws/    kind.ts  wire.ts  channels.ts      (AsyncAPI)
-  wire-types.ts         what no protocol owns, plus the composed schemas
+  wire-base.ts          what no protocol owns
+  wire-types.ts         the composed schemas, and a re-export of every name
+  ipc-contract.ts       defineChannel, defineEvent and their types
   ipc.ts                channels and events, composed
 ```
+
+_As built (slice 4):_ a kind's wire file cannot import `wire-types.ts` while `wire-types.ts` imports
+it: zod builds schemas at load time, so the cycle would read a binding before it is set. What no
+kind owns is therefore in `wire-base.ts`, which the kinds import; `wire-types.ts` keeps only the
+schemas that compose several kinds and re-exports every name. `ipc-contract.ts` holds
+`defineChannel` and `defineEvent` for the same reason, so a kind's `channels.ts` never imports the
+registry that spreads it.
 
 ### 4.1 The shared half of a kind
 
@@ -158,14 +167,15 @@ process-specific and no zod, so the renderer may value-import it.
 
 - Each `kinds/<kind>/wire.ts` holds the schemas only that kind uses, moved verbatim with their
   names. What two kinds share (`keyValueWireSchema`, `httpExchangeWireSchema`, `tlsInfoWireSchema`,
-  the folder schema REST, gRPC and WebSocket use, `definitionAuthWireSchema`,
-  `requestPreflightResponseSchema`) stays in `wire-types.ts`. A kind's wire file imports
-  `wire-types.ts` and never another kind's.
-- The composition points stay in `wire-types.ts` and are built from the kinds' parts:
-  `projectWireSchema` (per-kind fields from each kind's `projectWireFields`), `projectChangeSchema`
-  (core arms plus each kind's `changeArms`), `historyEntrySchema`, `logEntryWireSchema`,
-  `exchangesGetResponseSchema`, the curl and multi-environment unions and the workspace draft
-  maps. Field names, arm order and union order are unchanged.
+  the folder schema REST, gRPC and WebSocket use, `definitionAuthWireSchema`) is in `wire-base.ts`.
+  A kind's wire file imports `wire-base.ts` and never another kind's.
+- The composition points stay in `wire-types.ts`: `projectWireSchema`, `projectChangeSchema`,
+  `historyEntrySchema`, `logEntryWireSchema`, `exchangesGetResponseSchema`, the curl and
+  multi-environment unions, the workspace draft maps, and every response that carries a whole
+  project. Field names, arm order and union order are unchanged. _As built:_ they name the kinds'
+  schemas as they always did rather than spreading a `projectWireFields` or `changeArms` per kind;
+  the per-kind lists would only reorder the arms, and main's mutations (§5.2) key on the change
+  kind, not on where its arm is written.
 - `wire-types.ts` re-exports every moved name for one release, so the 230 test files and 275 source
   files that import it keep compiling; the source files are moved to the kind files in the slice
   that moves the code, and the re-exports are removed in the last slice (§11).
