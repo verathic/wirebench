@@ -7,7 +7,9 @@ import { useHostsStore } from '../features/ssh/hosts-store.js';
 import { sessionStatus } from '../features/ssh/session-status.js';
 import { SyncBanner } from '../features/sync/sync-banner.js';
 import { useShallow } from 'zustand/react/shallow';
-import { entityIdOf, TAB_KINDS, type TabTitleContext } from '../kinds/index.js';
+import { entityIdOf, TAB_KINDS, tabOwner, type TabTitleContext } from '../kinds/index.js';
+import { placeholderMessage } from '../kinds/placeholders.js';
+import { useUiStore } from '../state/ui.js';
 import { useDraftsStore } from '../state/drafts.js';
 import { tabsInSet, type TabSet } from '../state/tab-sets.js';
 import { useEditorsStore } from '../state/editors.js';
@@ -77,6 +79,7 @@ export function EditorArea() {
   const close = useEditorsStore((state) => state.close);
   const move = useEditorsStore((state) => state.move);
   const workspaceEnvironments = useWorkspaceStore((state) => state.workspace?.environments ?? NO_ENVIRONMENTS);
+  const enabledKinds = useUiStore((state) => state.enabledKinds);
   const catchUrls = useWebhooksStore((state) => state.hooks);
   // Each tab's live name and unsaved state, read through its kind's row in `TAB_KINDS`: renames
   // reach the strip before the tab's own stored title catches up.
@@ -194,6 +197,7 @@ export function EditorArea() {
   const activeTab = tabs.find((t) => t.id === activeId);
   const showingStart = activeTab === undefined;
   const activeContribution = activeTab === undefined ? undefined : TAB_KINDS[activeTab.kind];
+  const activeOwner = activeTab === undefined ? undefined : tabOwner(activeTab.kind);
   const activeEntityId =
     activeTab === undefined || activeContribution === undefined ? undefined : entityIdOf(activeTab, activeContribution);
   const selectedId = showingStart ? START_ID : (activeId ?? START_ID);
@@ -481,6 +485,13 @@ export function EditorArea() {
             className="flex h-full items-center justify-center px-6 text-sm text-fg-subtle"
           >
             {EMPTY_HINT[displayedSet]}
+          </div>
+        ) : activeOwner !== undefined && !enabledKinds.includes(activeOwner) ? (
+          <div
+            data-testid="editor-placeholder"
+            className="flex h-full items-center justify-center px-6 text-sm text-fg-subtle"
+          >
+            {placeholderMessage(activeOwner, 'feature-disabled')}
           </div>
         ) : activeContribution !== undefined && activeEntityId !== undefined ? (
           <Suspense

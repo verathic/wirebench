@@ -111,6 +111,11 @@ function menuGroupsOf(node: ExplorerNode): readonly ExplorerMenuGroup[] {
     );
   }
 
+  // A placeholder's only item says why it cannot be opened or changed; choosing it does nothing.
+  if (node.kind === 'placeholder' && node.message !== undefined) {
+    return groups([{ key: 'placeholder', label: node.message, run: () => undefined }]);
+  }
+
   if (node.kind === 'project-missing' && node.projectId !== undefined) {
     const projectId = node.projectId;
     return groups(

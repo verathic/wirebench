@@ -10,6 +10,7 @@ import { showToast } from '../../components/toast.js';
 import { useEditorsStore, type EditorTab } from '../../state/editors.js';
 import { useHistoryStore } from '../../state/history.js';
 import { rendererKindOf } from '../../kinds/index.js';
+import { useUiStore } from '../../state/ui.js';
 import { ipc } from '../../state/ipc-client.js';
 import { formatClockTime } from '../../lib/format-size.js';
 import type { HistoryEntryWire, RestExchangeSummary } from '../../../shared/wire-types.js';
@@ -27,7 +28,12 @@ function comparableXml(entry: HistoryEntryWire): string {
  */
 export function canResendHistoryEntry(entry: Pick<HistoryEntryWire, 'kind' | 'sse'>): boolean {
   const kind = rendererKindOf(entry.kind);
-  return kind?.history.resend !== undefined && kind.history.canResend(entry);
+  // An entry of a kind this run switched off keeps its saved text, with no re-send (spec §7.2).
+  return (
+    kind?.history.resend !== undefined &&
+    useUiStore.getState().enabledKinds.includes(kind.kind) &&
+    kind.history.canResend(entry)
+  );
 }
 
 /** The toast for a failed re-send: main's message, or the code when there is no message. */

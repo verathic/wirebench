@@ -8,11 +8,13 @@ import type {
   RestRequestWire,
   WebhookCollectionWire,
   ScriptValueWire,
+  UnsupportedContainerWire,
   WsApiWire,
   WsRequestWire,
 } from '../../../shared/wire-types.js';
 import type { KindId } from '../../../shared/kinds/kind-module.js';
 import { EXPLORER_TREES } from '../../kinds/explorer-trees.js';
+import { placeholderMessage } from '../../kinds/placeholders.js';
 import type { ProjectTreeData } from '../../kinds/explorer-tree.js';
 import type { ProjectOrder, RequestDraft } from '../../state/project.js';
 
@@ -50,7 +52,9 @@ export type ExplorerNodeKind =
   | 'mock'
   /** A project's session values (#63): what single sends' scripts set; a container, not an entity. */
   | 'values'
-  | 'value';
+  | 'value'
+  /** A container of a kind that is switched off or unknown (kind modules spec §7.2): shown, never opened or changed. */
+  | 'placeholder';
 
 /**
  * What the tree needs to know about one project in the open workspace. Structurally the subset
@@ -111,7 +115,10 @@ export interface ExplorerNode {
   readonly dir?: string;
   /** Set on `project` nodes: `true` while the project is still opening. */
   readonly loading?: boolean;
-  /** Set on `project-missing` nodes: why the folder could not be read, when main said. */
+  /**
+   * Set on `project-missing` nodes: why the folder could not be read, when main said. Set on
+   * `placeholder` nodes: why the container cannot be opened or changed.
+   */
   readonly message?: string;
   /**
    * Set on a request node whose operation an Update Definition no longer found in the definition
@@ -152,6 +159,8 @@ export interface ExplorerNode {
    * (#63): their ids, for **Switch on scripts…**.
    */
   readonly scriptsOff?: readonly string[];
+  /** Set on `placeholder` nodes: the kind of the container it stands for, as its file names it. */
+  readonly placeholderKind?: string;
 }
 
 /** What the explorer shows of one mock. */
@@ -413,6 +422,7 @@ export function buildExplorerTree(
   webhookCollections: Readonly<Record<string, WebhookCollectionWire>> = {},
   values: Readonly<Record<string, readonly ScriptValueWire[]>> = {},
   mocks: Readonly<Record<string, readonly ExplorerMock[]>> = {},
+  placeholders: Readonly<Record<string, readonly UnsupportedContainerWire[]>> = {},
 ): ExplorerNode[] {
   // Every request whose scripts are switched off, whichever protocol it is.
   const scriptsOff = new Set(
@@ -438,16 +448,20 @@ export function buildExplorerTree(
             ...(project.message !== undefined ? { message: project.message } : {}),
           },
         ]
-      : orderedChildren({
-          interfaces: (order.find((group) => group.projectId === project.id)?.interfaceIds ?? [])
-            .map((id) => interfaces[id])
-            .filter((summary): summary is InterfaceSummary => summary !== undefined),
-          requests,
-          conflicted,
-          rest: rest[project.id],
-          grpc: grpc[project.id],
-          ws: ws[project.id],
-        })
+      : orderedChildren(
+          {
+            interfaces: (order.find((group) => group.projectId === project.id)?.interfaceIds ?? [])
+              .map((id) => interfaces[id])
+              .filter((summary): summary is InterfaceSummary => summary !== undefined),
+            requests,
+            conflicted,
+            rest: rest[project.id],
+            grpc: grpc[project.id],
+            ws: ws[project.id],
+          },
+          project.id,
+          placeholders[project.id] ?? [],
+        )
           .map((node) => (scriptsOff.size === 0 ? node : withScriptsOff(node, scriptsOff)))
           .concat(webhookCollectionGroup(project.id, webhookCollections[project.id], rest[project.id]))
           .concat(sequencesGroup(project.id, sequences[project.id] ?? []))
@@ -474,10 +488,36 @@ export function buildExplorerTree(
  * a stable sort keeps two that claim the same index in the kinds' order (interfaces first, then
  * REST, then gRPC, then WebSocket) rather than letting the tree reshuffle between snapshots.
  */
-function orderedChildren(data: ProjectTreeData): ExplorerNode[] {
-  return EXPLORER_TREES.flatMap((tree) => tree.containers(data))
+function orderedChildren(
+  data: ProjectTreeData,
+  projectId: string,
+  placeholders: readonly UnsupportedContainerWire[],
+): ExplorerNode[] {
+  return [
+    ...EXPLORER_TREES.flatMap((tree) => tree.containers(data)),
+    // A placeholder keeps its place among the containers; one with no recorded order goes last.
+    ...placeholders.map((placeholder) => ({
+      order: placeholder.order ?? Number.MAX_SAFE_INTEGER,
+      node: placeholderNode(projectId, placeholder),
+    })),
+  ]
     .sort((left, right) => left.order - right.order)
     .map((entry) => entry.node);
+}
+
+/**
+ * A container of a kind that is off or unknown (kind modules spec §7.2): a row labelled with its name
+ * (or slug), with no children, that says why it cannot be opened, renamed, moved or deleted.
+ */
+function placeholderNode(projectId: string, placeholder: UnsupportedContainerWire): ExplorerNode {
+  return {
+    id: `placeholder:${projectId}:${placeholder.dir}/${placeholder.slug}`,
+    kind: 'placeholder',
+    label: placeholder.name ?? placeholder.slug,
+    projectId,
+    placeholderKind: placeholder.kind,
+    message: placeholderMessage(placeholder.kind, placeholder.reason),
+  };
 }
 
 /**

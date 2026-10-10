@@ -32,6 +32,7 @@ import { useUiStore } from '../../state/ui.js';
 import { useWorkspaceStore } from '../../state/workspace.js';
 import { MethodBadge } from '../rest-api/method-badge.js';
 import { explorerDeletion, explorerRole } from '../../kinds/index.js';
+import { kindLabel } from '../../kinds/placeholders.js';
 import { ExplorerContextMenu } from './context-menu.js';
 import { workspaceActions } from '../workspace/workspace-actions.js';
 import { explorerActions } from './explorer-actions.js';
@@ -107,6 +108,7 @@ const FocusableListOuter = forwardRef<HTMLDivElement, React.ComponentProps<typeo
 const ROW_TESTID: Partial<Record<ExplorerNode['kind'], string>> = {
   project: 'explorer-project-row',
   'project-missing': 'explorer-project-missing',
+  placeholder: 'explorer-placeholder-row',
   folder: 'folder-row',
   'webhook-collection': 'webhook-collection-row',
   'webhook-folder': 'webhook-folder-row',
@@ -260,7 +262,14 @@ function NodeRow({ node, style, dragHandle }: NodeRendererProps<ExplorerNode>) {
           />
         ) : (
           <span
-            className={`min-w-0 flex-1 truncate pl-1 ${node.data.kind === 'project-missing' ? 'text-status-danger' : ''}`}
+            className={`min-w-0 flex-1 truncate pl-1 ${
+              node.data.kind === 'project-missing'
+                ? 'text-status-danger'
+                : node.data.kind === 'placeholder'
+                  ? 'text-fg-faint'
+                  : ''
+            }`}
+            {...(node.data.kind === 'placeholder' ? { title: node.data.message } : {})}
           >
             {node.data.label}
           </span>
@@ -293,6 +302,15 @@ function NodeRow({ node, style, dragHandle }: NodeRendererProps<ExplorerNode>) {
             >
               Remove
             </button>
+          </span>
+        )}
+        {node.data.kind === 'placeholder' && node.data.placeholderKind !== undefined && (
+          <span
+            data-testid="explorer-placeholder-badge"
+            title={node.data.message}
+            className="shrink-0 rounded-full bg-surface-base px-1.5 text-xs text-fg-faint"
+          >
+            {kindLabel(node.data.placeholderKind)}
           </span>
         )}
         {role?.badge !== undefined && (
@@ -455,6 +473,7 @@ export function ExplorerView() {
     webhookCollections,
     scriptValues,
     mockLists,
+    Object.fromEntries(Object.entries(projects).map(([id, project]) => [id, project.unsupported ?? []])),
   );
 
   useEffect(() => {

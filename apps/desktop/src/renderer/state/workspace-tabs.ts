@@ -6,7 +6,8 @@
  * preferences tab all describe a moment rather than a thing, so they are simply dropped.
  */
 
-import { entityIdOf, TAB_KINDS, type TabContribution } from '../kinds/index.js';
+import { entityIdOf, TAB_KINDS, tabOwner, type TabContribution } from '../kinds/index.js';
+import { kindLabel } from '../kinds/placeholders.js';
 import type { PersistedTab } from './ui-state.js';
 import { useEditorsStore, type EditorTab } from './editors.js';
 import { useProjectStore } from './project.js';
@@ -66,9 +67,14 @@ export function restoreWorkspaceTabs(workspaceId: string): void {
   }
   const editors = useEditorsStore.getState();
   let activeTabId: string | undefined;
+  const enabledKinds = useUiStore.getState().enabledKinds;
   for (const tab of entry.tabs) {
     const contribution = persistedContribution(tab.kind);
-    const title = contribution === undefined ? undefined : titleFor(contribution, tab.id);
+    // A tab of a kind this run switched off reopens as a placeholder panel rather than vanishing: its
+    // entity is not in the mirror, so it is named for its kind.
+    const owner = tabOwner(tab.kind);
+    const off = owner !== undefined && !enabledKinds.includes(owner);
+    const title = contribution === undefined ? undefined : off ? kindLabel(owner) : titleFor(contribution, tab.id);
     if (contribution === undefined || title === undefined) {
       continue;
     }

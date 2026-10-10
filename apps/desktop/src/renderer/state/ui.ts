@@ -1,5 +1,6 @@
 import type { Draft } from 'immer';
 import { AREAS } from '@shared/area-module.js';
+import { KINDS, type KindId } from '@shared/kinds/kind-module.js';
 import type { AreaId } from '@shared/area-module.js';
 import { produce } from 'immer';
 import { create } from 'zustand';
@@ -109,6 +110,9 @@ export interface UiStore extends UiSnapshot {
   /** The sidebar areas this run has switched on (`WIREBENCH_AREAS`). Transient — answered by main. */
   readonly enabledAreas: readonly AreaId[];
   readonly setEnabledAreas: (ids: readonly AreaId[]) => void;
+  /** The protocol kinds this run has switched on (`WIREBENCH_KINDS`). Transient — answered by main. */
+  readonly enabledKinds: readonly KindId[];
+  readonly setEnabledKinds: (ids: readonly KindId[]) => void;
   /** Whether the title bar's workspace dropdown is open. Transient — never persisted. */
   readonly workspaceSwitcherOpen: boolean;
   /** Whether the Manage workspaces dialog is open. Transient — never persisted. */
@@ -258,6 +262,10 @@ export const useUiStore = create<UiStore>((set, get) => {
     confirmDeleteRequestId: undefined,
     confirmDeleteNode: undefined,
     envSwitcherOpen: false,
+    enabledKinds: KINDS.map((kind) => kind.kind),
+    setEnabledKinds: (ids) => {
+      set({ enabledKinds: ids });
+    },
     enabledAreas: AREAS.map((area) => area.id),
     setEnabledAreas: (ids) => {
       set({ enabledAreas: ids });

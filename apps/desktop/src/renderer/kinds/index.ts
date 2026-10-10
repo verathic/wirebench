@@ -33,6 +33,11 @@ export function explorerRole(nodeKind: ExplorerNodeKind): ExplorerNodeRole | und
   return undefined;
 }
 
+/** The kind whose tab `tabKind` is; `undefined` for a tab no protocol kind owns. */
+export function tabOwner(tabKind: EditorTab['kind']): KindId | undefined {
+  return RENDERER_KINDS.find((kind) => kind.tabs.some((tab) => tab.kind === tabKind))?.kind;
+}
+
 /** The renderer half of one kind. */
 export function rendererKind(kind: KindId): RendererKind {
   const found = RENDERER_KINDS.find((candidate) => candidate.kind === kind);
