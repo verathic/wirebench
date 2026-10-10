@@ -28,6 +28,8 @@
 
 A kind with no containers is absent from `containers`: a loaded project, a new one and one whose last API of a kind was removed through a writer all leave it out. Build a project's containers through the writers, so each container literal is checked against its own type rather than `ContainerBase`.
 
+`setDefaultRegistry(registry)` replaces the registry `loadProject`, `saveProject` and the other calls use when they are given none; `undefined` puts the built-in one back. The desktop sets it once at start-up from its kind switches. It is exported for Wirebench's own hosts and tagged `@internal`.
+
 ## Migrating to 3.1
 
 3.1 puts every protocol behind one interface ([ADR-0017](https://github.com/wirebench/wirebench/blob/main/docs/adr/0017-a-protocol-is-a-module-behind-one-interface.md)). The main entry's exports changed; nothing was kept as a deprecated alias. The subpaths (`./xml`, `./rest`, `./json`, `./grpc`, `./asyncapi`, `./snapshot`, `./detect`) did not change.

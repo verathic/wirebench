@@ -136,6 +136,12 @@ interface may change in any release. Phase 7 decides what of it is promised.
 - Core still names the four built-in container types in `project/model.ts`, and still loads webhooks and WS-Security
   configurations itself. The exception table is the list of what is left to cut.
 
+_Amended in 6.0 (#184 phase 3):_ the last two points no longer hold: `project/model.ts` names no protocol and the
+modules load their own project-level files (above). The desktop sends through the modules and is split into kind
+modules of its own ([ADR-0023](0023-a-desktop-kind-is-a-module-behind-one-interface.md)), so ADR-0007's `kind` branch
+is gone from its shell too, and `WIREBENCH_KINDS` switches a kind off in the desktop as well as the engine: the
+desktop makes its registry the engine's default (`setDefaultRegistry`).
+
 ## Alternatives considered
 
 - **A generalised "interface" model**, one container type whose fields mean different things per protocol. Rejected

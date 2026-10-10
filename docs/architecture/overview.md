@@ -319,7 +319,8 @@ introduced.
 | Secrets, path safety, redaction | `apps/desktop/src/main/{secrets,path-*,redact}.ts` |
 | Desktop areas: the `AreaModule` contract and the static `AREAS` list; renderer and main halves; the SSH area (hosts, terminal) | `apps/desktop/src/shared/area-module.ts` and `shared/areas/`, `renderer/areas/index.ts`, `main/areas.ts`; `packages/ssh`, `main/{hosts-service,ssh-service}.ts` |
 | OAuth2 flows and the loopback listener | `apps/desktop/src/main/oauth2.ts` |
-| REST send path, OpenAPI import, REST project mutations | `apps/desktop/src/main/{rest-send,openapi-import,project-rest-mutations}.ts` |
+| Desktop kinds: the `KindModule` contract and `KINDS`; each kind's wire schemas, channels, mutations, host, send steps, editors and explorer rows | `apps/desktop/src/shared/kinds/`, `main/kinds/`, `renderer/kinds/` |
+| OpenAPI import | `apps/desktop/src/main/openapi-import.ts` |
 | IDE shell, editors, feature panels | `apps/desktop/src/renderer/` |
 | Environments view (sidebar list + editor page) | `apps/desktop/src/renderer/features/environments/` |
 | REST editor, API tab, import dialog | `apps/desktop/src/renderer/features/{rest-editor,rest-api}/`, `.../features/explorer/import-openapi-dialog.tsx` |
@@ -338,6 +339,19 @@ renderer none of its commands, and the rail leaves it out (`app.areas` carries t
 `@internal`, not a plugin API. The SSH area is the first area to bring its own tab kind and channels; its model and
 sessions live in `packages/ssh`, which imports neither the engine nor Electron. See
 [ADR-0021](../adr/0021-a-desktop-area-is-a-module-behind-one-interface.md).
+
+## Desktop kinds
+
+The desktop's protocol code is split the same way, one *kind* per protocol. The shared half
+(`apps/desktop/src/shared/kinds/<kind>/`) holds the kind's id, feature descriptor, label and tab kinds (`kind.ts`, in the
+static `KINDS` list), its wire schemas (`wire.ts`) and its IPC channel fragments (`channels.ts`); `wire-types.ts` and
+`ipc.ts` compose them, and `wire-base.ts` holds what no kind owns. The main half (`main/kinds/<kind>/`, `MAIN_KINDS`)
+holds its mutations, project host, router, IPC channels, send steps and History, Log and Search facets; the renderer
+half (`renderer/kinds/<kind>/`, `RENDERER_KINDS`) its tabs, explorer tree and row roles, History, Search and Log facets
+and commands. The shell reads the lists and names no kind. `WIREBENCH_KINDS="grpc=off"` switches a kind off: main makes
+the filtered registry the engine's default, registers none of the kind's channels and reports the enabled kinds through
+`app.kinds`; the renderer registers none of its commands and shows its containers as placeholder rows. See
+[ADR-0023](../adr/0023-a-desktop-kind-is-a-module-behind-one-interface.md).
 
 ## Further reading
 

@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A container of a kind this build cannot open stays in the explorer.** It shows as a dimmed row,
+  at its place among the project's containers, whose tooltip and only menu item say why: the kind
+  is switched off, or this version of Wirebench does not know it. Its files are never rewritten, a
+  tab of it reopens as a panel saying the same, and History and the HTTP Log keep its entries
+  without a re-send (#184).
+- **`WIREBENCH_KINDS` switches a protocol off in the desktop** (`grpc=off,websocket=off`), as
+  `WIREBENCH_AREAS` does an area: its channels and commands are not registered and its containers
+  load as placeholders. It is a developer switch (#184).
+
 ### Breaking
 
 - **`@wirebench/engine`: `SendHost.issuedTokens` is `SendHost.protocols.soap.issuedTokens`.** A host
@@ -23,6 +34,8 @@ All notable changes to this project are documented here. The format follows
   `Project.keystores`. REST loads and saves `webhooks/` and SOAP `wss/outgoing/` and
   `wss/incoming/` through a new project-files facet, so a switched-off protocol's files are left on
   disk untouched (#184).
+- **`@wirebench/engine`: `setDefaultRegistry`** (`@internal`) replaces the registry a load or save
+  uses when it is given none, so a host's protocol switches reach every call (#184).
 
 ## [5.0.0] - 2026-10-10
 

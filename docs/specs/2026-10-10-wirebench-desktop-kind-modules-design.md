@@ -426,6 +426,17 @@ nothing that could: a placeholder has no id the mutations accept. A test opens a
 disabled kind, edits and saves another container, and compares the disabled container's files byte
 for byte.
 
+_As built (slice 8):_ main does not thread the registry through each load and save: the engine's
+`setDefaultRegistry` (`@internal`) makes the switched registry the process default at start-up
+(`main/kinds/enabled-kinds.ts`). `ProjectWire.unsupported` is optional, so a project with none
+sends nothing new. A kind that is off registers none of its channels at all, so a call to one fails as
+an unknown channel rather than with `feature-disabled`; the renderer never makes one, since it
+registers none of the kind's commands and shows its containers as placeholders. The shell files'
+guard (`test/kind-literals.test.ts`) allows union members, which declare a row kind, and the typed
+preview entry points in `exchange.ts`, which ask for their own kind's preview by name. The WebSocket
+session follower moved to `main/kinds/ws/session.ts`, and each kind's `keyMasks` send facet gives the
+API key names a send masks.
+
 ## 8. Errors
 
 - New: `unknown-change` (a `ProjectChange` no kind owns; a programming error that reaches the
@@ -469,6 +480,12 @@ interface Project {
 - `docs/architecture/overview.md`: the desktop's per-kind folders.
 - `CHANGELOG.md`: the placeholder row and `WIREBENCH_KINDS` under Added, and the engine's changed
   `Project` and `SendHost` under Changed (breaking) for 6.0.0.
+
+_As built (slice 8):_ ADR-0017's exception table had already lost its rows in slices 1 to 3; its
+consequences gained an amendment pointing to ADR-0023. The engine README lists `setDefaultRegistry`
+under its 6.0 notes, and the CHANGELOG's 6.0 Breaking list gains it beside the `Project` and
+`SendHost` entries. The `wire-types.ts` re-exports are gone: every import names the file that
+declares the name, rewritten over the TypeScript AST.
 
 ## 11. Slices
 
