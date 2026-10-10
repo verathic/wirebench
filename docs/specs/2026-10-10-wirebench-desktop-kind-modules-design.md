@@ -366,6 +366,26 @@ interface TabContribution {
 - `renderer/kinds/*/index.tsx` imports each component through `lazy()`, so the eager-import guard
   is unaffected.
 
+_As built (slice 7):_ `RendererKind` carries `tabs`, `explorer`, `requests` (`open`, `exists`),
+`history`, `search`, an optional `log` and `registerCommands`.
+
+- **Tabs.** `TAB_KINDS` holds only the tabs that name an entity. A diff, an environment
+  comparison, the cookie manager and a terminal stay with the editor area. A row also carries
+  `dirty` (the tab's unsaved dot) and `detail` (SOAP's operation name in the tab menu).
+- **Explorer.** The explorer facet is a table of node roles by node kind: icon, test id, gutter
+  badge, API badge, click behaviour, movable, drop target, open, rename, remove and menu. It also
+  has `newRequestIn`, `importCurlIn`, `ownsApi`, and the confirm dialog's `deletions`.
+- **Explorer tree.** The tree contribution is a pure `kinds/<kind>/explorer-tree.ts`, listed in
+  `kinds/explorer-trees.ts`, so `tree-nodes.ts` and its tests do not load the editors. REST, gRPC
+  and WebSocket share one folder walker (`features/explorer/container-tree.ts`). Folder rows carry
+  `ownerKind`.
+- **History, Search and Log.** The WebSocket and event-stream History bodies moved into
+  `kinds/ws` and `kinds/rest` and load lazily. SOAP's search reveal moved to
+  `kinds/soap/search.ts`.
+- **Still in core.** Webhook, sequence, mock and values rows stay in core. So do the log's name
+  column (`log-name.ts`), the `active*RequestId` command helpers, and the commands that span
+  kinds (send to environments, cancel, Show code).
+
 ### 6.2 Store slices
 
 The project store keeps its per-kind maps (`restRequests`, `grpcApis`, …) because the wire keeps its
