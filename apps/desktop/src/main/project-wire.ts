@@ -14,7 +14,9 @@ import {
   toKeystoreDef,
   toWssIncomingConfig,
   toWssOutgoingConfig,
+  webhooksOf,
   wsApisOf,
+  wssConfigsOf,
   wssEntrySchema,
   wssIncomingFileSchema,
   wssOutgoingFileSchema,
@@ -572,7 +574,7 @@ function toRestTreeWires(apis: readonly RestApi[]): {
  * `webhooks:<projectId>` — never a real API id — or `undefined` when the project has none yet.
  */
 function toWebhookCollectionWire(project: Project): ProjectWire['webhooks'] {
-  const webhooks = project.webhooks;
+  const webhooks = webhooksOf(project);
   if (webhooks === undefined) {
     return undefined;
   }
@@ -802,8 +804,9 @@ export function toProjectWire(project: Project, context: ProjectWireContext): Pr
   const restTree = toRestTreeWires(restApisOf(project));
   const grpcTree = toGrpcTreeWires(grpcApisOf(project));
   const wsTree = toWsTreeWires(wsApisOf(project));
+  const webhooks = webhooksOf(project);
   const webhookTree =
-    project.webhooks !== undefined ? toWebhookTreeWires(project.webhooks, webhookCollectionId(project.id)) : undefined;
+    webhooks !== undefined ? toWebhookTreeWires(webhooks, webhookCollectionId(project.id)) : undefined;
   const webhooksWire = toWebhookCollectionWire(project);
   return {
     id: project.id,
@@ -829,9 +832,9 @@ export function toProjectWire(project: Project, context: ProjectWireContext): Pr
     ...(project.activeEnvironmentId !== undefined ? { activeEnvironmentId: project.activeEnvironmentId } : {}),
     problems: [...context.problems],
     settings: { ...project.settings },
-    keystores: project.wss.keystores.map(toKeystoreWire),
-    wssOutgoing: project.wss.outgoing.map(toWssOutgoingWire),
-    wssIncoming: project.wss.incoming.map(toWssIncomingWire),
+    keystores: project.keystores.map(toKeystoreWire),
+    wssOutgoing: wssConfigsOf(project).outgoing.map(toWssOutgoingWire),
+    wssIncoming: wssConfigsOf(project).incoming.map(toWssIncomingWire),
   };
 }
 

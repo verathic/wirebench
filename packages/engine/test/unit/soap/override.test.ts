@@ -69,7 +69,7 @@ function projectWith(request: Partial<SoapRequestDef> = {}): Project {
       sequences: [],
       mocks: [],
       environments: [],
-      wss: { outgoing: [], incoming: [], keystores: [] },
+      keystores: [],
     },
     [
       {

@@ -112,15 +112,18 @@ import {
   webhookItemsOf,
   webhookPath,
   webhooksFromDocument,
+  webhooksOf,
   WirebenchError,
   withCurrentValues,
   withSystemValuesReported,
+  withWebhooks,
   writeApiDefinitionCache,
   writeDefinitionCache,
   writeDescriptorDefinitionCache,
   writeFileAtomic,
   writeProtoDefinitionCache,
   wsApisOf,
+  wssConfigsOf,
   WssError,
 } from '@wirebench/engine';
 import type {
@@ -1507,7 +1510,7 @@ export class ProjectHost {
 
   /** The keystore registry entry with this id, or `undefined` when no project has one. */
   private keystoreDef(keystoreId: string): KeystoreDef | undefined {
-    const ref = this.open?.project.wss.keystores.find((candidate) => candidate.id === keystoreId);
+    const ref = this.open?.project.keystores.find((candidate) => candidate.id === keystoreId);
     if (ref === undefined) {
       return undefined;
     }
@@ -1634,7 +1637,7 @@ export class ProjectHost {
       envIds.map((envId) => this.scopesFor(envId)),
     );
     const keystores: KeystoreCertificates[] = [];
-    for (const ref of open.project.wss.keystores) {
+    for (const ref of open.project.keystores) {
       const def = this.keystoreDef(ref.id);
       if (def === undefined) continue;
       try {
@@ -1691,7 +1694,7 @@ export class ProjectHost {
     if (folder !== undefined) {
       return folder.auth;
     }
-    const webhooks = project.webhooks;
+    const webhooks = webhooksOf(project);
     if (webhooks !== undefined) {
       // The collection, one of its folders or one of its items, which configure credentials the
       // same way an API, a folder and a request do.
@@ -1712,9 +1715,10 @@ export class ProjectHost {
       return undefined;
     }
     const { project } = this.open;
+    const webhooks = webhooksOf(project);
     return (
       findRestRequest(project, requestId) ??
-      (project.webhooks === undefined ? undefined : findWebhookRequest(project.webhooks, requestId))
+      (webhooks === undefined ? undefined : findWebhookRequest(webhooks, requestId))
     );
   }
 
@@ -1743,7 +1747,7 @@ export class ProjectHost {
         return { requestName: found.request.name, apiName: api.name, folderPath: found.folders.join(' / ') };
       }
     }
-    const webhooks = this.open.project.webhooks;
+    const webhooks = webhooksOf(this.open.project);
     const webhook = webhooks === undefined ? undefined : webhookPath(webhooks, requestId);
     if (webhook !== undefined) {
       return {
@@ -2200,7 +2204,9 @@ export class ProjectHost {
 
   /** The incoming WS-Security configuration with this id, or `undefined` when there is none. */
   private wssIncomingConfig(configId: string): WssIncomingConfig | undefined {
-    const ref = this.open?.project.wss.incoming.find((candidate) => candidate.id === configId);
+    const ref = (this.open === undefined ? [] : wssConfigsOf(this.open.project).incoming).find(
+      (candidate) => candidate.id === configId,
+    );
     if (ref === undefined) {
       return undefined;
     }
@@ -2213,7 +2219,9 @@ export class ProjectHost {
 
   /** The outgoing WS-Security configuration with this id, or `undefined` when there is none. */
   private wssOutgoingConfig(configId: string): WssOutgoingConfig | undefined {
-    const ref = this.open?.project.wss.outgoing.find((candidate) => candidate.id === configId);
+    const ref = (this.open === undefined ? [] : wssConfigsOf(this.open.project).outgoing).find(
+      (candidate) => candidate.id === configId,
+    );
     if (ref === undefined) {
       return undefined;
     }
@@ -3683,7 +3691,7 @@ export class ProjectHost {
     readonly linked: boolean;
   }> {
     const old = await this.readRestCache(apiId);
-    const linked = linkedWebhookFolder(this.require().project.webhooks, apiId) !== undefined;
+    const linked = linkedWebhookFolder(webhooksOf(this.require().project), apiId) !== undefined;
     return { plan: planRestUpdate(old.document, next), cached: old.documents, linked };
   }
 
@@ -3782,9 +3790,9 @@ export class ProjectHost {
     };
 
     // The linked webhook group, if any, is updated in the same change: one undo step, one save.
-    const linked = linkedWebhookFolder(open.project.webhooks, apiId);
+    const linked = linkedWebhookFolder(webhooksOf(open.project), apiId);
     let webhookResult: WebhookApplyResult | undefined;
-    let webhooks = open.project.webhooks;
+    let webhooks = webhooksOf(open.project);
     if (linked !== undefined && webhooks !== undefined) {
       webhookResult = applyWebhookUpdate(linked, old, next.document);
       const folders = mapFolder(webhooks.folders, linked.id, () => webhookResult!.folder);
@@ -3804,14 +3812,14 @@ export class ProjectHost {
 
     const priorProject = open.project;
     const priorDirty = open.dirty;
-    open.project = {
+    const withApi: Project = {
       ...open.project,
       containers: {
         ...open.project.containers,
         rest: restApisOf(open.project).map((candidate) => (candidate.id === apiId ? updated : candidate)),
       },
-      ...(webhooks !== open.project.webhooks ? { webhooks } : {}),
     };
+    open.project = webhooks !== webhooksOf(open.project) ? withWebhooks(withApi, webhooks) : withApi;
     open.dirty = true;
     try {
       await this.save({ reason: 'update-definition' });
@@ -3868,7 +3876,7 @@ export class ProjectHost {
     apiId: string,
   ): Promise<{ readonly items: readonly WebhookItemRef[]; readonly imported: readonly string[] }> {
     const document = await this.cachedRestDocumentForWebhooks(apiId);
-    const linked = linkedWebhookFolder(this.require().project.webhooks, apiId);
+    const linked = linkedWebhookFolder(webhooksOf(this.require().project), apiId);
     return { items: webhookItemsOf(document), imported: linked !== undefined ? [...webhookKeysUnder(linked)] : [] };
   }
 
@@ -3886,7 +3894,7 @@ export class ProjectHost {
   ): Promise<{ readonly folderId: string; readonly added: number }> {
     const document = await this.cachedRestDocumentForWebhooks(apiId);
     const open = this.require();
-    const linked = linkedWebhookFolder(open.project.webhooks, apiId);
+    const linked = linkedWebhookFolder(webhooksOf(open.project), apiId);
     const mapped = webhooksFromDocument(document, { apiId, only: new Set(keys) });
 
     let project: Project;

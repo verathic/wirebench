@@ -11,7 +11,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { failedRequestOf, findWebhookRequest, SIGNING_PSEUDO_REF_PREFIX } from '@wirebench/engine';
+import { failedRequestOf, findWebhookRequest, SIGNING_PSEUDO_REF_PREFIX, webhooksOf } from '@wirebench/engine';
 import type {
   AttemptedRequest,
   ClientIdentity,
@@ -335,7 +335,7 @@ function restContractFor(deps: DesktopSendDeps): NonNullable<SendHost['contractF
 function callbackUrlOf(deps: DesktopSendDeps, send: DesktopSend, item: SelectedBase): string | undefined {
   const { projectId } = send;
   const located = deps.project.runContextFor?.(item.request.id, send.envId);
-  const webhooks = located?.project.webhooks;
+  const webhooks = located === undefined ? undefined : webhooksOf(located.project);
   if (
     projectId === undefined ||
     located === undefined ||

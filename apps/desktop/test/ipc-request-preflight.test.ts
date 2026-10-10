@@ -165,30 +165,32 @@ function hooks(): Project {
         }),
       ],
     },
-    webhooks: createWebhookCollection({
-      target: `${server.url}/in`,
-      folders: [
-        createWebhookFolder('Petstore', {
-          id: 'g1',
-          target: `${server.url}/fallback`,
-          source: { apiId: 'api-1' },
-          requests: [
-            createRestRequest('Paid', { id: 'w1', method: 'POST', url: '/paid' }),
-            createRestRequest('onEvent', {
-              id: 'w3',
-              method: 'POST',
-              url: '/onEvent',
-              hook: {
-                kind: 'callback',
-                operation: 'post /subscriptions',
-                name: 'onEvent',
-                expression: '{$request.body#/callbackUrl}',
-              },
-            }),
-          ],
-        }),
-      ],
-    }),
+    protocols: {
+      rest: createWebhookCollection({
+        target: `${server.url}/in`,
+        folders: [
+          createWebhookFolder('Petstore', {
+            id: 'g1',
+            target: `${server.url}/fallback`,
+            source: { apiId: 'api-1' },
+            requests: [
+              createRestRequest('Paid', { id: 'w1', method: 'POST', url: '/paid' }),
+              createRestRequest('onEvent', {
+                id: 'w3',
+                method: 'POST',
+                url: '/onEvent',
+                hook: {
+                  kind: 'callback',
+                  operation: 'post /subscriptions',
+                  name: 'onEvent',
+                  expression: '{$request.body#/callbackUrl}',
+                },
+              }),
+            ],
+          }),
+        ],
+      }),
+    },
   };
 }
 

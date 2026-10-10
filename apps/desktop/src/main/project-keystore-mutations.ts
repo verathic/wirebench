@@ -26,11 +26,11 @@ function notFound(keystoreId: string): never {
 }
 
 function requireKeystore(project: Project, keystoreId: string): WssRef {
-  return project.wss.keystores.find((candidate) => candidate.id === keystoreId) ?? notFound(keystoreId);
+  return project.keystores.find((candidate) => candidate.id === keystoreId) ?? notFound(keystoreId);
 }
 
 function withKeystores(project: Project, keystores: readonly WssRef[]): Project {
-  return { ...project, wss: { ...project.wss, keystores } };
+  return { ...project, keystores };
 }
 
 /** The name a keystore gets when the user did not type one: the file's stem. */
@@ -68,7 +68,7 @@ export function addKeystore(
     ...(input.passwordSecretRef !== undefined ? { passwordSecretRef: input.passwordSecretRef } : {}),
   };
   return {
-    project: withKeystores(project, [...project.wss.keystores, toKeystoreRef(def)]),
+    project: withKeystores(project, [...project.keystores, toKeystoreRef(def)]),
     keystoreId: def.id,
   };
 }
@@ -94,7 +94,7 @@ export function updateKeystore(project: Project, keystoreId: string, patch: Keys
   const ref = toKeystoreRef(next, existing);
   return withKeystores(
     project,
-    project.wss.keystores.map((candidate) => (candidate.id === keystoreId ? ref : candidate)),
+    project.keystores.map((candidate) => (candidate.id === keystoreId ? ref : candidate)),
   );
 }
 
@@ -121,6 +121,6 @@ export function removeKeystore(project: Project, keystoreId: string): Project {
   }));
   return withKeystores(
     { ...project, containers: { ...project.containers, soap: interfaces } },
-    project.wss.keystores.filter((candidate) => candidate.id !== keystoreId),
+    project.keystores.filter((candidate) => candidate.id !== keystoreId),
   );
 }

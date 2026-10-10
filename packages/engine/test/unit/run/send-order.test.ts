@@ -32,6 +32,7 @@ import type { ScriptSandbox } from '../../../src/script/sandbox/host.js';
 import { createWebhookCollection } from '../../../src/webhooks/model.js';
 import { normalizeWsa } from '../../../src/wsa/model.js';
 import { readProtoFixture } from '../../helpers/proto-fixtures.js';
+import { webhooksOf, withWebhooks } from '../../../src/webhooks/model.js';
 
 const { events, wire } = vi.hoisted(() => ({
   events: [] as string[],
@@ -266,25 +267,27 @@ function project(scripts?: RequestScripts): Project {
 
     sequences: [],
     mocks: [],
-    webhooks: createWebhookCollection({
-      target: 'https://receiver.example.test/hooks',
-      signing: {
-        mode: 'sign',
-        scheme: { kind: 'hmac', algorithm: 'sha256', encoding: 'hex', header: 'X-Signature' },
-        secretRef: 'ref-hooks',
-      },
-      requests: [
-        createRestRequest('Ping', {
-          id: 'req-hook',
-          slug: 'ping',
-          method: 'POST',
-          url: '/ping',
-          headers: [entry('X-Tenant', '${secret:tenant}')],
-        }),
-      ],
-    }),
+    protocols: {
+      rest: createWebhookCollection({
+        target: 'https://receiver.example.test/hooks',
+        signing: {
+          mode: 'sign',
+          scheme: { kind: 'hmac', algorithm: 'sha256', encoding: 'hex', header: 'X-Signature' },
+          secretRef: 'ref-hooks',
+        },
+        requests: [
+          createRestRequest('Ping', {
+            id: 'req-hook',
+            slug: 'ping',
+            method: 'POST',
+            url: '/ping',
+            headers: [entry('X-Tenant', '${secret:tenant}')],
+          }),
+        ],
+      }),
+    },
     environments: [],
-    wss: { outgoing: [], incoming: [], keystores: [] },
+    keystores: [],
   };
 }
 
@@ -416,7 +419,7 @@ describe('the order of operations in a REST send', () => {
 
   it('reads a webhook item’s signing secret before it fetches its OAuth2 token, as the app does', async () => {
     const base = project();
-    const p: Project = { ...base, webhooks: { ...base.webhooks!, auth: AUTH } };
+    const p = withWebhooks(base, { ...webhooksOf(base)!, auth: AUTH });
     await createRunSender(contextFor(p, false))(pick(p, 'Webhooks/Ping'));
     expect(events).toEqual(['secret secret:tenant', 'secret ref-hooks', 'secret ref-client', 'fetch token', 'send']);
   });

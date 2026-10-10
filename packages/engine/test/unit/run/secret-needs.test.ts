@@ -44,7 +44,11 @@ function iface(request: SoapRequestDef, auth?: EndpointAuth): Interface {
   };
 }
 
-function project(parts: { interfaces?: Interface[]; apis?: RestApi[]; wss?: Partial<Project['wss']> }): Project {
+function project(parts: {
+  interfaces?: Interface[];
+  apis?: RestApi[];
+  wss?: { outgoing?: WssRef[]; incoming?: WssRef[]; keystores?: WssRef[] };
+}): Project {
   return {
     formatVersion: FORMAT_VERSION,
     id: 'proj-1',
@@ -57,7 +61,8 @@ function project(parts: { interfaces?: Interface[]; apis?: RestApi[]; wss?: Part
     sequences: [],
     mocks: [],
     environments: [],
-    wss: { outgoing: [], incoming: [], keystores: [], ...parts.wss },
+    keystores: parts.wss?.keystores ?? [],
+    protocols: { soap: { outgoing: parts.wss?.outgoing ?? [], incoming: parts.wss?.incoming ?? [] } },
   };
 }
 

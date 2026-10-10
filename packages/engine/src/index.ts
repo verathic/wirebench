@@ -70,6 +70,7 @@ export type {
   ContainerDir,
   LoadContext,
   ProtocolModule,
+  ProtocolProjectFiles,
   ProtocolRun,
   ProtocolScripting,
   ProtocolSecrets,
@@ -87,12 +88,21 @@ export type { ProtocolRegistry, ProtocolRegistryOptions } from './protocol/regis
 export { BUILTIN_PROTOCOLS, createBuiltinRegistry } from './protocols.js';
 export { PROJECT_FILE_KINDS, PROJECT_SCHEMA_BASE_URL, projectJsonSchemas } from './project-files.js';
 export type { ProjectFileKind, ProjectJsonSchema } from './project-files.js';
-export { allContainers, containersOf, unsupportedOf, withContainersOf } from './project/model.js';
+export {
+  allContainers,
+  containersOf,
+  protocolDataOf,
+  unsupportedOf,
+  withContainersOf,
+  withProtocolData,
+} from './project/model.js';
 export { takenContainerSlugs } from './project/container-slugs.js';
 export { soapInterfacesOf, withSoapInterfaces } from './soap/model.js';
 export { restApisOf, withRestApis } from './rest/model.js';
 export { grpcApisOf, withGrpcApis } from './grpc/model.js';
 export { wsApisOf, withWsApis } from './ws/model.js';
+export { wssConfigsOf, withWssConfigs } from './wss/project.js';
+export type { WssConfigs } from './wss/project.js';
 export type { UnsupportedContainer } from './project/model.js';
 
 // What three core files re-exported until 3.0, from the module that declares it.
@@ -554,6 +564,8 @@ export {
   webhookFolders,
   webhookPath,
   webhookRequests,
+  webhooksOf,
+  withWebhooks,
 } from './webhooks/model.js';
 export type {
   CreateWebhookCollectionInput,
@@ -1008,12 +1020,11 @@ export {
   restFolderFileSchema,
   protoDefinitionCacheManifestSchema,
   hookLinkSchema,
-  webhookFolderFileSchema,
-  webhooksFileSchema,
   wssIncomingFileSchema,
   wssOutgoingFileSchema,
 } from './project/schema.js';
 export { wssEntrySchema } from './wss/schema.js';
+export { webhookFolderFileSchema, webhooksFileSchema } from './webhooks/schema.js';
 export type {
   ApiDefinitionCacheDocument,
   ApiDefinitionCacheManifest,

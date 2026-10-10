@@ -12,7 +12,10 @@ import type { IdGenerator, Project, WssRef } from '../project/model.js';
 import type { ProtocolRegistry } from '../protocol/registry.js';
 import { defaultRegistry } from '../protocols.js';
 
-/** Every entity id in `project`, in visit order (an id shared by two entities is deduplicated). */
+/**
+ * Every entity id in `project`, in visit order (an id shared by two entities is deduplicated): the
+ * project, each module's containers, the environments, each module's project-level files, the keystores.
+ */
 function collectIds(project: Project, registry: ProtocolRegistry): string[] {
   const ids: string[] = [project.id];
   for (const module of registry.modules) {
@@ -23,7 +26,10 @@ function collectIds(project: Project, registry: ProtocolRegistry): string[] {
   for (const environment of project.environments) {
     ids.push(environment.id);
   }
-  for (const ref of [...project.wss.outgoing, ...project.wss.incoming, ...project.wss.keystores]) {
+  for (const { projectFiles: facet } of registry.modules) {
+    if (facet?.entityIds !== undefined) ids.push(...facet.entityIds(project));
+  }
+  for (const ref of project.keystores) {
     ids.push(ref.id);
   }
   return ids;
@@ -97,16 +103,15 @@ export function reidentifyProject(
     for (const container of containers) renewed.push(storage.withEntityIds(container, mapId));
     next = storage.withContainers(next, renewed);
   }
+  for (const { projectFiles: facet } of registry.modules) {
+    if (facet?.withEntityIds !== undefined) next = facet.withEntityIds(next, mapId);
+  }
 
   return {
     ...next,
     id: mapId(project.id),
     environments: project.environments.map((environment) => ({ ...environment, id: mapId(environment.id) })),
     ...optional('activeEnvironmentId', mapRef(project.activeEnvironmentId)),
-    wss: {
-      outgoing: project.wss.outgoing.map(mapWssRef),
-      incoming: project.wss.incoming.map(mapWssRef),
-      keystores: project.wss.keystores.map(mapWssRef),
-    },
+    keystores: project.keystores.map(mapWssRef),
   };
 }

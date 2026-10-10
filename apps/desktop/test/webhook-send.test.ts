@@ -12,6 +12,7 @@ import {
   createWebhookCollection,
   createWebhookFolder,
   entry,
+  webhooksOf,
 } from '@wirebench/engine';
 import type { HistoryService } from '../src/main/history-service.js';
 import type { Project } from '@wirebench/engine';
@@ -40,42 +41,44 @@ function project(): Project {
         }),
       ],
     },
-    webhooks: createWebhookCollection({
-      requests: [
-        createRestRequest('Ping', {
-          id: 'w1',
-          method: 'POST',
-          url: '/ping',
-          headers: [entry('X-Id', '${webhookTarget}')],
-        }),
-      ],
-      folders: [
-        createWebhookFolder('Petstore', {
-          id: 'g1',
-          target: 'https://group.test',
-          source: { apiId: 'api-1' },
-          requests: [
-            createRestRequest('newPet', {
-              id: 'w2',
-              method: 'POST',
-              url: '/newPet',
-              hook: { kind: 'webhook', name: 'newPet' },
-            }),
-            createRestRequest('onPetEvent', {
-              id: 'w3',
-              method: 'POST',
-              url: '/onPetEvent',
-              hook: {
-                kind: 'callback',
-                operation: 'post /subscriptions',
-                name: 'onPetEvent',
-                expression: '{$request.body#/callbackUrl}',
-              },
-            }),
-          ],
-        }),
-      ],
-    }),
+    protocols: {
+      rest: createWebhookCollection({
+        requests: [
+          createRestRequest('Ping', {
+            id: 'w1',
+            method: 'POST',
+            url: '/ping',
+            headers: [entry('X-Id', '${webhookTarget}')],
+          }),
+        ],
+        folders: [
+          createWebhookFolder('Petstore', {
+            id: 'g1',
+            target: 'https://group.test',
+            source: { apiId: 'api-1' },
+            requests: [
+              createRestRequest('newPet', {
+                id: 'w2',
+                method: 'POST',
+                url: '/newPet',
+                hook: { kind: 'webhook', name: 'newPet' },
+              }),
+              createRestRequest('onPetEvent', {
+                id: 'w3',
+                method: 'POST',
+                url: '/onPetEvent',
+                hook: {
+                  kind: 'callback',
+                  operation: 'post /subscriptions',
+                  name: 'onPetEvent',
+                  expression: '{$request.body#/callbackUrl}',
+                },
+              }),
+            ],
+          }),
+        ],
+      }),
+    },
   };
 }
 
@@ -164,7 +167,7 @@ describe('resolving a webhook item (previewRest)', () => {
 describe('callbackUrlFor', () => {
   it('explains each fallback', () => {
     const p = project();
-    const request = p.webhooks!.folders[0]!.requests[1]!;
+    const request = webhooksOf(p)!.folders[0]!.requests[1]!;
     expect(callbackUrlFor(p, request, () => undefined)).toEqual({
       url: undefined,
       source: 'callback-fallback',

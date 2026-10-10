@@ -13,6 +13,7 @@ import { referencesOnly } from '../import/values.js';
 import type { GrpcApi, GrpcFolder, GrpcMethodKind, GrpcRequestDef } from '../grpc/model.js';
 import type { KeyValueEntry } from '../http/entries.js';
 import type { AuthConfig, Project, PropertyMap, SoapOwnerAuth } from '../project/model.js';
+import { protocolDataOf } from '../project/model.js';
 import type { Interface, SoapRequestDef } from '../soap/model.js';
 import type {
   MultipartFormPart,
@@ -208,7 +209,7 @@ class TreeBuilder {
 
   private noteLeftOut(project: Project): void {
     const left: string[] = [];
-    if (project.webhooks !== undefined) left.push('the webhook collection');
+    if (protocolDataOf(project, 'rest') !== undefined) left.push('the webhook collection');
     if (project.sequences.length > 0) left.push(`${project.sequences.length} sequence(s)`);
     for (const c of project.unsupported ?? []) left.push(c.name ?? c.slug);
     for (const [kind, list] of Object.entries(project.containers)) {

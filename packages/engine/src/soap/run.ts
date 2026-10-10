@@ -13,7 +13,8 @@ import { createFileAttachmentResolver } from '../project/attachments-cache.js';
 import { effectiveAuth } from '../project/endpoints.js';
 import { resolveAuthEndpoint, resolveEndpoint } from '../project/environments.js';
 import type { EndpointSource } from '../project/environments.js';
-import type { Project, SoapOwnerAuth } from '../project/model.js';
+import type { Project, SoapOwnerAuth, WssRef } from '../project/model.js';
+import { wssConfigsOf } from '../wss/project.js';
 import type { Attachment, Endpoint, Interface, OperationDef, SoapRequestDef } from './model.js';
 import { definitionCacheDir } from '../project/paths.js';
 import { expandSendInput } from './expand.js';
@@ -255,7 +256,7 @@ function wssFor(
   if (outgoingId === undefined && incomingId === undefined) {
     return undefined;
   }
-  const find = <T>(refs: Project['wss']['outgoing'], id: string, convert: (ref: (typeof refs)[number]) => T): T => {
+  const find = <T>(refs: readonly WssRef[], id: string, convert: (ref: (typeof refs)[number]) => T): T => {
     const ref = refs.find((candidate) => candidate.id === id);
     if (ref !== undefined) {
       try {
@@ -271,9 +272,13 @@ function wssFor(
     );
   };
   const outgoing =
-    outgoingId === undefined ? undefined : find(context.project.wss.outgoing, outgoingId, toWssOutgoingConfig);
+    outgoingId === undefined
+      ? undefined
+      : find(wssConfigsOf(context.project).outgoing, outgoingId, toWssOutgoingConfig);
   const incoming =
-    incomingId === undefined ? undefined : find(context.project.wss.incoming, incomingId, toWssIncomingConfig);
+    incomingId === undefined
+      ? undefined
+      : find(wssConfigsOf(context.project).incoming, incomingId, toWssIncomingConfig);
   const { properties } = request;
   const used: IssuedToken[] = [];
   const source = issuedTokenSourceOf(context);
@@ -537,7 +542,7 @@ function soapSubject(
 
 /** Parses a WS-Security configuration by id; missing or unreadable is resolve's error, not a need. */
 function findConfig<T>(
-  refs: Project['wss']['outgoing'],
+  refs: readonly WssRef[],
   id: string | undefined,
   convert: (ref: (typeof refs)[number]) => T,
 ): T | undefined {
@@ -872,8 +877,9 @@ export const soapRun: ProtocolRun<SoapSelected> = {
 
   secretNeeds(selected, project) {
     const { request } = selected;
-    const outgoing = findConfig(project.wss.outgoing, request.wssOutgoingRef, toWssOutgoingConfig);
-    const incoming = findConfig(project.wss.incoming, request.wssIncomingRef, toWssIncomingConfig);
+    const configs = wssConfigsOf(project);
+    const outgoing = findConfig(configs.outgoing, request.wssOutgoingRef, toWssOutgoingConfig);
+    const incoming = findConfig(configs.incoming, request.wssIncomingRef, toWssIncomingConfig);
     return [
       ...secretNeedsOfAuth(soapEffectiveAuth(selected)),
       ...keystoreNeeds(project, request.properties.sslKeystoreRef),

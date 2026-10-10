@@ -80,7 +80,7 @@ function makeProject(
     sequences: [],
     mocks: [],
     environments: [],
-    wss: { outgoing: [], incoming: [], keystores: [] },
+    keystores: [],
   };
 }
 

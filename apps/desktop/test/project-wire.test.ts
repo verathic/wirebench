@@ -215,22 +215,24 @@ describe('project-wire', () => {
   it('wires the webhook collection and its tree into the flat arrays', () => {
     const project: Project = {
       ...createProject('Demo', { id: 'p1' }),
-      webhooks: createWebhookCollection({
-        folders: [
-          createWebhookFolder('Payments', {
-            id: 'wf-1',
-            target: 'https://payments.test',
-            source: { apiId: 'api-1' },
-            requests: [
-              createRestRequest('payment.succeeded', {
-                id: 'wr-1',
-                method: 'POST',
-                hook: { kind: 'webhook', name: 'payment.succeeded' },
-              }),
-            ],
-          }),
-        ],
-      }),
+      protocols: {
+        rest: createWebhookCollection({
+          folders: [
+            createWebhookFolder('Payments', {
+              id: 'wf-1',
+              target: 'https://payments.test',
+              source: { apiId: 'api-1' },
+              requests: [
+                createRestRequest('payment.succeeded', {
+                  id: 'wr-1',
+                  method: 'POST',
+                  hook: { kind: 'webhook', name: 'payment.succeeded' },
+                }),
+              ],
+            }),
+          ],
+        }),
+      },
     };
     const wire = toProjectWire(project, { dir: '/tmp/demo', dirty: false, problems: [], runtime: new Map() });
 

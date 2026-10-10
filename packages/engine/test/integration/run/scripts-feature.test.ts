@@ -81,7 +81,7 @@ function project(scripts: RequestScripts | undefined): Project {
     properties: {},
     disabledProperties: [],
     environments: [],
-    wss: { outgoing: [], incoming: [], keystores: [] },
+    keystores: [],
     sequences: [],
     mocks: [],
     containers: { echo: [api] },

@@ -213,33 +213,35 @@ export function sampleProject(): Project {
           disabledProperties: [],
         },
       ],
-      wss: {
-        outgoing: (() => {
-          const id = nextId();
-          return [
-            {
-              id,
-              name: 'prod-signature',
-              file: 'wss/outgoing/prod-signature.yaml',
-              document: { id, name: 'prod-signature' },
-            },
-          ];
-        })(),
-        incoming: (() => {
-          const id = nextId();
-          return [{ id, name: 'default', file: 'wss/incoming/default.yaml', document: { id, name: 'default' } }];
-        })(),
-        keystores: (() => {
-          const id = nextId();
-          return [
-            {
-              id,
-              name: 'corp-p12',
-              document: { id, name: 'corp-p12', path: 'certs/corp.p12', type: 'pkcs12', passwordSecretRef: 'secret:1' },
-            },
-          ];
-        })(),
+      protocols: {
+        soap: {
+          outgoing: (() => {
+            const id = nextId();
+            return [
+              {
+                id,
+                name: 'prod-signature',
+                file: 'wss/outgoing/prod-signature.yaml',
+                document: { id, name: 'prod-signature' },
+              },
+            ];
+          })(),
+          incoming: (() => {
+            const id = nextId();
+            return [{ id, name: 'default', file: 'wss/incoming/default.yaml', document: { id, name: 'default' } }];
+          })(),
+        },
       },
+      keystores: (() => {
+        const id = nextId();
+        return [
+          {
+            id,
+            name: 'corp-p12',
+            document: { id, name: 'corp-p12', path: 'certs/corp.p12', type: 'pkcs12', passwordSecretRef: 'secret:1' },
+          },
+        ];
+      })(),
     },
     interfaces,
   );

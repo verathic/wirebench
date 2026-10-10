@@ -71,11 +71,13 @@ export function projectWithWss(entries: readonly WssEntry[]): { project: Project
       sequences: [],
       mocks: [],
       environments: [],
-      wss: {
-        outgoing: [toWssOutgoingRef({ id: 'w1', name: 'w1', mustUnderstand: false, entries: [...entries] })],
-        incoming: [],
-        keystores: ['ks-proof', 'ks-tls', 'ks-issuer'].map(keystore),
+      protocols: {
+        soap: {
+          outgoing: [toWssOutgoingRef({ id: 'w1', name: 'w1', mustUnderstand: false, entries: [...entries] })],
+          incoming: [],
+        },
       },
+      keystores: ['ks-proof', 'ks-tls', 'ks-issuer'].map(keystore),
     },
     [
       {

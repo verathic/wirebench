@@ -306,16 +306,18 @@ describe('desktopSendHost', () => {
           }),
         ],
       },
-      webhooks: createWebhookCollection({
-        folders: [
-          createWebhookFolder('Petstore', {
-            id: 'g1',
-            target: 'https://group.test',
-            source: { apiId: 'api-1' },
-            requests: [callback],
-          }),
-        ],
-      }),
+      protocols: {
+        rest: createWebhookCollection({
+          folders: [
+            createWebhookFolder('Petstore', {
+              id: 'g1',
+              target: 'https://group.test',
+              source: { apiId: 'api-1' },
+              requests: [callback],
+            }),
+          ],
+        }),
+      },
     };
     const asked: [string, string][] = [];
     const newestHistory = (projectId: string, requestId: string): HistoryEntryWire | undefined => {

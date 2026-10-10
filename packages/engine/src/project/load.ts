@@ -8,46 +8,27 @@
  * interface declares) becomes a {@link ProjectProblem} rather than an error, so
  * a slightly damaged project still opens.
  *
- * Core reads the manifest, environments, sequences, keystores, WS-Security references and the
- * webhook collection. A container is read by its protocol's `storage.load` (`soap/storage.ts`,
- * `rest/storage.ts`, `grpc/storage.ts`, `ws/storage.ts`), found through the registry.
+ * Core reads the manifest, environments, sequences, mocks and keystores. A container is read by its
+ * protocol's `storage.load` (`soap/storage.ts`, `rest/storage.ts`, `grpc/storage.ts`, `ws/storage.ts`),
+ * found through the registry, and what a protocol keeps for the whole project by its
+ * `projectFiles.load` (REST's webhook collection, SOAP's WS-Security configurations).
  */
 
 import { ProjectError } from '../errors.js';
 import type { ContainerBase, LoadContext, ProtocolStorage } from '../protocol/module.js';
 import type { ProtocolRegistry } from '../protocol/registry.js';
 import { defaultRegistry } from '../protocols.js';
-import { restRequestReader, signingOf } from '../rest/storage.js';
 import { readMocks } from '../mock/load.js';
 import { readSequences } from '../sequence/load.js';
-import type { WebhookCollection, WebhookFolder } from '../webhooks/model.js';
 import type { FsLike } from './fs.js';
 import { nodeFs, readdirIfExists } from './fs.js';
-import { abs, authConfig, byOrder, exact, loadFolderContents, optional, readYaml } from './load-helpers.js';
+import { abs, byOrder, exact, optional, readYaml } from './load-helpers.js';
 import { migrate } from './migrate.js';
 import { FORMAT_VERSION } from './model.js';
-import type { Environment, Project, ProjectSettings, UnsupportedContainer, WssRef } from './model.js';
-import {
-  API_FILE,
-  APIS_DIR,
-  ENVIRONMENTS_DIR,
-  INTERFACES_DIR,
-  REQUESTS_DIR,
-  WEBHOOKS_DIR,
-  WEBHOOKS_FEATURE,
-  WEBHOOKS_FILE,
-  WSS_DIR,
-} from './paths.js';
+import type { Environment, Project, ProjectSettings, UnsupportedContainer } from './model.js';
+import { API_FILE, APIS_DIR, ENVIRONMENTS_DIR, INTERFACES_DIR } from './paths.js';
 import { parseFile } from './schema-parts.js';
-import {
-  environmentFileSchema,
-  keystoresFileSchema,
-  manifestSchema,
-  webhookFolderFileSchema,
-  webhooksFileSchema,
-  wssIncomingFileSchema,
-  wssOutgoingFileSchema,
-} from './schema.js';
+import { environmentFileSchema, keystoresFileSchema, manifestSchema } from './schema.js';
 import { KEYSTORES_PATH, MANIFEST_PATH } from './serialize.js';
 
 /** A recoverable inconsistency found while loading a project. */
@@ -127,57 +108,6 @@ async function loadEnvironments(fs: FsLike, root: string): Promise<Environment[]
     });
   }
   return environments.sort(byOrder);
-}
-
-async function loadWssRefs(fs: FsLike, root: string, direction: 'outgoing' | 'incoming'): Promise<WssRef[]> {
-  const dir = `${WSS_DIR}/${direction}`;
-  const schema = direction === 'outgoing' ? wssOutgoingFileSchema : wssIncomingFileSchema;
-  const refs: WssRef[] = [];
-  for (const entry of await readdirIfExists(fs, abs(root, dir))) {
-    if (!entry.isFile || !entry.name.endsWith('.yaml')) {
-      continue;
-    }
-    const relative = `${dir}/${entry.name}`;
-    const parsed = parseFile(schema, await readYaml(fs, root, relative), relative);
-    refs.push({ id: parsed.id, name: parsed.name, file: relative, document: parsed });
-  }
-  return refs.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/** Loads `webhooks/`, or nothing when the project has no `webhooks.yaml`. */
-async function loadWebhooks(
-  fs: FsLike,
-  root: string,
-  problems: ProjectProblem[],
-): Promise<WebhookCollection | undefined> {
-  const relative = `${WEBHOOKS_DIR}/${WEBHOOKS_FILE}`;
-  const document = await readYaml(fs, root, relative);
-  if (document === undefined) return undefined;
-  const parsed = parseFile(webhooksFileSchema, document, relative);
-  const contents = await loadFolderContents(
-    fs,
-    root,
-    `${WEBHOOKS_DIR}/${REQUESTS_DIR}`,
-    0,
-    problems,
-    restRequestReader(fs, root, problems),
-    (folderDocument, folderFile) => {
-      if (folderDocument === undefined) return {};
-      const folder = parseFile(webhookFolderFileSchema, folderDocument, folderFile);
-      return {
-        ...optional('target', folder.target),
-        ...(folder.source !== undefined ? { source: { apiId: folder.source.apiId } } : {}),
-        ...(folder.signing !== undefined ? { signing: signingOf(folder.signing) } : {}),
-      };
-    },
-  );
-  return {
-    target: parsed.target,
-    ...(parsed.auth !== undefined ? { auth: authConfig(parsed.auth) } : {}),
-    ...(parsed.signing !== undefined ? { signing: signingOf(parsed.signing) } : {}),
-    folders: contents.folders as unknown as WebhookFolder[],
-    requests: contents.requests,
-  };
 }
 
 /**
@@ -340,9 +270,6 @@ export async function loadProject(root: string, options?: LoadProjectOptions): P
   const mockFiles = await readMocks(fs, root);
   problems.push(...mockFiles.problems);
 
-  // The collection is REST requests: with REST off it is not read, and a save leaves it alone.
-  const webhooks = registry.features.isEnabled(WEBHOOKS_FEATURE) ? await loadWebhooks(fs, root, problems) : undefined;
-
   const core: Project = {
     formatVersion: FORMAT_VERSION,
     id: manifest.id,
@@ -355,13 +282,8 @@ export async function loadProject(root: string, options?: LoadProjectOptions): P
     containers: {},
     sequences: sequenceFiles.loaded.map((entry) => entry.sequence).sort(byOrder),
     mocks: mockFiles.loaded.map((entry) => entry.mock).sort(byOrder),
-    ...(webhooks !== undefined ? { webhooks } : {}),
     environments: await loadEnvironments(fs, root),
-    wss: {
-      outgoing: await loadWssRefs(fs, root, 'outgoing'),
-      incoming: await loadWssRefs(fs, root, 'incoming'),
-      keystores,
-    },
+    keystores,
     // Absent when there is none, as every project written before placeholders is.
     ...(unsupported.length > 0
       ? { unsupported: unsupported.sort((a, b) => a.dir.localeCompare(b.dir) || a.slug.localeCompare(b.slug)) }
@@ -372,6 +294,11 @@ export async function loadProject(root: string, options?: LoadProjectOptions): P
   let project = core;
   for (const [storage, containers] of loaded) {
     project = storage.withContainers(project, containers.sort(byOrder));
+  }
+  // After the containers, in registry order. A disabled module's files are not read, and a save
+  // leaves them as they are.
+  for (const { projectFiles } of registry.modules) {
+    if (projectFiles !== undefined) project = await projectFiles.load(ctx, project);
   }
   return { project, problems };
 }

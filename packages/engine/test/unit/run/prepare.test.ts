@@ -104,7 +104,8 @@ function makeProject(options: ProjectOptions = {}): Project {
     sequences: [],
     mocks: [],
     environments: [ENV],
-    wss: { outgoing: options.outgoing ?? [], incoming: [], keystores: options.keystores ?? [] },
+    keystores: options.keystores ?? [],
+    ...(options.outgoing !== undefined ? { protocols: { soap: { outgoing: options.outgoing, incoming: [] } } } : {}),
   };
 }
 

@@ -519,16 +519,18 @@ describe('sendThroughEngine for a webhook item', () => {
     });
     return {
       ...createProject('P', { id: 'p1' }),
-      webhooks: createWebhookCollection({
-        target,
-        folders: [
-          createWebhookFolder('Orders', {
-            id: 'g1',
-            signing,
-            requests: [orphan ? { ...paid, orphaned: true } : paid],
-          }),
-        ],
-      }),
+      protocols: {
+        rest: createWebhookCollection({
+          target,
+          folders: [
+            createWebhookFolder('Orders', {
+              id: 'g1',
+              signing,
+              requests: [orphan ? { ...paid, orphaned: true } : paid],
+            }),
+          ],
+        }),
+      },
     };
   }
 
@@ -666,28 +668,30 @@ describe('sendThroughEngine for a webhook item', () => {
           }),
         ],
       },
-      webhooks: createWebhookCollection({
-        folders: [
-          createWebhookFolder('Petstore', {
-            id: 'g1',
-            target: 'http://127.0.0.1:1/never',
-            source: { apiId: 'api-1' },
-            requests: [
-              createRestRequest('onEvent', {
-                id: 'w3',
-                method: 'POST',
-                url: '/onEvent',
-                hook: {
-                  kind: 'callback',
-                  operation: 'post /subscriptions',
-                  name: 'onEvent',
-                  expression: '{$request.body#/callbackUrl}',
-                },
-              }),
-            ],
-          }),
-        ],
-      }),
+      protocols: {
+        rest: createWebhookCollection({
+          folders: [
+            createWebhookFolder('Petstore', {
+              id: 'g1',
+              target: 'http://127.0.0.1:1/never',
+              source: { apiId: 'api-1' },
+              requests: [
+                createRestRequest('onEvent', {
+                  id: 'w3',
+                  method: 'POST',
+                  url: '/onEvent',
+                  hook: {
+                    kind: 'callback',
+                    operation: 'post /subscriptions',
+                    name: 'onEvent',
+                    expression: '{$request.body#/callbackUrl}',
+                  },
+                }),
+              ],
+            }),
+          ],
+        }),
+      },
     };
     const parent: HistoryEntryWire = {
       id: 'h1',

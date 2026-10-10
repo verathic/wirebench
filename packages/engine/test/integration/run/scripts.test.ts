@@ -100,7 +100,7 @@ function project(restRequests: readonly RestRequestDef[], soapRequests: readonly
       rest: [{ ...createApi('Api', { id: 'api-1', slug: 'api', order: 1, baseUrl: '' }), requests: [...restRequests] }],
     },
     environments: [],
-    wss: { outgoing: [], incoming: [], keystores: [] },
+    keystores: [],
     sequences: [],
     mocks: [],
   } as unknown as Project;

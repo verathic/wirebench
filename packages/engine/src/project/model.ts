@@ -15,7 +15,6 @@
 import { ulid } from 'ulidx';
 import type { MockDef } from '../mock/model.js';
 import type { SequenceDef } from '../sequence/model.js';
-import type { WebhookCollection } from '../webhooks/model.js';
 import type { ContainerBase } from '../protocol/module.js';
 
 /**
@@ -286,19 +285,18 @@ export interface Project {
    * refers to the interface or API it implements by id and holds no requests.
    */
   readonly mocks: readonly MockDef[];
-  /**
-   * The project's webhook collection (spec `…-openapi-webhooks-import-design.md`), absent until the
-   * first webhook is created or imported. Not a list like the API containers: one per project.
-   */
-  readonly webhooks?: WebhookCollection;
   readonly environments: readonly Environment[];
   /** Id of the environment currently active for this project, if any. */
   readonly activeEnvironmentId?: string;
-  readonly wss: {
-    readonly outgoing: readonly WssRef[];
-    readonly incoming: readonly WssRef[];
-    readonly keystores: readonly WssRef[];
-  };
+  /**
+   * What a protocol keeps for the whole project rather than in a container, keyed by its kind: REST's
+   * webhook collection, SOAP's WS-Security configurations. Read with that protocol's reader
+   * (`webhooksOf`, `wssConfigsOf`) or {@link protocolDataOf}. A kind with nothing is absent, and so is
+   * the record when no kind has anything.
+   */
+  readonly protocols?: Readonly<Record<string, unknown>>;
+  /** The client keystore registry, `wss/keystores.yaml`; REST and gRPC TLS use it as SOAP does. */
+  readonly keystores: readonly WssRef[];
 }
 
 /**
@@ -325,6 +323,31 @@ export function containersOf(project: Project, kind: string): readonly Container
 export function withContainersOf(project: Project, kind: string, containers: readonly ContainerBase[]): Project {
   const next = { ...project.containers, [kind]: containers };
   return { ...project, containers: Object.fromEntries(Object.entries(next).filter(([, list]) => list.length > 0)) };
+}
+
+/**
+ * What the protocol `kind` keeps for the whole project, or undefined when it keeps nothing. Its own
+ * reader narrows the type (`webhooksOf`, `wssConfigsOf`).
+ *
+ * @internal Exported for the engine's own hosts; not yet a plugin API (ADR-0017).
+ */
+export function protocolDataOf(project: Project, kind: string): unknown {
+  return project.protocols?.[kind];
+}
+
+/**
+ * `project` with what `kind` keeps for the whole project replaced; undefined removes it. As with
+ * {@link withContainersOf}, an empty record is dropped, so two projects holding the same data are equal.
+ *
+ * @internal Exported for the engine's own hosts; not yet a plugin API (ADR-0017).
+ */
+export function withProtocolData(project: Project, kind: string, data: unknown): Project {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit it
+  const { protocols: dropped, ...rest } = project;
+  const next = Object.fromEntries(
+    Object.entries({ ...project.protocols, [kind]: data }).filter(([, value]) => value !== undefined),
+  );
+  return Object.keys(next).length > 0 ? { ...rest, protocols: next } : rest;
 }
 
 /** Every container the project holds, of every kind. */
@@ -379,6 +402,6 @@ export function createProject(name: string, options?: CreateOptions): Project {
     sequences: [],
     mocks: [],
     environments: [],
-    wss: { outgoing: [], incoming: [], keystores: [] },
+    keystores: [],
   };
 }

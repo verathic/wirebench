@@ -92,6 +92,28 @@ export interface ProtocolStorage<C extends ContainerBase = ContainerBase> {
 }
 
 /**
+ * What a protocol keeps for the whole project rather than in a container (spec §3): REST's webhook
+ * collection under `webhooks/`, SOAP's WS-Security configurations under `wss/`. The data lives in
+ * `Project.protocols` under the module's kind.
+ *
+ * @internal Exported for the engine's own hosts; not yet a plugin API (ADR-0017).
+ */
+export interface ProtocolProjectFiles {
+  /** `project` with the protocol's project-level files read in; called after every container is loaded. */
+  load(ctx: LoadContext, project: Project): Promise<Project>;
+  /** Every project-level file the protocol writes: path relative to the project root, to its text. */
+  files(project: Project): ReadonlyMap<string, string>;
+  /** The project-level files a save may delete when it no longer writes them. */
+  managed(fs: FsLike, root: string): Promise<readonly string[]>;
+  /** Where the request with `requestId` is written, when the project-level files hold it. */
+  requestLocation?(project: Project, requestId: string): RequestFileLocation | undefined;
+  /** Every entity id the project-level files hold, for a copy that takes fresh ids (`reidentifyProject`). */
+  entityIds?(project: Project): readonly string[];
+  /** `project` with every id its project-level files hold, and every reference to one, passed through `mapId`. */
+  withEntityIds?(project: Project, mapId: (id: string) => string): Project;
+}
+
+/**
  * Where the secret scanner looks in what a protocol stores, and how a move to a secret rewrites it
  * (docs/specs/2026-09-22-secret-scanning-design.md). Each location it yields and rewrites is one of
  * its own `SecretLocation` kinds.
@@ -270,6 +292,8 @@ export interface ProtocolModule {
   readonly feature: FeatureDescriptor;
   /** How its containers are read from and written to a project folder. */
   readonly storage: ProtocolStorage;
+  /** Absent: the protocol keeps nothing outside its containers. */
+  readonly projectFiles?: ProtocolProjectFiles;
   /** Absent: the protocol's requests cannot be run. */
   readonly run?: ProtocolRun;
   /** Absent: the protocol's requests cannot have scripts. */
@@ -297,6 +321,7 @@ export function defineProtocol<S extends SelectedBase>(module: {
   readonly kind: string;
   readonly feature: FeatureDescriptor;
   readonly storage: ProtocolStorage;
+  readonly projectFiles?: ProtocolProjectFiles;
   readonly run?: ProtocolRun<S>;
   readonly scripting?: ProtocolScripting;
   readonly mock?: ProtocolMocking;
@@ -310,6 +335,7 @@ export function defineProtocol<S extends SelectedBase>(module: {
     kind: module.kind,
     feature: module.feature,
     storage: module.storage,
+    ...(module.projectFiles !== undefined ? { projectFiles: module.projectFiles } : {}),
     ...(module.scripting !== undefined ? { scripting: module.scripting } : {}),
     ...(module.mock !== undefined ? { mock: module.mock } : {}),
     ...(module.secrets !== undefined ? { secrets: module.secrets } : {}),

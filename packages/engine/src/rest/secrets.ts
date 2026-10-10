@@ -4,6 +4,7 @@
  */
 import type { KeyValueEntry } from '../http/entries.js';
 import type { Project } from '../project/model.js';
+import { webhooksOf, withWebhooks } from '../webhooks/model.js';
 import type { ProtocolSecrets } from '../protocol/module.js';
 import { keyed, keyedEntries, mapShared, mapTree, patch, SEP, tree, url } from '../secrets/scan/support.js';
 import type { ScanTarget, SecretRewriter } from '../secrets/scan/support.js';
@@ -54,7 +55,8 @@ function* requestTargets(request: RestRequestDef, prefix: string): Generator<Sca
 
 function* scanTargets(project: Project): Generator<ScanTarget> {
   for (const api of restApisOf(project)) yield* tree(api, api.name, requestTargets);
-  if (project.webhooks !== undefined) yield* tree(project.webhooks, 'Webhooks', requestTargets);
+  const webhooks = webhooksOf(project);
+  if (webhooks !== undefined) yield* tree(webhooks, 'Webhooks', requestTargets);
 }
 
 function rewriteBody(rw: SecretRewriter, requestId: string, body: RestBody): RestBody {
@@ -90,9 +92,9 @@ export const restSecrets: ProtocolSecrets = {
     const apis = restApisOf(project);
     const nextApis = mapShared(apis, (api) => mapTree(api, (request: RestRequestDef) => rewriteRequest(rw, request)));
     const withApis = nextApis === apis ? project : withRestApis(project, nextApis);
-    if (project.webhooks === undefined) return withApis;
-    return patch(withApis, {
-      webhooks: mapTree(project.webhooks, (request: RestRequestDef) => rewriteRequest(rw, request)),
-    });
+    const webhooks = webhooksOf(project);
+    if (webhooks === undefined) return withApis;
+    const nextWebhooks = mapTree(webhooks, (request: RestRequestDef) => rewriteRequest(rw, request));
+    return nextWebhooks === webhooks ? withApis : withWebhooks(withApis, nextWebhooks);
   },
 };

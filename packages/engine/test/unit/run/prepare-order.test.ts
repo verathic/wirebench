@@ -217,7 +217,7 @@ function project(shape: Shape = {}): Project {
     sequences: [],
     mocks: [],
     environments: [],
-    wss: { outgoing: [], incoming: [], keystores: [] },
+    keystores: [],
   };
 }
 

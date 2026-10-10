@@ -56,10 +56,12 @@ function restItemAt(base: string, path: string, settings: RestRequestDef['settin
 function webhookItem(target: string, url = '/echo') {
   const p: Project = {
     ...createProject('Hooks', { id: 'p-hooks' }),
-    webhooks: createWebhookCollection({
-      target,
-      requests: [createRestRequest('Ping', { id: 'w1', slug: 'ping', method: 'POST', url })],
-    }),
+    protocols: {
+      rest: createWebhookCollection({
+        target,
+        requests: [createRestRequest('Ping', { id: 'w1', slug: 'ping', method: 'POST', url })],
+      }),
+    },
   };
   return { p, item: selectRequests(p, ['Webhooks/Ping']).selected[0]! };
 }
@@ -240,7 +242,7 @@ describe('REST through openExchange', () => {
     const hook = { ...createRestRequest('Gone', { id: 'w-old', url: '/gone' }), orphaned: true as const };
     const p: Project = {
       ...project(server.url, orphan),
-      webhooks: createWebhookCollection({ target: server.url, requests: [hook] }),
+      protocols: { rest: createWebhookCollection({ target: server.url, requests: [hook] }) },
     };
     expect(restItemFor(p, 'r-old')).toMatchObject({ kind: 'rest', path: 'Api/Legacy', request: { id: 'r-old' } });
     expect(restItemFor(p, 'w-old')).toMatchObject({ kind: 'rest', group: 'Webhooks', request: { id: 'w-old' } });

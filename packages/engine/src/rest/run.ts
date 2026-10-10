@@ -47,6 +47,7 @@ import {
   signingSourceLabel,
 } from '../webhooks/model.js';
 import type { EffectiveSigning, WebhookCollection, WebhookFolder } from '../webhooks/model.js';
+import { webhooksOf } from '../webhooks/model.js';
 import { resolveAuthChain } from '../http/auth/apply-auth.js';
 import { expandRestSendInput } from './expand.js';
 import type { RestLiveEvent } from './events.js';
@@ -303,9 +304,10 @@ function webhookCandidates(collection: WebhookCollection, orphaned = false): Res
  * still send. Undefined when no REST request has that id.
  */
 export function restItemFor(project: Project, requestId: string): RestSelected | undefined {
+  const webhooks = webhooksOf(project);
   const candidates = [
     ...restApisOf(project).flatMap((api) => apiCandidates(api, true)),
-    ...(project.webhooks !== undefined ? webhookCandidates(project.webhooks, true) : []),
+    ...(webhooks !== undefined ? webhookCandidates(webhooks, true) : []),
   ];
   return candidates.find((candidate) => candidate.item.request.id === requestId)?.item;
 }
@@ -448,13 +450,15 @@ export const restRun: ProtocolRun<RestSelected> = {
       candidates: apiCandidates(api),
     }));
     // Webhook items deliver to a receiver rather than test an API: sent only when a selector names one.
-    return project.webhooks === undefined
+    const webhooks = webhooksOf(project);
+    return webhooks === undefined
       ? apis
-      : [...apis, { order: 0, name: 'Webhooks', candidates: webhookCandidates(project.webhooks), explicitOnly: true }];
+      : [...apis, { order: 0, name: 'Webhooks', candidates: webhookCandidates(webhooks), explicitOnly: true }];
   },
 
   whyNotRunnable(project, requestId) {
-    if (project.webhooks !== undefined && findInTree(project.webhooks, requestId) !== undefined) {
+    const webhooks = webhooksOf(project);
+    if (webhooks !== undefined && findInTree(webhooks, requestId) !== undefined) {
       return 'A webhook cannot be a sequence step';
     }
     for (const api of restApisOf(project)) {

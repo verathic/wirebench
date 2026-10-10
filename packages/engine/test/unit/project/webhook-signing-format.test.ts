@@ -13,6 +13,7 @@ import {
 } from '../../../src/index.js';
 import type { Project, WebhookSigning } from '../../../src/index.js';
 import { tempProjectDir } from './fixture.js';
+import { webhooksOf } from '../../../src/webhooks/model.js';
 
 const HMAC: WebhookSigning = {
   mode: 'sign',
@@ -31,22 +32,30 @@ function signedProject(): Project {
   return {
     ...createProject('Hooks', { id: 'p1' }),
     properties: { webhookTarget: '' },
-    webhooks: createWebhookCollection({
-      signing: STANDARD,
-      requests: [
-        createRestRequest('Ping', { id: 'r1', slug: 'ping', method: 'POST', url: '/ping', signing: { mode: 'none' } }),
-      ],
-      folders: [
-        createWebhookFolder('Orders', {
-          id: 'f1',
-          slug: 'orders',
-          signing: HMAC,
-          requests: [
-            createRestRequest('Paid', { id: 'r2', slug: 'paid', method: 'POST', url: '/paid', signing: TIMESTAMPED }),
-          ],
-        }),
-      ],
-    }),
+    protocols: {
+      rest: createWebhookCollection({
+        signing: STANDARD,
+        requests: [
+          createRestRequest('Ping', {
+            id: 'r1',
+            slug: 'ping',
+            method: 'POST',
+            url: '/ping',
+            signing: { mode: 'none' },
+          }),
+        ],
+        folders: [
+          createWebhookFolder('Orders', {
+            id: 'f1',
+            slug: 'orders',
+            signing: HMAC,
+            requests: [
+              createRestRequest('Paid', { id: 'r2', slug: 'paid', method: 'POST', url: '/paid', signing: TIMESTAMPED }),
+            ],
+          }),
+        ],
+      }),
+    },
   };
 }
 
@@ -69,7 +78,7 @@ describe('signing in the webhooks/ tree (§5.1)', () => {
     await saveProject(signedProject(), dir);
     const { project, problems } = await loadProject(dir);
     expect(problems).toEqual([]);
-    expect(project.webhooks).toEqual(signedProject().webhooks);
+    expect(webhooksOf(project)).toEqual(webhooksOf(signedProject()));
     const again = await saveProject(project, dir);
     expect(again.written).toEqual([]);
     await rm(dir, { recursive: true, force: true });

@@ -18,11 +18,12 @@ import {
   openExchange,
   parseSecretPseudoRef,
   ProjectError,
-  resolveExchange,
   resolvedBaseUrl,
+  resolveExchange,
   restEffectiveAuth,
   SecretPlaceholders,
   soapEffectiveAuth,
+  webhooksOf,
   WirebenchError,
   wsEffectiveAuth,
 } from '@wirebench/engine';
@@ -760,7 +761,8 @@ function restUrlSourceOf(
   context: RunContext,
 ): Pick<RestPreview, 'baseUrlSource' | 'targetDetail'> {
   const { project } = context;
-  if (project.webhooks === undefined || findWebhookRequest(project.webhooks, item.request.id) === undefined) {
+  const webhooks = webhooksOf(project);
+  if (webhooks === undefined || findWebhookRequest(webhooks, item.request.id) === undefined) {
     return { baseUrlSource: resolvedBaseUrl(context, item.api).source };
   }
   if (item.request.hook?.kind !== 'callback') return { baseUrlSource: 'target' };

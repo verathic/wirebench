@@ -69,23 +69,25 @@ afterAll(async () => {
 function project(target: string, signing: WebhookSigning = SIGNING): Project {
   return {
     ...createProject('P', { id: 'p1' }),
-    webhooks: createWebhookCollection({
-      target,
-      folders: [
-        createWebhookFolder('Orders', {
-          id: 'g1',
-          signing,
-          requests: [
-            createRestRequest('Paid', {
-              id: 'w1',
-              method: 'POST',
-              url: '/echo',
-              body: { kind: 'raw', language: 'json', text: BODY },
-            }),
-          ],
-        }),
-      ],
-    }),
+    protocols: {
+      rest: createWebhookCollection({
+        target,
+        folders: [
+          createWebhookFolder('Orders', {
+            id: 'g1',
+            signing,
+            requests: [
+              createRestRequest('Paid', {
+                id: 'w1',
+                method: 'POST',
+                url: '/echo',
+                body: { kind: 'raw', language: 'json', text: BODY },
+              }),
+            ],
+          }),
+        ],
+      }),
+    },
   };
 }
 

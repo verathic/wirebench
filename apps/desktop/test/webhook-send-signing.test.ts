@@ -21,16 +21,18 @@ const SIGNING: WebhookSigning = {
 function project(signing?: WebhookSigning): Project {
   return {
     ...createProject('P', { id: 'p1' }),
-    webhooks: createWebhookCollection({
-      target: 'https://receiver.test/hooks',
-      folders: [
-        createWebhookFolder('Orders', {
-          id: 'g1',
-          ...(signing !== undefined ? { signing } : {}),
-          requests: [createRestRequest('Paid', { id: 'w1', method: 'POST', url: '/paid' })],
-        }),
-      ],
-    }),
+    protocols: {
+      rest: createWebhookCollection({
+        target: 'https://receiver.test/hooks',
+        folders: [
+          createWebhookFolder('Orders', {
+            id: 'g1',
+            ...(signing !== undefined ? { signing } : {}),
+            requests: [createRestRequest('Paid', { id: 'w1', method: 'POST', url: '/paid' })],
+          }),
+        ],
+      }),
+    },
   };
 }
 

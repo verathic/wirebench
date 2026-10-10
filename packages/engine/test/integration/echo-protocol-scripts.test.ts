@@ -51,7 +51,7 @@ function project(requests: readonly EchoRequest[]): Project {
     properties: {},
     disabledProperties: [],
     environments: [],
-    wss: { outgoing: [], incoming: [], keystores: [] },
+    keystores: [],
     sequences: [],
     mocks: [],
     containers: { echo: [api] },

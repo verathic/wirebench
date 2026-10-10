@@ -1,5 +1,6 @@
 /** SOAP as a protocol module (spec §3). */
 import { defineProtocol } from '../protocol/module.js';
+import { wssProjectFiles } from '../wss/storage.js';
 import { soapSecrets } from './secrets.js';
 import { soapMocking } from './mock.js';
 import { soapRun } from './run.js';
@@ -11,6 +12,7 @@ export const soapProtocol = defineProtocol({
   kind: 'soap',
   feature: { id: 'soap', title: 'SOAP', default: true, stage: 'stable', requires: [] },
   storage: soapStorage,
+  projectFiles: wssProjectFiles,
   secrets: soapSecrets,
   run: soapRun,
   scripting: soapScripting,

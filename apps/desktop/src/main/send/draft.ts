@@ -12,6 +12,7 @@ import {
   signingAlong,
   soapItemFor,
   webhookPath,
+  webhooksOf,
   wsItemFor,
 } from '@wirebench/engine';
 import type {
@@ -163,7 +164,7 @@ function adHocProperties(input: ResolvedSendInputWire): Partial<RequestPropertie
 function withRestDraft(project: Project, item: RestSelected, draft: RestRequestPatchWire | undefined): RestSelected {
   if (draft === undefined) return item;
   const request = withDraft(item.request, draft);
-  const collection = project.webhooks;
+  const collection = webhooksOf(project);
   const path = item.signing === undefined || collection === undefined ? undefined : webhookPath(collection, request.id);
   return {
     ...item,

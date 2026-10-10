@@ -1,16 +1,17 @@
 /**
  * A fifth protocol, for tests only: `echo` answers a request with the request's own text. It is
  * registered beside the built-in protocols to prove that no core file has to know a protocol
- * (protocol modules spec §10). Its containers live in `project.containers.echo`.
+ * (protocol modules spec §10). Its containers live in `project.containers.echo`, and its one
+ * project-level file, `echo/notes.yaml`, in `project.protocols.echo` (kind modules spec §3, §12).
  *
- * This file holds all three facets. `send` reaches no network.
+ * This file holds all four facets. `send` reaches no network.
  */
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { Assertion, AssertionSubject } from '../../src/assert/model.js';
 import { readFileIfExists, readdirIfExists } from '../../src/project/fs.js';
 import { readYaml } from '../../src/project/load-helpers.js';
-import { containersOf, withContainersOf } from '../../src/project/model.js';
+import { containersOf, protocolDataOf, withContainersOf, withProtocolData } from '../../src/project/model.js';
 import type { Project } from '../../src/project/model.js';
 import { API_FILE, APIS_DIR, assertPathSegment, REQUEST_SUFFIX, REQUESTS_DIR } from '../../src/project/paths.js';
 import { expand } from '../../src/project/properties.js';
@@ -18,6 +19,7 @@ import { nonEmpty, parseFile } from '../../src/project/schema-parts.js';
 import { stringifyYaml } from '../../src/project/yaml.js';
 import { defineProtocol } from '../../src/protocol/module.js';
 import type {
+  ProtocolProjectFiles,
   ProtocolRun,
   ProtocolScripting,
   ProtocolStorage,
@@ -340,11 +342,46 @@ export const echoStorage: ProtocolStorage<EchoApi> = {
   withContainers: (project, containers) => withContainersOf(project, 'echo', containers),
 };
 
+/** What the echo protocol keeps for the whole project: one note, as REST keeps its webhook collection. */
+export interface EchoNotes {
+  readonly text: string;
+}
+
+/** The project's echo notes, or undefined when it has none. */
+export function echoNotesOf(project: Project): EchoNotes | undefined {
+  return protocolDataOf(project, 'echo') as EchoNotes | undefined;
+}
+
+/** `project` with its echo notes replaced; undefined removes them. */
+export function withEchoNotes(project: Project, notes: EchoNotes | undefined): Project {
+  return withProtocolData(project, 'echo', notes);
+}
+
+const NOTES_FILE = 'echo/notes.yaml';
+const echoNotesFileSchema = z.looseObject({ text: z.string() });
+
+/** The echo protocol's project-level file: `echo/notes.yaml`. */
+export const echoProjectFiles: ProtocolProjectFiles = {
+  async load(ctx, project) {
+    const document = await readYaml(ctx.fs, ctx.root, NOTES_FILE);
+    if (document === undefined) return project;
+    return withEchoNotes(project, { text: parseFile(echoNotesFileSchema, document, NOTES_FILE).text });
+  },
+  files(project) {
+    const notes = echoNotesOf(project);
+    return new Map(notes === undefined ? [] : [[NOTES_FILE, stringifyYaml({ text: notes.text })]]);
+  },
+  async managed(fs, root) {
+    return (await readFileIfExists(fs, join(root, 'echo', 'notes.yaml'))) === undefined ? [] : [NOTES_FILE];
+  },
+};
+
 /** The echo protocol, to register beside the built-in ones. */
 export const echoProtocol = defineProtocol({
   kind: 'echo',
   feature: { id: 'echo', title: 'Echo', default: true, stage: 'experimental', requires: [] },
   storage: echoStorage,
+  projectFiles: echoProjectFiles,
   run: echoRun,
   scripting: echoScripting,
 });

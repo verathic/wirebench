@@ -17,6 +17,12 @@ All notable changes to this project are documented here. The format follows
   `grpcApis`, `wsApis` and `extraContainers` are replaced by `Project.containers`, keyed by kind;
   each protocol reads and replaces its own with a typed pair such as `restApisOf` and
   `withRestApis` (#184).
+- **`@wirebench/engine`: the webhook collection and the WS-Security configurations belong to their
+  protocols.** `Project.webhooks` and `Project.wss.outgoing` / `incoming` move into
+  `Project.protocols`, read with `webhooksOf` and `wssConfigsOf`; `Project.wss.keystores` is
+  `Project.keystores`. REST loads and saves `webhooks/` and SOAP `wss/outgoing/` and
+  `wss/incoming/` through a new project-files facet, so a switched-off protocol's files are left on
+  disk untouched (#184).
 
 ## [5.0.0] - 2026-10-10
 

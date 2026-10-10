@@ -10,6 +10,7 @@ import type { Project } from '../../../src/project/model.js';
 import type { SoapRequestDef } from '../../../src/soap/model.js';
 import { CRLF_ENVELOPE, listTree, readBytes, sampleProject, tempProjectDir } from './fixture.js';
 import { soapInterfacesOf, withSoapInterfaces } from '../../../src/soap/model.js';
+import { wssConfigsOf, withWssConfigs } from '../../../src/wss/project.js';
 
 function withRequests(project: Project, map: (r: SoapRequestDef) => SoapRequestDef | undefined): Project {
   return {
@@ -200,9 +201,12 @@ describe('saveProject', () => {
     for (const badFile of ['../outside.yaml', '/etc/passwd', 'wss/../outside.yaml', 'other/x.yaml']) {
       const corrupted: Project = {
         ...project,
-        wss: {
-          ...project.wss,
-          outgoing: [{ id: 'W1', name: 'x', file: badFile, document: { id: 'W1', name: 'x' } }],
+        protocols: {
+          ...project.protocols,
+          soap: {
+            ...wssConfigsOf(project),
+            outgoing: [{ id: 'W1', name: 'x', file: badFile, document: { id: 'W1', name: 'x' } }],
+          },
         },
       };
       await expect(saveProject(corrupted, dir)).rejects.toMatchObject({ code: 'project-path-invalid' });
@@ -469,7 +473,7 @@ describe('loadProject', () => {
     expect(problems.map((p) => p.code)).toEqual(['orphan-request-file']);
     expect(problems[0]?.file).toBe(`${opDir}/Ghost.xml`);
     expect(loaded.environments.map((e) => e.slug)).toEqual(['dev', 'prod']);
-    expect(loaded.wss.outgoing.map((w) => w.name)).toEqual(['prod-signature']);
+    expect(wssConfigsOf(loaded).outgoing.map((w) => w.name)).toEqual(['prod-signature']);
 
     await rm(dir, { recursive: true, force: true });
   });
@@ -502,10 +506,12 @@ describe('loadProject', () => {
   it('loads a project with no wss directory at all', async () => {
     const dir = await tempProjectDir();
     const project = sampleProject();
-    await saveProject({ ...project, wss: { outgoing: [], incoming: [], keystores: [] } }, dir);
+    await saveProject(withWssConfigs({ ...project, keystores: [] }, { outgoing: [], incoming: [] }), dir);
 
     const { project: loaded } = await loadProject(dir);
-    expect(loaded.wss).toEqual({ outgoing: [], incoming: [], keystores: [] });
+    expect(wssConfigsOf(loaded)).toEqual({ outgoing: [], incoming: [] });
+    expect(loaded.keystores).toEqual([]);
+    expect(loaded.protocols).toBeUndefined();
 
     await rm(dir, { recursive: true, force: true });
   });

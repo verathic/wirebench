@@ -67,24 +67,26 @@ const project: Project = {
       createApi('Empty', { id: 'api-empty', slug: 'empty', order: 0 }),
     ],
   },
-  webhooks: createWebhookCollection({
-    target: 'https://receiver.example.test/hooks',
-    signing: {
-      mode: 'sign',
-      scheme: { kind: 'hmac', algorithm: 'sha256', encoding: 'hex', header: 'X-Signature' },
-      secretRef: 'ref-hooks',
-      secretEnv: 'HOOKS_SIGNING',
-    },
-    requests: [createRestRequest('Ping', { id: 'hook-ping', slug: 'ping', method: 'POST', url: '/ping' })],
-    folders: [
-      createWebhookFolder('Orders', {
-        id: 'hook-folder',
-        slug: 'orders',
-        target: 'https://orders.example.test',
-        requests: [createRestRequest('Paid', { id: 'hook-paid', slug: 'paid', method: 'POST', url: '/paid' })],
-      }),
-    ],
-  }),
+  protocols: {
+    rest: createWebhookCollection({
+      target: 'https://receiver.example.test/hooks',
+      signing: {
+        mode: 'sign',
+        scheme: { kind: 'hmac', algorithm: 'sha256', encoding: 'hex', header: 'X-Signature' },
+        secretRef: 'ref-hooks',
+        secretEnv: 'HOOKS_SIGNING',
+      },
+      requests: [createRestRequest('Ping', { id: 'hook-ping', slug: 'ping', method: 'POST', url: '/ping' })],
+      folders: [
+        createWebhookFolder('Orders', {
+          id: 'hook-folder',
+          slug: 'orders',
+          target: 'https://orders.example.test',
+          requests: [createRestRequest('Paid', { id: 'hook-paid', slug: 'paid', method: 'POST', url: '/paid' })],
+        }),
+      ],
+    }),
+  },
 };
 
 const itemAt = (path: string) =>

@@ -4,6 +4,7 @@ import { projectFiles } from '../../../src/project/serialize.js';
 import type { Project, SoapOwnerAuth } from '../../../src/project/model.js';
 import { fixedIds, sampleProject } from '../project/fixture.js';
 import { soapInterfacesOf } from '../../../src/soap/model.js';
+import { wssConfigsOf, withWssConfigs } from '../../../src/wss/project.js';
 
 /** Every entity id in `project`, in the order `reidentifyProject` visits them. */
 function allIds(project: Project): string[] {
@@ -25,7 +26,7 @@ function allIds(project: Project): string[] {
   for (const environment of project.environments) {
     ids.push(environment.id);
   }
-  for (const ref of [...project.wss.outgoing, ...project.wss.incoming, ...project.wss.keystores]) {
+  for (const ref of [...wssConfigsOf(project).outgoing, ...wssConfigsOf(project).incoming, ...project.keystores]) {
     ids.push(ref.id);
   }
   return ids;
@@ -64,7 +65,7 @@ function secretValues(project: Project): string[] {
       }
     }
   }
-  for (const ref of project.wss.keystores) {
+  for (const ref of project.keystores) {
     const passwordSecretRef = ref.document['passwordSecretRef'];
     if (typeof passwordSecretRef === 'string') {
       values.push(passwordSecretRef);
@@ -150,12 +151,12 @@ describe('reidentifyProject', () => {
       );
     }
 
-    const wssOutgoingIdsBefore = new Set(project.wss.outgoing.map((r) => r.id));
-    const wssOutgoingIdsAfter = new Set(reidentified.wss.outgoing.map((r) => r.id));
-    const wssIncomingIdsBefore = new Set(project.wss.incoming.map((r) => r.id));
-    const wssIncomingIdsAfter = new Set(reidentified.wss.incoming.map((r) => r.id));
-    const keystoreIdsBefore = new Set(project.wss.keystores.map((r) => r.id));
-    const keystoreIdsAfter = new Set(reidentified.wss.keystores.map((r) => r.id));
+    const wssOutgoingIdsBefore = new Set(wssConfigsOf(project).outgoing.map((r) => r.id));
+    const wssOutgoingIdsAfter = new Set(wssConfigsOf(reidentified).outgoing.map((r) => r.id));
+    const wssIncomingIdsBefore = new Set(wssConfigsOf(project).incoming.map((r) => r.id));
+    const wssIncomingIdsAfter = new Set(wssConfigsOf(reidentified).incoming.map((r) => r.id));
+    const keystoreIdsBefore = new Set(project.keystores.map((r) => r.id));
+    const keystoreIdsAfter = new Set(reidentified.keystores.map((r) => r.id));
 
     for (let i = 0; i < soapInterfacesOf(project).length; i += 1) {
       const beforeIface = soapInterfacesOf(project)[i]!;
@@ -214,29 +215,26 @@ describe('reidentifyProject', () => {
 
   it('rewrites a keystore id buried inside a WssRef.document bag, at any depth, arrays included', () => {
     const project = sampleProject();
-    const keystoreId = project.wss.keystores[0]!.id;
-    const withDocumentRef: Project = {
-      ...project,
-      wss: {
-        ...project.wss,
-        incoming: project.wss.incoming.map((ref, index) =>
-          index === 0
-            ? {
-                ...ref,
-                document: {
-                  ...ref.document,
-                  decryptKeystoreRef: keystoreId,
-                  nested: { entries: [{ signatureKeystoreRef: keystoreId }] },
-                },
-              }
-            : ref,
-        ),
-      },
-    };
+    const keystoreId = project.keystores[0]!.id;
+    const withDocumentRef: Project = withWssConfigs(project, {
+      ...wssConfigsOf(project),
+      incoming: wssConfigsOf(project).incoming.map((ref, index) =>
+        index === 0
+          ? {
+              ...ref,
+              document: {
+                ...ref.document,
+                decryptKeystoreRef: keystoreId,
+                nested: { entries: [{ signatureKeystoreRef: keystoreId }] },
+              },
+            }
+          : ref,
+      ),
+    });
 
     const reidentified = reidentifyProject(withDocumentRef, fixedIds('NEW'));
-    const newKeystoreId = reidentified.wss.keystores[0]!.id;
-    const document = reidentified.wss.incoming[0]!.document as {
+    const newKeystoreId = reidentified.keystores[0]!.id;
+    const document = wssConfigsOf(reidentified).incoming[0]!.document as {
       decryptKeystoreRef: string;
       nested: { entries: [{ signatureKeystoreRef: string }] };
     };
@@ -246,9 +244,9 @@ describe('reidentifyProject', () => {
 
   it('rewrites a wssOutgoingRef/wssIncomingRef/sslKeystoreRef that actually resolves to a config id', () => {
     const project = sampleProject();
-    const outgoingRefId = project.wss.outgoing[0]!.id;
-    const incomingRefId = project.wss.incoming[0]!.id;
-    const keystoreRefId = project.wss.keystores[0]!.id;
+    const outgoingRefId = wssConfigsOf(project).outgoing[0]!.id;
+    const incomingRefId = wssConfigsOf(project).incoming[0]!.id;
+    const keystoreRefId = project.keystores[0]!.id;
     const withRealRefs: Project = {
       ...project,
       containers: {
@@ -282,9 +280,9 @@ describe('reidentifyProject', () => {
 
     const reidentified = reidentifyProject(withRealRefs, fixedIds('NEW'));
     const request = soapInterfacesOf(reidentified)[0]?.operations[0]?.requests[0];
-    expect(request?.wssOutgoingRef).toBe(reidentified.wss.outgoing[0]!.id);
-    expect(request?.wssIncomingRef).toBe(reidentified.wss.incoming[0]!.id);
-    expect(request?.properties.sslKeystoreRef).toBe(reidentified.wss.keystores[0]!.id);
+    expect(request?.wssOutgoingRef).toBe(wssConfigsOf(reidentified).outgoing[0]!.id);
+    expect(request?.wssIncomingRef).toBe(wssConfigsOf(reidentified).incoming[0]!.id);
+    expect(request?.properties.sslKeystoreRef).toBe(reidentified.keystores[0]!.id);
     expect(request?.wssOutgoingRef).not.toBe(outgoingRefId);
   });
 

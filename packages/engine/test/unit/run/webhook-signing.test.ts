@@ -9,6 +9,7 @@ import { selectRequests } from '../../../src/run/select.js';
 import { envVariablesFor } from '../../../src/secrets/env-names.js';
 import type { Project, WebhookSigning } from '../../../src/index.js';
 import { hooksProject } from '../webhooks/fixture.js';
+import { webhooksOf, withWebhooks } from '../../../src/webhooks/model.js';
 
 const dir = mkdtempSync(join(tmpdir(), 'wb-signing-'));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -22,7 +23,7 @@ const SIGNING: WebhookSigning = {
 
 function signed(signing: WebhookSigning = SIGNING): Project {
   const project = hooksProject();
-  return { ...project, webhooks: { ...project.webhooks!, signing } };
+  return withWebhooks(project, { ...webhooksOf(project)!, signing });
 }
 
 const context = (project: Project, secrets: Record<string, string>): RunContext => ({

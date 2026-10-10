@@ -15,6 +15,8 @@ import {
   toWssIncomingRef,
   toWssOutgoingConfig,
   toWssOutgoingRef,
+  withWssConfigs,
+  wssConfigsOf,
 } from '@wirebench/engine';
 import type { Project, WssEntry, WssIncomingConfig, WssOutgoingConfig, WssRef } from '@wirebench/engine';
 import { opaqueEntryFingerprint } from './wss-opaque.js';
@@ -27,16 +29,16 @@ function notFound(configId: string): never {
 }
 
 function requireConfig(project: Project, configId: string): WssRef {
-  return project.wss.outgoing.find((candidate) => candidate.id === configId) ?? notFound(configId);
+  return wssConfigsOf(project).outgoing.find((candidate) => candidate.id === configId) ?? notFound(configId);
 }
 
 function withOutgoing(project: Project, outgoing: readonly WssRef[]): Project {
-  return { ...project, wss: { ...project.wss, outgoing } };
+  return withWssConfigs(project, { ...wssConfigsOf(project), outgoing });
 }
 
 /** The default name of the nth configuration: "Outgoing WSS", "Outgoing WSS 2", … */
 function defaultName(project: Project): string {
-  const taken = new Set(project.wss.outgoing.map((ref) => ref.name));
+  const taken = new Set(wssConfigsOf(project).outgoing.map((ref) => ref.name));
   const base = 'Outgoing WSS';
   if (!taken.has(base)) {
     return base;
@@ -69,7 +71,7 @@ export function addWssOutgoing(
     entries: [],
   };
   const ref: WssRef = { ...toWssOutgoingRef(config), file: `wss/outgoing/${config.id}.yaml` };
-  return { project: withOutgoing(project, [...project.wss.outgoing, ref]), configId: config.id };
+  return { project: withOutgoing(project, [...wssConfigsOf(project).outgoing, ref]), configId: config.id };
 }
 
 /**
@@ -128,7 +130,7 @@ export function updateWssOutgoing(project: Project, configId: string, patch: Wss
   const ref = toWssOutgoingRef(next, existing);
   return withOutgoing(
     project,
-    project.wss.outgoing.map((candidate) => (candidate.id === configId ? ref : candidate)),
+    wssConfigsOf(project).outgoing.map((candidate) => (candidate.id === configId ? ref : candidate)),
   );
 }
 
@@ -155,12 +157,12 @@ export function removeWssOutgoing(project: Project, configId: string): Project {
   }));
   return withOutgoing(
     { ...project, containers: { ...project.containers, soap: interfaces } },
-    project.wss.outgoing.filter((candidate) => candidate.id !== configId),
+    wssConfigsOf(project).outgoing.filter((candidate) => candidate.id !== configId),
   );
 }
 
 /* -------------------------------------------------------------------------- *
- * Incoming configurations — the same three reducers, against `project.wss.incoming`.
+ * Incoming configurations — the same three reducers, against `wssConfigsOf(project).incoming`.
  * -------------------------------------------------------------------------- */
 
 function notFoundIncoming(configId: string): never {
@@ -170,16 +172,16 @@ function notFoundIncoming(configId: string): never {
 }
 
 function requireIncoming(project: Project, configId: string): WssRef {
-  return project.wss.incoming.find((candidate) => candidate.id === configId) ?? notFoundIncoming(configId);
+  return wssConfigsOf(project).incoming.find((candidate) => candidate.id === configId) ?? notFoundIncoming(configId);
 }
 
 function withIncoming(project: Project, incoming: readonly WssRef[]): Project {
-  return { ...project, wss: { ...project.wss, incoming } };
+  return withWssConfigs(project, { ...wssConfigsOf(project), incoming });
 }
 
 /** The default name of the nth incoming configuration: "Incoming WSS", "Incoming WSS 2", … */
 function defaultIncomingName(project: Project): string {
-  const taken = new Set(project.wss.incoming.map((ref) => ref.name));
+  const taken = new Set(wssConfigsOf(project).incoming.map((ref) => ref.name));
   const base = 'Incoming WSS';
   if (!taken.has(base)) {
     return base;
@@ -214,7 +216,7 @@ export function addWssIncoming(
     verifyChain: true,
   };
   const ref: WssRef = { ...toWssIncomingRef(config), file: `wss/incoming/${config.id}.yaml` };
-  return { project: withIncoming(project, [...project.wss.incoming, ref]), configId: config.id };
+  return { project: withIncoming(project, [...wssConfigsOf(project).incoming, ref]), configId: config.id };
 }
 
 /** Applies a patch to one incoming configuration; `null` (or `''`) clears an optional field. */
@@ -244,7 +246,7 @@ export function updateWssIncoming(project: Project, configId: string, patch: Wss
   const ref = toWssIncomingRef(next, existing);
   return withIncoming(
     project,
-    project.wss.incoming.map((candidate) => (candidate.id === configId ? ref : candidate)),
+    wssConfigsOf(project).incoming.map((candidate) => (candidate.id === configId ? ref : candidate)),
   );
 }
 
@@ -271,6 +273,6 @@ export function removeWssIncoming(project: Project, configId: string): Project {
   }));
   return withIncoming(
     { ...project, containers: { ...project.containers, soap: interfaces } },
-    project.wss.incoming.filter((candidate) => candidate.id !== configId),
+    wssConfigsOf(project).incoming.filter((candidate) => candidate.id !== configId),
   );
 }

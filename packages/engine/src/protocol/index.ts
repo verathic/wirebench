@@ -7,6 +7,7 @@ export type {
   ContainerDir,
   LoadContext,
   ProtocolModule,
+  ProtocolProjectFiles,
   ProtocolRun,
   ProtocolScripting,
   ProtocolSecrets,

@@ -104,7 +104,7 @@ export async function insideProject(context: RunContext, path: string, code: str
  * it needs, from inside the project folder. Reached through {@link keystoreFor} only.
  */
 async function loadKeystoreById(context: RunContext, keystoreId: string): Promise<Keystore | undefined> {
-  const ref = context.project.wss.keystores.find((candidate) => candidate.id === keystoreId);
+  const ref = context.project.keystores.find((candidate) => candidate.id === keystoreId);
   if (ref === undefined) {
     return undefined;
   }
@@ -140,7 +140,7 @@ export async function clientIdentityFor(
     return undefined;
   }
   const keystore = await keystoreFor(context, keystoreId);
-  const def = context.project.wss.keystores.find((candidate) => candidate.id === keystoreId);
+  const def = context.project.keystores.find((candidate) => candidate.id === keystoreId);
   if (keystore === undefined || def === undefined) {
     throw new WirebenchError('keystore-missing', 'This request selects a keystore the project no longer has.', {
       details: { keystoreId },
@@ -295,7 +295,7 @@ export function keystoreNeeds(project: Project, keystoreId: string | undefined):
   if (!present(keystoreId)) {
     return [];
   }
-  const ref = project.wss.keystores.find((candidate) => candidate.id === keystoreId);
+  const ref = project.keystores.find((candidate) => candidate.id === keystoreId);
   if (ref === undefined) {
     return [];
   }

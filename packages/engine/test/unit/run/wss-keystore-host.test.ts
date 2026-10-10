@@ -60,18 +60,20 @@ function projectWith(keystorePath: string): Project {
       sequences: [],
       mocks: [],
       environments: [],
-      wss: {
-        keystores: [
-          { id: 'ks-1', name: 'signer', document: { id: 'ks-1', name: 'signer', path: keystorePath, type: 'pem' } },
-        ],
-        outgoing: [
-          {
-            id: 'wss-out',
-            name: 'Out',
-            document: { id: 'wss-out', name: 'Out', entries: [{ kind: 'timestamp', timeToLiveSeconds: 300 }] },
-          },
-        ],
-        incoming: [],
+      keystores: [
+        { id: 'ks-1', name: 'signer', document: { id: 'ks-1', name: 'signer', path: keystorePath, type: 'pem' } },
+      ],
+      protocols: {
+        soap: {
+          outgoing: [
+            {
+              id: 'wss-out',
+              name: 'Out',
+              document: { id: 'wss-out', name: 'Out', entries: [{ kind: 'timestamp', timeToLiveSeconds: 300 }] },
+            },
+          ],
+          incoming: [],
+        },
       },
     },
     [

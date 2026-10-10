@@ -23,6 +23,7 @@ import { createWebhookCollection } from '../../../src/webhooks/model.js';
 import { createWsApi, createWsRequest, createWsSavedMessage, wsApisOf } from '../../../src/ws/model.js';
 import { sampleProject, tempProjectDir } from './fixture.js';
 import { soapInterfacesOf } from '../../../src/soap/model.js';
+import { webhooksOf } from '../../../src/webhooks/model.js';
 
 /** One REST API and one gRPC API, both with a request. */
 function baseProject(): Project {
@@ -351,24 +352,26 @@ describe('the webhook collection with REST switched off', () => {
     const dir = await tempProjectDir();
     const withHooks: Project = {
       ...baseProject(),
-      webhooks: createWebhookCollection({
-        target: 'https://hooks.test',
-        requests: [
-          createRestRequest('order.created', {
-            id: 'H1',
-            slug: 'order-created',
-            method: 'POST',
-            url: '/orders',
-            body: { kind: 'raw', language: 'json', text: '{ "event": "order.created" }' },
-          }),
-        ],
-      }),
+      protocols: {
+        rest: createWebhookCollection({
+          target: 'https://hooks.test',
+          requests: [
+            createRestRequest('order.created', {
+              id: 'H1',
+              slug: 'order-created',
+              method: 'POST',
+              url: '/orders',
+              body: { kind: 'raw', language: 'json', text: '{ "event": "order.created" }' },
+            }),
+          ],
+        }),
+      },
     };
     await saveProject(withHooks, dir);
     const before = await snapshot(join(dir, 'webhooks'));
 
     const { project } = await loadProject(dir, { registry: restOff });
-    expect(project.webhooks).toBeUndefined();
+    expect(webhooksOf(project)).toBeUndefined();
     expect(unsupportedOf(project).map((placeholder) => [placeholder.slug, placeholder.reason])).toEqual([
       ['Shop', 'feature-disabled'],
     ]);
@@ -389,7 +392,7 @@ describe('the webhook collection with REST switched off', () => {
     expect(await snapshot(join(dir, 'webhooks'))).toEqual(before);
 
     const back = await loadProject(dir);
-    expect(back.project.webhooks?.requests.map((request) => request.slug)).toEqual(['order-created']);
+    expect(webhooksOf(back.project)?.requests.map((request) => request.slug)).toEqual(['order-created']);
     expect(restApisOf(back.project).map((api) => api.slug)).toEqual(['Shop']);
     await rm(dir, { recursive: true, force: true });
   });
@@ -431,10 +434,12 @@ describe.each([
         ],
       },
 
-      webhooks: createWebhookCollection({
-        target: 'https://hooks.test',
-        requests: [createRestRequest('order.created', { id: 'H1', slug: 'order-created', url: '/orders' })],
-      }),
+      protocols: {
+        rest: createWebhookCollection({
+          target: 'https://hooks.test',
+          requests: [createRestRequest('order.created', { id: 'H1', slug: 'order-created', url: '/orders' })],
+        }),
+      },
     };
     await saveProject(withHooks, dir);
   });

@@ -20,8 +20,10 @@ import {
   createWebhookFolder,
   hookKey,
   uniqueSlug,
-  webhookFolders,
   WEBHOOK_TARGET_PROPERTY,
+  webhookFolders,
+  webhooksOf,
+  withWebhooks,
 } from '@wirebench/engine';
 import type {
   Project,
@@ -58,14 +60,14 @@ export { isWebhookCollectionId, webhookCollectionId };
  * property is never overwritten, so a value the user set survives.
  */
 export function ensureWebhooks(project: Project, workspaceProperties?: PropertyMap): RestMutationResult {
-  if (project.webhooks !== undefined) {
+  if (webhooksOf(project) !== undefined) {
     return { project };
   }
   const defined =
     project.properties[WEBHOOK_TARGET_PROPERTY] !== undefined ||
     workspaceProperties?.[WEBHOOK_TARGET_PROPERTY] !== undefined;
   const properties = defined ? project.properties : { ...project.properties, [WEBHOOK_TARGET_PROPERTY]: '' };
-  return { project: { ...project, webhooks: createWebhookCollection(), properties } };
+  return { project: withWebhooks({ ...project, properties }, createWebhookCollection()) };
 }
 
 /** Applies a patch to the collection itself: its target, or its own default credentials. */
@@ -79,7 +81,7 @@ export function updateWebhooks(
   workspaceProperties?: PropertyMap,
 ): RestMutationResult {
   const ensured = ensureWebhooks(project, workspaceProperties).project;
-  const webhooks = ensured.webhooks!;
+  const webhooks = webhooksOf(ensured)!;
   const next = cleanUndefined<WebhookCollection>({
     target: patch.target ?? webhooks.target,
     auth: patch.auth === null ? undefined : patch.auth !== undefined ? toEngineAuthConfig(patch.auth) : webhooks.auth,
@@ -92,7 +94,7 @@ export function updateWebhooks(
     folders: webhooks.folders,
     requests: webhooks.requests,
   });
-  return { project: { ...ensured, webhooks: next } };
+  return { project: withWebhooks(ensured, next) };
 }
 
 /** Adds a request to the collection's root or to one of its folders, ensuring it exists first. */
@@ -106,7 +108,7 @@ export function addWebhookRequest(
   workspaceProperties?: PropertyMap,
 ): RestMutationResult {
   const ensured = ensureWebhooks(project, workspaceProperties).project;
-  const webhooks = ensured.webhooks!;
+  const webhooks = webhooksOf(ensured)!;
   let createdId = '';
   const next = inRestTreeContainer(webhooks, input.parentId, (container: Container) => {
     const name = input.name ?? nextName('Webhook', new Set(container.requests.map((r) => r.name)), { firstBare: true });
@@ -122,7 +124,7 @@ export function addWebhookRequest(
   if (next === undefined) {
     notFound('folder', input.parentId ?? webhookCollectionId(ensured.id));
   }
-  return { project: { ...ensured, webhooks: next }, createdId };
+  return { project: withWebhooks(ensured, next), createdId };
 }
 
 /** Adds a plain (not imported) folder to the collection's root or to another folder. */
@@ -132,7 +134,7 @@ export function addWebhookFolder(
   workspaceProperties?: PropertyMap,
 ): RestMutationResult {
   const ensured = ensureWebhooks(project, workspaceProperties).project;
-  const webhooks = ensured.webhooks!;
+  const webhooks = webhooksOf(ensured)!;
   let createdId = '';
   const next = inRestTreeContainer(webhooks, input.parentId, (container: Container) => {
     const name = input.name ?? nextName('Group', new Set(container.folders.map((f) => f.name)), { firstBare: true });
@@ -146,7 +148,7 @@ export function addWebhookFolder(
   if (next === undefined) {
     notFound('folder', input.parentId ?? webhookCollectionId(ensured.id));
   }
-  return { project: { ...ensured, webhooks: next }, createdId };
+  return { project: withWebhooks(ensured, next), createdId };
 }
 
 /**
@@ -159,7 +161,7 @@ function setWebhookFolderField(
   key: 'target' | 'signing',
   value: string | WebhookSigning | undefined,
 ): RestMutationResult {
-  const webhooks = project.webhooks;
+  const webhooks = webhooksOf(project);
   if (webhooks === undefined) {
     notFound('folder', folderId);
   }
@@ -175,7 +177,7 @@ function setWebhookFolderField(
   if (folders === undefined) {
     notFound('folder', folderId);
   }
-  return { project: { ...project, webhooks: { ...webhooks, folders } } };
+  return { project: withWebhooks(project, { ...webhooks, folders }) };
 }
 
 /** Sets, or clears with `target: null`, one folder's own target override. */
@@ -203,14 +205,14 @@ export function addWebhookGroup(
   workspaceProperties?: PropertyMap,
 ): RestMutationResult {
   const ensured = ensureWebhooks(project, workspaceProperties).project;
-  const webhooks = ensured.webhooks!;
+  const webhooks = webhooksOf(ensured)!;
   const placed: WebhookFolder = {
     ...folder,
     slug: uniqueSlug(folder.slug, takenSlugs(webhooks)),
     order: webhooks.folders.length,
   };
   return {
-    project: { ...ensured, webhooks: { ...webhooks, folders: [...webhooks.folders, placed] } },
+    project: withWebhooks(ensured, { ...webhooks, folders: [...webhooks.folders, placed] }),
     createdId: folder.id,
   };
 }
@@ -247,7 +249,7 @@ export function appendWebhookItems(
   folderId: string,
   items: readonly RestRequestDef[],
 ): RestMutationResult {
-  const webhooks = project.webhooks;
+  const webhooks = webhooksOf(project);
   if (webhooks === undefined) {
     notFound('folder', folderId);
   }
@@ -266,5 +268,5 @@ export function appendWebhookItems(
   if (folders === undefined) {
     notFound('folder', folderId);
   }
-  return { project: { ...project, webhooks: { ...webhooks, folders } } };
+  return { project: withWebhooks(project, { ...webhooks, folders }) };
 }

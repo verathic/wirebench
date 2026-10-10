@@ -99,7 +99,7 @@ const project: Project = {
   sequences: [],
   mocks: [],
   environments: [],
-  wss: { outgoing: [], incoming: [], keystores: [] },
+  keystores: [],
 };
 
 const items = () => soapRun.groups(project).flatMap((group) => group.candidates.map((candidate) => candidate.item));

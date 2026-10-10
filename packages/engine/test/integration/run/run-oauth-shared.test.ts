@@ -81,7 +81,7 @@ function makeProject(auth: AuthConfig): Project {
         sequences: [],
         mocks: [],
         environments: [],
-        wss: { outgoing: [], incoming: [], keystores: [] },
+        keystores: [],
       },
       [{ ...createApi('Api', { id: 'api-rest', slug: 'api', order: 1, baseUrl: '', auth }), requests: [restRequest] }],
     ),

@@ -43,11 +43,11 @@ const FIXTURE: Readonly<Record<string, string>> = {
     "import type { RestApi } from '../rest/model.js';\nexport interface GrpcApi {\n  readonly rest: RestApi;\n}\n",
   // Rule 2.
   'assert/status.ts': "import { REST } from '../rest/model.js';\nexport const status = REST;\n",
-  'webhooks/model.ts': 'export interface WebhookCollection {\n  readonly id: string;\n}\n',
+  'soap/model.ts': 'export interface Interface {\n  readonly id: string;\n}\n',
   'rest/http-file/parse.ts': 'export const parseHttpFile = 1;\n',
   // An exception, used as it is written: type-only.
-  'project/model.ts':
-    "import type { WebhookCollection } from '../webhooks/model.js';\nexport interface Project {\n  readonly webhooks?: WebhookCollection;\n}\n",
+  'project/environments.ts':
+    "import type { Interface } from '../soap/model.js';\nexport interface Endpoints {\n  readonly of?: Interface;\n}\n",
   // An exception that allows a type, used for a value.
   'import/http-file/map.ts':
     "import { parseHttpFile } from '../../rest/http-file/parse.js';\nexport const mapped = parseHttpFile;\n",
@@ -79,7 +79,7 @@ describe('engine-import-graph.mjs', () => {
       'assert/status.ts -> rest/model.ts',
       'grpc/model.ts -> rest/model.ts',
       'import/http-file/map.ts -> rest/http-file/parse.ts',
-      'project/model.ts -> webhooks/model.ts',
+      'project/environments.ts -> soap/model.ts',
       'script/run.ts -> rest/model.ts',
     ]);
     expect(report.violations.map((edge) => edge.from)).toEqual([
@@ -98,7 +98,7 @@ describe('engine-import-graph.mjs', () => {
     expect(result.stderr).toContain('breaks rule 1: no other protocol group');
     expect(result.stderr).toContain('[core->rest] assert/status.ts -> rest/model.ts : REST');
     expect(result.stderr).toContain('breaks rule 2: core imports no protocol group');
-    expect(result.stderr).not.toContain('project/model.ts -> webhooks/model.ts');
+    expect(result.stderr).not.toContain('project/environments.ts -> soap/model.ts');
   }, 30_000);
 
   it('finds no violation and no stale exception in the engine itself', () => {

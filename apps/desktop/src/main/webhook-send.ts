@@ -10,6 +10,7 @@ import {
   signatureHeaderNames,
   webhookPath,
   webhookRequests,
+  webhooksOf,
 } from '@wirebench/engine';
 import type { Project, RestRequestDef, RestSendInput, RuntimeExchange, SignatureScheme } from '@wirebench/engine';
 import type { HistoryEntryWire } from '../shared/wire-types.js';
@@ -76,7 +77,8 @@ export function callbackUrlFor(
   if (hook?.kind !== 'callback') {
     return fallback('not a callback');
   }
-  const chain = project.webhooks === undefined ? [] : (webhookPath(project.webhooks, request.id)?.chain ?? []);
+  const webhooks = webhooksOf(project);
+  const chain = webhooks === undefined ? [] : (webhookPath(webhooks, request.id)?.chain ?? []);
   const apiId = [...chain].reverse().find((folder) => folder.source !== undefined)?.source?.apiId;
   const api = apiId === undefined ? undefined : restApisOf(project).find((candidate) => candidate.id === apiId);
   if (api === undefined) {

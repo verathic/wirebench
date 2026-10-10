@@ -76,7 +76,7 @@ function baseProject(): Project {
     sequences: [],
     mocks: [],
     environments: [],
-    wss: { outgoing: [], incoming: [], keystores: [] },
+    keystores: [],
   };
 }
 

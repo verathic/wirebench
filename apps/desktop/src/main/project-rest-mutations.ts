@@ -23,6 +23,8 @@ import {
   takenContainerSlugs,
   toSignatureScheme,
   uniqueSlug,
+  webhooksOf,
+  withWebhooks,
   wsApisOf,
 } from '@wirebench/engine';
 import type {
@@ -73,15 +75,16 @@ function isWebhookOwner(owner: RestTreeOwner): owner is WebhookCollection {
 
 function replaceRestTreeOwner(project: Project, owner: RestTreeOwner, next: RestTreeOwner): Project {
   return isWebhookOwner(owner)
-    ? { ...project, webhooks: next as WebhookCollection }
+    ? withWebhooks(project, next as WebhookCollection)
     : replaceApi(project, next as RestApi);
 }
 
 /** The API, or the project's webhook collection, that holds the request/folder with this id. */
 function restTreeOwnerOf(project: Project, nodeId: string): RestTreeOwner | undefined {
+  const webhooks = webhooksOf(project);
   return (
     restApiOwning(project, nodeId) ??
-    (project.webhooks !== undefined && containerHolds(project.webhooks, nodeId) ? project.webhooks : undefined)
+    (webhooks !== undefined && containerHolds(webhooks, nodeId) ? webhooks : undefined)
   );
 }
 
@@ -505,12 +508,13 @@ export function removeApi(project: Project, apiId: string): RestMutationResult {
   requireApi(project, apiId);
   // The others keep their orders: APIs of every kind share one order, so renumbering one kind would
   // give an API an order another kind holds. A gap is harmless; `nextApiOrder` goes past the highest.
+  const webhooks = webhooksOf(project);
+  const withoutApi: Project = {
+    ...project,
+    containers: { ...project.containers, rest: restApisOf(project).filter((api) => api.id !== apiId) },
+  };
   return {
-    project: {
-      ...project,
-      containers: { ...project.containers, rest: restApisOf(project).filter((api) => api.id !== apiId) },
-      ...(project.webhooks !== undefined ? { webhooks: unlinkWebhookSource(project.webhooks, apiId) } : {}),
-    },
+    project: webhooks === undefined ? withoutApi : withWebhooks(withoutApi, unlinkWebhookSource(webhooks, apiId)),
   };
 }
 
@@ -847,7 +851,8 @@ export function moveNode(
   const parentId = input.parentId;
   if (parentId !== undefined) {
     const nodeInWebhooks = isWebhookOwner(owner);
-    const parentInWebhooks = project.webhooks !== undefined && containerHolds(project.webhooks, parentId);
+    const webhooks = webhooksOf(project);
+    const parentInWebhooks = webhooks !== undefined && containerHolds(webhooks, parentId);
     const parentInApi = restApisOf(project).some((api) => api.id === parentId || containerHolds(api, parentId));
     if ((nodeInWebhooks && parentInApi) || (!nodeInWebhooks && parentInWebhooks)) {
       throw new ProjectError('project-move-across-apis', 'A webhook moves only within Webhooks', {
