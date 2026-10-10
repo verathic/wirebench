@@ -85,6 +85,7 @@ export const restExplorer: KindExplorer = {
   },
   newRequestIn: (apiId, folderId) => explorerActions.newRestRequest(apiId, folderId),
   importCurlIn: (apiId, folderId) => explorerActions.importCurlInto(apiId, folderId),
+  ownsApi: (apiId, project) => project.apis[apiId] !== undefined,
   deletions: {
     api: { title: 'Delete API?', remove: (id) => useProjectStore.getState().removeApi(id) },
     'rest-request': { title: 'Delete request?', remove: (id) => useProjectStore.getState().removeRestRequest(id) },

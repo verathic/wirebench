@@ -59,6 +59,8 @@ export interface KindExplorer {
   /** **Import cURL…** into a folder: only a kind whose requests are HTTP requests offers it. */
   readonly importCurlIn?: (apiId: string, folderId?: string) => void;
   readonly deletions?: Partial<Record<PendingNodeDeletion['kind'], ExplorerDeletion>>;
+  /** Whether `apiId` names one of the kind's APIs: which kind a folder's commands belong to. */
+  ownsApi?(apiId: string, project: ProjectSnapshot): boolean;
 }
 
 /** The kind's saved requests, as History, Search and the HTTP Log reach them. */
@@ -116,4 +118,6 @@ export interface RendererKind {
   readonly history: KindHistory;
   readonly search: KindSearch;
   readonly log?: KindLog;
+  /** Registers the kind's own commands: its send, its creators, its editor actions. */
+  readonly registerCommands?: () => void;
 }

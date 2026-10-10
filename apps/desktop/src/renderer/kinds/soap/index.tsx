@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { RendererKind } from '../renderer-kind.js';
+import { registerSoapCommands } from './commands.js';
 import { soapRequests, soapHistory, soapSearch } from './activity.js';
 import { soapExplorer } from './explorer.js';
 
@@ -22,6 +23,7 @@ export const soapRenderer: RendererKind = {
   requests: soapRequests,
   history: soapHistory,
   search: soapSearch,
+  registerCommands: registerSoapCommands,
   tabs: [
     {
       kind: 'request',

@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { RendererKind } from '../renderer-kind.js';
+import { registerWsCommands } from './commands.js';
 import { wsRequests, wsHistory, wsSearch, wsLog } from './activity.js';
 import { wsExplorer } from './explorer.js';
 
@@ -21,6 +22,7 @@ export const wsRenderer: RendererKind = {
   requests: wsRequests,
   history: wsHistory,
   search: wsSearch,
+  registerCommands: registerWsCommands,
   log: wsLog,
   tabs: [
     {

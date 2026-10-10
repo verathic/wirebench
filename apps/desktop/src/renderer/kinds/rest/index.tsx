@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { RendererKind } from '../renderer-kind.js';
+import { registerRestCommands } from './commands.js';
 import { restRequests, restHistory, restSearch, restLog } from './activity.js';
 import { restExplorer } from './explorer.js';
 
@@ -21,6 +22,7 @@ export const restRenderer: RendererKind = {
   requests: restRequests,
   history: restHistory,
   search: restSearch,
+  registerCommands: registerRestCommands,
   log: restLog,
   tabs: [
     {

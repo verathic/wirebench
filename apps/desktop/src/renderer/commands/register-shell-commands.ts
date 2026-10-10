@@ -1,4 +1,5 @@
 import { RENDERER_AREAS } from '../areas/index.js';
+import { RENDERER_KINDS } from '../kinds/index.js';
 import { useUiStore } from '../state/ui.js';
 import { resetCommands } from '../lib/commands.js';
 import type { PaletteMode } from '../shell/command-palette.js';
@@ -32,5 +33,6 @@ export function registerShellCommands(openPalette: (mode?: PaletteMode) => void)
   registerEditorCommands();
   registerExplorerCommands();
   registerHistoryCommands();
+  for (const kind of RENDERER_KINDS) kind.registerCommands?.();
   for (const id of useUiStore.getState().enabledAreas) RENDERER_AREAS[id].registerCommands?.(openPalette);
 }

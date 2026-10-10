@@ -67,6 +67,7 @@ export const grpcExplorer: KindExplorer = {
     },
   },
   newRequestIn: (apiId, folderId) => explorerActions.newGrpcRequest(apiId, folderId),
+  ownsApi: (apiId, project) => project.grpcApis[apiId] !== undefined,
   deletions: {
     'grpc-api': { title: 'Delete API?', remove: (id) => useProjectStore.getState().removeGrpcApi(id) },
     'grpc-request': { title: 'Delete request?', remove: (id) => useProjectStore.getState().removeGrpcRequest(id) },

@@ -15,6 +15,7 @@ import { uniqueMessageSlug } from '../../src/renderer/features/ws-editor/message
 import { useWsSelectionStore } from '../../src/renderer/features/ws-editor/ws-session-actions.js';
 import { registerProjectCommands } from '../../src/renderer/commands/register-project-commands.js';
 import { registerRequestCommands } from '../../src/renderer/commands/register-request-commands.js';
+import { registerWsCommands } from '../../src/renderer/kinds/ws/commands.js';
 import { resetCommands, runCommand, type CommandContext } from '../../src/renderer/lib/commands.js';
 import { CodePanel } from '../../src/renderer/shell/code-panel.js';
 import { useDraftsStore } from '../../src/renderer/state/drafts.js';
@@ -212,6 +213,7 @@ describe('WsEditor', () => {
 describe('the WebSocket commands', () => {
   beforeEach(() => {
     registerRequestCommands();
+    registerWsCommands();
     registerProjectCommands();
     useEditorsStore.setState({
       tabs: [{ id: 'ws:ws-1', kind: 'ws-request', title: 'Lobby', wsRequestId: 'ws-1' }],

@@ -66,6 +66,7 @@ export const wsExplorer: KindExplorer = {
     },
   },
   newRequestIn: (apiId, folderId) => explorerActions.newWsRequest(apiId, folderId),
+  ownsApi: (apiId, project) => project.wsApis[apiId] !== undefined,
   deletions: {
     'ws-api': { title: 'Delete API?', remove: (id) => useProjectStore.getState().removeWsApi(id) },
     'ws-request': { title: 'Delete request?', remove: (id) => useProjectStore.getState().removeWsRequest(id) },

@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { RendererKind } from '../renderer-kind.js';
+import { registerGrpcCommands } from './commands.js';
 import { grpcRequests, grpcHistory, grpcSearch, grpcLog } from './activity.js';
 import { grpcExplorer } from './explorer.js';
 
@@ -21,6 +22,7 @@ export const grpcRenderer: RendererKind = {
   requests: grpcRequests,
   history: grpcHistory,
   search: grpcSearch,
+  registerCommands: registerGrpcCommands,
   log: grpcLog,
   tabs: [
     {

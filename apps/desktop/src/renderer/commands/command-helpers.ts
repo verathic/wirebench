@@ -1,4 +1,7 @@
+import type { KindId } from '../../shared/kinds/kind-module.js';
+import { explorerRole, kindExplorer } from '../kinds/index.js';
 import { useEditorsStore } from '../state/editors.js';
+import { useProjectStore } from '../state/project.js';
 import { useUiStore } from '../state/ui.js';
 
 /** The request draft behind the active editor tab, or `undefined` when none is a request tab. */
@@ -55,4 +58,31 @@ export function onActiveRequest(run: (requestId: string) => void): () => void {
       run(requestId);
     }
   };
+}
+
+/** The part of the explorer selection the container commands read. */
+type ContainerSelection = { readonly kind: string; readonly apiId?: string; readonly folderId?: string } | undefined;
+
+/**
+ * Whether the selected node sits in one of `kind`'s APIs: the API row, a request in it, or a folder
+ * in it. The `<kind>.new*` commands are gated on their own container, so a gRPC folder never offers
+ * a REST request.
+ */
+export function insideKindApi(kind: KindId, selection: ContainerSelection): boolean {
+  const explorer = kindExplorer(kind);
+  if (selection === undefined || explorer === undefined) return false;
+  if (selection.kind === 'folder') {
+    return selection.apiId !== undefined && explorer.ownsApi?.(selection.apiId, useProjectStore.getState()) === true;
+  }
+  return selection.kind in explorer.nodes;
+}
+
+/**
+ * The folder a new node should land in: the selected folder itself, the folder holding the
+ * selected request, or the API's root when an API row is selected.
+ */
+export function folderOf(selection: ContainerSelection): string | undefined {
+  return selection !== undefined && explorerRole(selection.kind as never)?.dropTarget === true
+    ? undefined
+    : selection?.folderId;
 }
