@@ -1,5 +1,5 @@
 import { channels } from '../../shared/ipc.js';
-import type { SearchQueryRequest } from '../../shared/wire-types.js';
+import type { SearchQueryRequest } from '../../shared/wire-base.js';
 import type { EngineService } from '../engine-service.js';
 import type { ProjectHost } from '../project-host.js';
 import { searchDocuments } from '../search.js';

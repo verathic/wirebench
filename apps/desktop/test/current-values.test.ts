@@ -5,7 +5,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CurrentValuesStore } from '../src/main/current-values.js';
-import type { CurrentValuesStateWire, ProjectWire, ScopeKeyWire, WorkspaceWire } from '../src/shared/wire-types.js';
+import type { ProjectWire } from '../src/shared/wire-types.js';
+import type { CurrentValuesStateWire, ScopeKeyWire, WorkspaceWire } from '../src/shared/wire-base.js';
 
 const WORKSPACE: ScopeKeyWire = { scope: 'workspace' };
 

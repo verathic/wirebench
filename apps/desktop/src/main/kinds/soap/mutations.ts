@@ -32,11 +32,11 @@ import type {
 } from '@wirebench/engine';
 import type {
   AttachmentPatchWire,
-  AuthConfigWire,
   RequestPatchWire,
   RequestPropertiesPatchWire,
   WsaConfigWire,
-} from '../../../shared/wire-types.js';
+} from '../../../shared/kinds/soap/wire.js';
+import type { AuthConfigWire } from '../../../shared/wire-base.js';
 import { toEngineAuthConfig } from '../../project-api-mutations.js';
 import type { MutationDeps, MutationResult } from '../../project-mutations.js';
 import type { RequestLocation } from '../../project-wire.js';

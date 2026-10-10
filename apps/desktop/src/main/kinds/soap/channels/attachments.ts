@@ -14,7 +14,7 @@ import { BrowserWindow, dialog, shell } from 'electron';
 import type { WebContents } from 'electron';
 import { nodeFs, WirebenchError, writeFileAtomic } from '@wirebench/engine';
 import { channels } from '../../../../shared/ipc.js';
-import { MAX_DROPPED_BASE64_LENGTH } from '../../../../shared/wire-types.js';
+import { MAX_DROPPED_BASE64_LENGTH } from '../../../../shared/kinds/soap/wire.js';
 import type { RecordsReadPicks } from '../../../dialog-picks.js';
 import type { ExchangeCache } from '../../../exchange-cache.js';
 import type { ProjectRouter } from '../../../project-router.js';

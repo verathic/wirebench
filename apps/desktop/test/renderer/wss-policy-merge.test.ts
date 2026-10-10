@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mergeProposal } from '../../src/renderer/features/request-editor/wss-policy.js';
-import type { WssEntryWire } from '../../src/shared/wire-types.js';
+import type { WssEntryWire } from '../../src/shared/kinds/soap/wire.js';
 
 const SIGNATURE: WssEntryWire = {
   kind: 'signature',

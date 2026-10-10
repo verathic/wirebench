@@ -2,7 +2,7 @@
  * The wire shapes no protocol kind owns (kind modules spec §4.2): what core channels carry, and the
  * pieces two kinds share (key/value rows, the HTTP exchange, TLS details, the folder REST, gRPC and
  * WebSocket use, definition auth). A kind's own shapes are in `kinds/<kind>/wire.ts`, which import
- * this file and never another kind's; `wire-types.ts` composes them and re-exports everything.
+ * this file and never another kind's; `wire-types.ts` composes them.
  *
  * Every shape here must be plain JSON: no DOM nodes, no `Uint8Array` (bytes cross the wire
  * as base64 strings), no functions.

@@ -9,13 +9,10 @@
 
 import { signatureHeaderNames, splitQuery, WirebenchError } from '@wirebench/engine';
 import { channels } from '../../shared/ipc.js';
-import type {
-  GrpcRequestPatchWire,
-  HistoryEntryWire,
-  KeyValueWire,
-  RestBodyWire,
-  RestRequestPatchWire,
-} from '../../shared/wire-types.js';
+import type { HistoryEntryWire } from '../../shared/wire-types.js';
+import type { GrpcRequestPatchWire } from '../../shared/kinds/grpc/wire.js';
+import type { RestBodyWire, RestRequestPatchWire } from '../../shared/kinds/rest/wire.js';
+import type { KeyValueWire } from '../../shared/wire-base.js';
 import { isTruncatedBody, type HistoryService } from '../history-service.js';
 import { containsRedaction } from '../redact.js';
 import type { ProjectRouter } from '../project-router.js';

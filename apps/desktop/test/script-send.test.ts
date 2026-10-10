@@ -30,7 +30,8 @@ import { ScriptHost } from '../src/main/script-host.js';
 import { SequenceRunner } from '../src/main/sequence-runner.js';
 import { sendThroughEngine } from '../src/main/send/exchange.js';
 import { sendDepsFor } from './helpers/send-deps.js';
-import type { HistoryEntryWire, RestExchangeSummary } from '../src/shared/wire-types.js';
+import type { HistoryEntryWire } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary } from '../src/shared/kinds/rest/wire.js';
 import { registerHistoryChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();

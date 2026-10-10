@@ -18,7 +18,7 @@ import { Trash2 } from 'lucide-react';
 import { ClampedValueField } from './clamped-value-field.js';
 import { IconButton } from './icon-button.js';
 import { useGridNavigation } from '../lib/grid-navigation.js';
-import type { KeyValueWire } from '../../shared/wire-types.js';
+import type { KeyValueWire } from '../../shared/wire-base.js';
 
 /**
  * A transparent border by default so a row reads as data rather than a form field; hover swaps the

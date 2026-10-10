@@ -29,14 +29,12 @@ import { failedExchangeOf } from '../failed-exchange.js';
 import { redactSecretValues } from '../redact.js';
 import type { SendThroughEngineDeps } from './exchange.js';
 import { reportSendFailed } from './host.js';
-import type {
-  ExchangeSummary,
-  FailedExchangeWire,
-  GrpcExchangeSummary,
-  ResolvedSendInputWire,
-  RestExchangeSummary,
-  WsExchangeSummary,
-} from '../../shared/wire-types.js';
+import type { ResolvedSendInputWire } from '../../shared/wire-types.js';
+import type { GrpcExchangeSummary } from '../../shared/kinds/grpc/wire.js';
+import type { RestExchangeSummary } from '../../shared/kinds/rest/wire.js';
+import type { ExchangeSummary } from '../../shared/kinds/soap/wire.js';
+import type { WsExchangeSummary } from '../../shared/kinds/ws/wire.js';
+import type { FailedExchangeWire } from '../../shared/wire-base.js';
 
 export type RecordDeps = Pick<SendThroughEngineDeps, 'project' | 'history' | 'onHistoryAppended'>;
 

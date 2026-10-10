@@ -16,7 +16,7 @@ import type {
   TeamWire,
   TeamWorkspaceWire,
   WorkspaceRoleWire,
-} from '../../shared/wire-types.js';
+} from '../../shared/wire-base.js';
 import { showToast } from '../components/toast.js';
 import { ipc } from './ipc-client.js';
 

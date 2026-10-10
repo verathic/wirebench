@@ -7,7 +7,8 @@
  */
 import { Button } from '../../../components/button.js';
 import { openCookiesTab } from '../../cookies/cookie-actions.js';
-import type { CookieJarVerdictWire, CookieWire, RestExchangeSummary } from '../../../../shared/wire-types.js';
+import type { RestExchangeSummary } from '../../../../shared/kinds/rest/wire.js';
+import type { CookieJarVerdictWire, CookieWire } from '../../../../shared/wire-base.js';
 
 export interface CookiesViewProps {
   readonly exchange: RestExchangeSummary;

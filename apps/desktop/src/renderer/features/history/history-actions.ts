@@ -13,7 +13,8 @@ import { rendererKindOf } from '../../kinds/index.js';
 import { useUiStore } from '../../state/ui.js';
 import { ipc } from '../../state/ipc-client.js';
 import { formatClockTime } from '../../lib/format-size.js';
-import type { HistoryEntryWire, RestExchangeSummary } from '../../../shared/wire-types.js';
+import type { HistoryEntryWire } from '../../../shared/wire-types.js';
+import type { RestExchangeSummary } from '../../../shared/kinds/rest/wire.js';
 import { restEntryTexts, restExchangeTexts, type RestDiffTexts } from './rest-diff-text.js';
 
 /** The response body a history entry is best compared by, falling back to what was sent. */

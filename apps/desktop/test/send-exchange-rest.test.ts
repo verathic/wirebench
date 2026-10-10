@@ -28,12 +28,9 @@ import { type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { ScriptHost } from '../src/main/script-host.js';
 import { recordSecretValue, redactSecretText } from '../src/main/redact.js';
 import { sendThroughEngine } from '../src/main/send/exchange.js';
-import type {
-  FailedExchangeWire,
-  HistoryEntryWire,
-  RestExchangeSummary,
-  RestLiveEvent,
-} from '../src/shared/wire-types.js';
+import type { HistoryEntryWire } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary, RestLiveEvent } from '../src/shared/kinds/rest/wire.js';
+import type { FailedExchangeWire } from '../src/shared/wire-base.js';
 import { sendDepsFor } from './helpers/send-deps.js';
 import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 

@@ -15,8 +15,8 @@ import {
   withSoapInterfaces,
 } from '@wirebench/engine';
 import type { Interface, Project } from '@wirebench/engine';
-import { restRequestWireSchema } from '../src/shared/wire-types.js';
-import type { InterfaceSummary } from '../src/shared/wire-types.js';
+import { restRequestWireSchema } from '../src/shared/kinds/rest/wire.js';
+import type { InterfaceSummary } from '../src/shared/kinds/soap/wire.js';
 import {
   clarkLocalName,
   findRequest,

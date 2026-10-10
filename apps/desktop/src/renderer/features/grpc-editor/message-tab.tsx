@@ -22,7 +22,7 @@ import {
   setJsonCompletionSource,
 } from '../../editor/json-completion.js';
 import { SAVE_KEYBINDING, SEND_KEYBINDING } from '../../editor/monaco.js';
-import type { GrpcMethodKindWire } from '../../../shared/wire-types.js';
+import type { GrpcMethodKindWire } from '../../../shared/kinds/grpc/wire.js';
 
 export interface MessageTabProps {
   readonly message: string;

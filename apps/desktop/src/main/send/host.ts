@@ -41,7 +41,8 @@ import { recordSecretValue, redactSecretBytes, redactXml } from '../redact.js';
 import { restContractOf } from '../rest-contract.js';
 import { callbackUrlFor } from '../webhook-send.js';
 import { AD_HOC_ID } from './draft.js';
-import type { FailedExchangeWire, HistoryEntryWire, LogEntryWire } from '../../shared/wire-types.js';
+import type { HistoryEntryWire, LogEntryWire } from '../../shared/wire-types.js';
+import type { FailedExchangeWire } from '../../shared/wire-base.js';
 
 export interface DesktopSendDeps {
   readonly project: RequestChannelProject;

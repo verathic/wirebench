@@ -33,7 +33,8 @@ import type {
   WebhookFolder,
   WebhookSigning,
 } from '@wirebench/engine';
-import type { AuthConfigWire, RestRequestPatchWire, WebhookSigningWire } from '../../../../shared/wire-types.js';
+import type { RestRequestPatchWire } from '../../../../shared/kinds/rest/wire.js';
+import type { AuthConfigWire, WebhookSigningWire } from '../../../../shared/wire-base.js';
 import {
   applyRestRequestPatch,
   cleanUndefined,

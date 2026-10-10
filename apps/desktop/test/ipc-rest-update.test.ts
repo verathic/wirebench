@@ -17,11 +17,8 @@ import { ProjectHost } from '../src/main/project-host.js';
 import { OpenApiImportService } from '../src/main/openapi-import.js';
 import { createDefaultFetchDocument, parseOpenApi, writeApiDefinitionCache } from '@wirebench/engine';
 import type { DocumentFetchOptions, FetchDocument } from '@wirebench/engine';
-import {
-  apiRestApplyUpdateResponseSchema,
-  apiRestPlanUpdateResponseSchema,
-  type ProjectWire,
-} from '../src/shared/wire-types.js';
+import { apiRestApplyUpdateResponseSchema, type ProjectWire } from '../src/shared/wire-types.js';
+import { apiRestPlanUpdateResponseSchema } from '../src/shared/kinds/rest/wire.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 

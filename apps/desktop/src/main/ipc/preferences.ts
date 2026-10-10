@@ -2,7 +2,7 @@ import { WirebenchError } from '@wirebench/engine';
 import { channels } from '../../shared/ipc.js';
 import { toPreferencesWire } from '../preferences.js';
 import type { PreferencesService } from '../preferences.js';
-import type { PreferencesWire } from '../../shared/wire-types.js';
+import type { PreferencesWire } from '../../shared/wire-base.js';
 import { registerHandler } from './register.js';
 
 /**

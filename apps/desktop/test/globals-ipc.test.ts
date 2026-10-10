@@ -6,7 +6,7 @@ import { GLOBAL_PROPERTIES_FILE, GlobalProperties } from '../src/main/global-pro
 import { wrapHandler } from '../src/main/ipc/envelope.js';
 import { registerGlobalsChannels } from '../src/main/ipc/globals.js';
 import { channels } from '../src/shared/ipc.js';
-import type { GlobalsState } from '../src/shared/wire-types.js';
+import type { GlobalsState } from '../src/shared/wire-base.js';
 
 const registeredHandlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 

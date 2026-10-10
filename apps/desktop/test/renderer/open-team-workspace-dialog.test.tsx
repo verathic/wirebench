@@ -5,7 +5,7 @@ import { OpenTeamWorkspaceDialog } from '../../src/renderer/features/workspace/o
 import { useAccountStore } from '../../src/renderer/state/account.js';
 import { useUiStore } from '../../src/renderer/state/ui.js';
 import { useWorkspaceStore } from '../../src/renderer/state/workspace.js';
-import type { AccountWire, TeamWorkspaceWire } from '../../src/shared/wire-types.js';
+import type { AccountWire, TeamWorkspaceWire } from '../../src/shared/wire-base.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
 import { workspaceWire } from '../helpers/workspace-wire.js';
 

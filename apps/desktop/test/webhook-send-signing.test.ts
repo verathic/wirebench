@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { createProject, createRestRequest, createWebhookCollection, createWebhookFolder } from '@wirebench/engine';
 import type { Project, WebhookSigning } from '@wirebench/engine';
 import { previewRest } from '../src/main/send/exchange.js';
-import type { RestRequestPatchWire } from '../src/shared/wire-types.js';
+import type { RestRequestPatchWire } from '../src/shared/kinds/rest/wire.js';
 import { sendDepsFor } from './helpers/send-deps.js';
 
 const SIGNING: WebhookSigning = {

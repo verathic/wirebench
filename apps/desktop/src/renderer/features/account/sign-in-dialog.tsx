@@ -3,7 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '../../components/button.js';
 import { showToast } from '../../components/toast.js';
 import type { IpcError } from '../../../shared/ipc.js';
-import type { AccountWire, ServerMetaWire } from '../../../shared/wire-types.js';
+import type { AccountWire, ServerMetaWire } from '../../../shared/wire-base.js';
 import { signInErrorMessage } from '../../state/account.js';
 import { ipc } from '../../state/ipc-client.js';
 import { useUiStore } from '../../state/ui.js';

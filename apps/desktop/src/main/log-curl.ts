@@ -3,7 +3,9 @@
  * `request.curl`; only the input differs — the logged request (raw request when the row has one).
  */
 import { toCurl, wsToCommand, type CurlHeader } from '@wirebench/engine';
-import type { LogEntryWire, RequestCurlResponse, WsHandshakeExchangeSummary } from '../shared/wire-types.js';
+import type { LogEntryWire } from '../shared/wire-types.js';
+import type { WsHandshakeExchangeSummary } from '../shared/kinds/ws/wire.js';
+import type { RequestCurlResponse } from '../shared/wire-base.js';
 import { isXmlBody, redactHeaders, redactStructuredBody, redactUrl, redactXml } from './redact.js';
 
 const TRANSPORT_HEADERS = new Set(['host', 'content-length', 'connection', 'transfer-encoding']);

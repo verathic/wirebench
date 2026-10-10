@@ -16,7 +16,7 @@ import { useEditorsStore } from '../state/editors.js';
 import { useProjectStore, type ProjectStore } from '../state/project.js';
 import { useWebhooksStore } from '../state/webhooks.js';
 import { useWorkspaceStore } from '../state/workspace.js';
-import type { WorkspaceEnvironmentWire } from '../../shared/wire-types.js';
+import type { WorkspaceEnvironmentWire } from '../../shared/wire-base.js';
 
 const DiffView = lazy(async () => {
   const module = await import('../features/history/diff-view.js');

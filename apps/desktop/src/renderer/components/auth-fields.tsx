@@ -20,7 +20,8 @@ import { Button } from './button.js';
 import { SecretField } from './secret-field.js';
 import { useKerberosAvailability } from '../lib/use-kerberos-availability.js';
 import { ipc } from '../state/ipc-client.js';
-import type { AuthConfigWire, SoapOwnerAuthWire } from '../../shared/wire-types.js';
+import type { SoapOwnerAuthWire } from '../../shared/kinds/soap/wire.js';
+import type { AuthConfigWire } from '../../shared/wire-base.js';
 
 const INPUT_CLASS =
   'h-row w-full min-w-0 rounded-md border border-hairline bg-surface-base px-2 text-sm text-fg-default focus:outline-none focus:ring-1 focus:ring-accent';

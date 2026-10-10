@@ -5,7 +5,7 @@ import { AuthInspector } from '../../src/renderer/features/request-editor/inspec
 import { useProjectStore } from '../../src/renderer/state/project.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
 import { makeDraft } from '../mocks/exchange-fixtures.js';
-import type { AuthConfigWire, RequestAuthSourceWire } from '../../src/shared/wire-types.js';
+import type { AuthConfigWire, RequestAuthSourceWire } from '../../src/shared/wire-base.js';
 
 const updateRequestAuth = vi.fn();
 

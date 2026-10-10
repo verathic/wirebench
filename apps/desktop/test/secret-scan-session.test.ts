@@ -28,7 +28,7 @@ import {
   secretScanScanResponseSchema,
   secretScanSetValueResponseSchema,
   secretScanTokensResponseSchema,
-} from '../src/shared/wire-types.js';
+} from '../src/shared/wire-base.js';
 
 /** Obviously fake: three base64url segments decoding to `{"fake":1}`, `{"fake":1}` and `fake`. */
 const FAKE_JWT = 'eyJmYWtlIjoxfQ.eyJmYWtlIjoxfQ.ZmFrZQ';

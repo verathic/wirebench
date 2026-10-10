@@ -24,14 +24,13 @@ import { toWsFrameWire } from '../src/main/engine-wire.js';
 import { ProjectHost } from '../src/main/project-host.js';
 import { OpenApiImportService } from '../src/main/openapi-import.js';
 import { updateWsRequest } from '../src/main/kinds/ws/mutations.js';
+import { apiImportAsyncApiResponseSchema, type ProjectWire } from '../src/shared/wire-types.js';
 import {
-  apiImportAsyncApiResponseSchema,
   wsFrameWireSchema,
   wsRequestWireSchema,
   wsSavedMessageWireSchema,
-  type ProjectWire,
   type WsRequestWire,
-} from '../src/shared/wire-types.js';
+} from '../src/shared/kinds/ws/wire.js';
 import { wsApisOf } from '@wirebench/engine';
 import type { WsApi } from '@wirebench/engine';
 

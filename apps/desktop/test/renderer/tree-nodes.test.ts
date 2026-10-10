@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { InterfaceSummary } from '../../src/shared/wire-types.js';
+import type { InterfaceSummary } from '../../src/shared/kinds/soap/wire.js';
 import type { RequestDraft } from '../../src/renderer/state/project.js';
 import type { ExplorerNode } from '../../src/renderer/features/explorer/tree-nodes.js';
 import { buildExplorerTree, nodeProjectId, restEntityId } from '../../src/renderer/features/explorer/tree-nodes.js';

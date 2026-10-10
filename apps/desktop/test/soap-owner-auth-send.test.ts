@@ -14,7 +14,8 @@ import { harOf } from '../src/main/har.js';
 import { curlForLogEntry } from '../src/main/log-curl.js';
 import { buildHistoryEntry, type RecordSendInput } from '../src/main/history-service.js';
 import { sendThroughEngine, type SendThroughEngineDeps } from '../src/main/send/exchange.js';
-import type { FailedExchangeWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { LogEntryWire } from '../src/shared/wire-types.js';
+import type { FailedExchangeWire } from '../src/shared/wire-base.js';
 import { sendDepsFor, type SendDepsExtra } from './helpers/send-deps.js';
 
 interface Seen {

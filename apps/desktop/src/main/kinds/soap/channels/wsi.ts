@@ -20,7 +20,7 @@ import {
 } from '@wirebench/engine';
 import type { QName, WsiReport } from '@wirebench/engine';
 import { channels } from '../../../../shared/ipc.js';
-import type { WsiReportWire } from '../../../../shared/wire-types.js';
+import type { WsiReportWire } from '../../../../shared/kinds/soap/wire.js';
 import type { EngineService } from '../../../engine-service.js';
 import type { ProjectRouter } from '../../../project-router.js';
 import type { RecordsWritePicks } from '../../../dialog-picks.js';

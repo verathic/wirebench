@@ -1,7 +1,6 @@
 /**
  * The wire shapes only gRPC uses (kind modules spec §4.2): APIs, requests, calls in flight and
- * `.proto` import. Imports `wire-base.ts` and never another kind's file; `wire-types.ts` re-exports
- * every name.
+ * `.proto` import. Imports `wire-base.ts` and never another kind's file.
  */
 
 import { z } from 'zod';

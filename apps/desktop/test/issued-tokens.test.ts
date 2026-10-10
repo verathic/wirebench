@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createIssuedTokenSource, createWssContext } from '@wirebench/engine';
 import type { IssuedToken, IssuedTokenTarget, Project, TrustDeps, WssIssuedTokenEntry } from '@wirebench/engine';
-import type { IssuedTokenStatusWire } from '../src/shared/wire-types.js';
+import type { IssuedTokenStatusWire } from '../src/shared/kinds/soap/wire.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 

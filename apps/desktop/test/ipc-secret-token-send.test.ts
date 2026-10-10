@@ -46,14 +46,10 @@ import { toSendDeps, type RequestChannelDeps } from '../src/main/ipc/request.js'
 import { recordSecretValue } from '../src/main/redact.js';
 import { projectSecretGetter, secretStoreLabel } from '../src/main/secret-resolver.js';
 import { SecretStore, type CryptoBackend } from '../src/main/secrets.js';
-import type {
-  GrpcExchangeSummary,
-  GrpcResponseMessageWire,
-  HistoryEntryWire,
-  RestExchangeSummary,
-  RestLiveEvent,
-  WsFrameWire,
-} from '../src/shared/wire-types.js';
+import type { HistoryEntryWire } from '../src/shared/wire-types.js';
+import type { GrpcExchangeSummary, GrpcResponseMessageWire } from '../src/shared/kinds/grpc/wire.js';
+import type { RestExchangeSummary, RestLiveEvent } from '../src/shared/kinds/rest/wire.js';
+import type { WsFrameWire } from '../src/shared/kinds/ws/wire.js';
 import { registerHistoryChannelsWithKinds, registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();

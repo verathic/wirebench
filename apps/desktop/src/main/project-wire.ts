@@ -48,36 +48,34 @@ import type {
   WssEntry,
   WssRef,
 } from '@wirebench/engine';
+import type { ProjectWire } from '../shared/wire-types.js';
+import type { GrpcApiWire, GrpcRequestWire } from '../shared/kinds/grpc/wire.js';
+import type { RestApiWire, RestBodyWire, RestRequestWire } from '../shared/kinds/rest/wire.js';
 import type {
-  UnsupportedContainerWire,
-  RequestAssertionWire,
-  AuthConfigWire,
-  GrpcApiWire,
-  GrpcRequestWire,
-  KeyValueWire,
-  RestApiWire,
-  RestBodyWire,
-  RestFolderWire,
-  RestRequestWire,
   AttachmentWire,
   EndpointWire,
-  EnvironmentWire,
-  HydrationStatus,
   InterfaceSummary,
   UpdatePlanWire,
   InterfaceWire,
-  KeystoreWire,
-  WsApiWire,
-  WsRequestWire,
   WssEntryWire,
   WssIncomingWire,
   WssOutgoingWire,
   OperationSummaryWire,
-  ProjectProblemWire,
-  ProjectWire,
-  RequestScriptsWire,
   RequestWire,
-} from '../shared/wire-types.js';
+} from '../shared/kinds/soap/wire.js';
+import type { WsApiWire, WsRequestWire } from '../shared/kinds/ws/wire.js';
+import type {
+  UnsupportedContainerWire,
+  RequestAssertionWire,
+  AuthConfigWire,
+  KeyValueWire,
+  RestFolderWire,
+  EnvironmentWire,
+  HydrationStatus,
+  KeystoreWire,
+  ProjectProblemWire,
+  RequestScriptsWire,
+} from '../shared/wire-base.js';
 import { toMockWire } from './project-mock-mutations.js';
 import { toSequenceWire } from './project-sequence-mutations.js';
 import { webhookCollectionId } from './webhook-ids.js';

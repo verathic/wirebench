@@ -1,7 +1,7 @@
 /**
  * The wire shapes only REST uses (kind modules spec §4.2): APIs, requests and exchanges, event
  * streams, the webhook collection, and the OpenAPI, Postman, HAR, `.http` and cURL imports.
- * Imports `wire-base.ts` and never another kind's file; `wire-types.ts` re-exports every name.
+ * Imports `wire-base.ts` and never another kind's file.
  */
 
 import { z } from 'zod';

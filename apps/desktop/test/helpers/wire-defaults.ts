@@ -5,19 +5,12 @@
  */
 
 import { DEFAULT_PROJECT_SETTINGS, DEFAULT_REQUEST_PROPERTIES } from '@wirebench/engine';
-import type {
-  GrpcApiWire,
-  GrpcRequestWire,
-  ProjectSettingsWire,
-  ProjectWire,
-  RequestPropertiesWire,
-  RestApiWire,
-  RestFolderWire,
-  RestRequestWire,
-  SequenceWire,
-  WsApiWire,
-  WsRequestWire,
-} from '../../src/shared/wire-types.js';
+import type { ProjectWire } from '../../src/shared/wire-types.js';
+import type { GrpcApiWire, GrpcRequestWire } from '../../src/shared/kinds/grpc/wire.js';
+import type { RestApiWire, RestRequestWire } from '../../src/shared/kinds/rest/wire.js';
+import type { RequestPropertiesWire } from '../../src/shared/kinds/soap/wire.js';
+import type { WsApiWire, WsRequestWire } from '../../src/shared/kinds/ws/wire.js';
+import type { ProjectSettingsWire, RestFolderWire, SequenceWire } from '../../src/shared/wire-base.js';
 
 /** The default §6.3 request properties, as the renderer mirrors them. */
 export const REQUEST_PROPERTIES: RequestPropertiesWire = {

@@ -1,6 +1,6 @@
 import { nativeTheme } from 'electron';
 import { channels } from '../../shared/ipc.js';
-import type { ThemeOsWire } from '../../shared/wire-types.js';
+import type { ThemeOsWire } from '../../shared/wire-base.js';
 import { registerHandler } from './register.js';
 
 /**

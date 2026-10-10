@@ -5,7 +5,7 @@ import { KV_INPUT_CLASS, useCommittedDraft } from '../../components/kv-table.js'
 import { ConfirmDialog } from '../../components/confirm-dialog.js';
 import { useGridNavigation, type GridRowProps } from '../../lib/grid-navigation.js';
 import { useSecretsVisibilityStore } from '../../state/secrets-visibility.js';
-import type { PropertyMapWire } from '../../../shared/wire-types.js';
+import type { PropertyMapWire } from '../../../shared/wire-base.js';
 import type { CurrentColumn } from '../../state/current-values.js';
 
 /**

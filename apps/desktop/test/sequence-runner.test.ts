@@ -46,13 +46,9 @@ import { EngineService } from '../src/main/engine-service.js';
 import { HistoryService, historyFilePath } from '../src/main/history-service.js';
 import type { RequestChannelDeps } from '../src/main/ipc/request.js';
 import { SequenceRunner } from '../src/main/sequence-runner.js';
-import type {
-  HistoryEntryWire,
-  LogEntryWire,
-  RestExchangeSummary,
-  SequenceProgressEvent,
-  SequenceWaitingEvent,
-} from '../src/shared/wire-types.js';
+import type { HistoryEntryWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary } from '../src/shared/kinds/rest/wire.js';
+import type { SequenceProgressEvent, SequenceWaitingEvent } from '../src/shared/wire-base.js';
 
 /** Under a JSON key no redaction rule knows, so only the recorded value can mask it. */
 const JWT = 'jwt-value-long-7e21c0';

@@ -30,8 +30,9 @@ import {
 } from '@wirebench/engine';
 import type { ImportedVariables, DefinitionAuth, MappedOpenCollection, OpenApiSource } from '@wirebench/engine';
 import { channels } from '../../shared/ipc.js';
-import type { DefinitionAuthWire, OpenApiSourceWire, PostmanSourceWire } from '../../shared/wire-types.js';
-import { MAX_DOCUMENT_TEXT_BYTES } from '../../shared/wire-types.js';
+import type { PostmanSourceWire } from '../../shared/kinds/rest/wire.js';
+import type { DefinitionAuthWire, OpenApiSourceWire } from '../../shared/wire-base.js';
+import { MAX_DOCUMENT_TEXT_BYTES } from '../../shared/kinds/soap/wire.js';
 import type { ReadPicks } from '../dialog-picks.js';
 import { pickFolder } from '../native-dialogs.js';
 import type { OpenApiImportService } from '../openapi-import.js';

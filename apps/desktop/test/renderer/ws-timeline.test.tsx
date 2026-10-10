@@ -22,7 +22,7 @@ import {
   utf8Length,
 } from '../../src/renderer/features/ws-editor/ws-format.js';
 import { WS_LIVE_FRAME_LIMIT, useExchangesStore } from '../../src/renderer/state/exchanges.js';
-import type { WsFrameWire } from '../../src/shared/wire-types.js';
+import type { WsFrameWire } from '../../src/shared/kinds/ws/wire.js';
 
 vi.mock('@monaco-editor/react', async () => await import('../mocks/monaco-editor-react.js'));
 vi.mock('../../src/renderer/editor/monaco.js', async () => await import('../mocks/monaco-runtime.js'));

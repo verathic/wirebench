@@ -19,14 +19,9 @@ import { HistoryService } from '../src/main/history-service.js';
 import { type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { recordSecretValue } from '../src/main/redact.js';
 import { ExchangeRegistry } from '../src/main/send/exchange.js';
-import type {
-  FailedExchangeWire,
-  HistoryEntryWire,
-  LogEntryWire,
-  RequestCurlResponse,
-  WsExchangeSummary,
-  WsFrameWire,
-} from '../src/shared/wire-types.js';
+import type { HistoryEntryWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { WsExchangeSummary, WsFrameWire } from '../src/shared/kinds/ws/wire.js';
+import type { FailedExchangeWire, RequestCurlResponse } from '../src/shared/wire-base.js';
 import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();

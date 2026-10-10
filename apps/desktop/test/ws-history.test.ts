@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildWsHistoryEntry, HistoryService } from '../src/main/history-service.js';
 import { makeWsExchange } from './mocks/wire-fixtures.js';
-import type { WsFrameWire } from '../src/shared/wire-types.js';
+import type { WsFrameWire } from '../src/shared/kinds/ws/wire.js';
 
 describe('buildWsHistoryEntry', () => {
   it('carries the SOAP-shaped fields, the ws block, and redacts the handshake headers and URL', () => {

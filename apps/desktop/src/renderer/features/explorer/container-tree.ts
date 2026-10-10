@@ -4,7 +4,7 @@
  * by `apiId`; each kind supplies only how one of its requests becomes a row.
  */
 import type { KindId } from '../../../shared/kinds/kind-module.js';
-import type { RestFolderWire } from '../../../shared/wire-types.js';
+import type { RestFolderWire } from '../../../shared/wire-base.js';
 import type { ExplorerNode } from './tree-nodes.js';
 
 /** What a request needs for the tree to place it. */

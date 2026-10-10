@@ -4,7 +4,7 @@
  * it without loading the kinds' editors.
  */
 import type { KindId } from '../../shared/kinds/kind-module.js';
-import type { InterfaceSummary } from '../../shared/wire-types.js';
+import type { InterfaceSummary } from '../../shared/kinds/soap/wire.js';
 import type {
   ExplorerConflictTargets,
   ExplorerGrpcData,

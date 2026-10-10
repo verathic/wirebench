@@ -1,7 +1,7 @@
 /**
  * The wire shapes only SOAP uses (kind modules spec §4.2): WSDL import and definitions, SOAP
  * requests and exchanges, WS-Security, WS-Addressing, WS-I, XML editing, XPath and attachments.
- * Imports `wire-base.ts` and never another kind's file; `wire-types.ts` re-exports every name.
+ * Imports `wire-base.ts` and never another kind's file.
  */
 
 import { z } from 'zod';

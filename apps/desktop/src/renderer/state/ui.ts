@@ -13,7 +13,8 @@ import type {
   ThemePreference,
   UiSnapshot,
 } from './ui-state.js';
-import type { PreferencesSectionWire, RequestImportCurlTarget } from '../../shared/wire-types.js';
+import type { RequestImportCurlTarget } from '../../shared/kinds/rest/wire.js';
+import type { PreferencesSectionWire } from '../../shared/wire-base.js';
 import { DEFAULT_UI_STATE, readUi, writeUi } from './ui-state.js';
 
 /** A selected node in the explorer tree, read by the request inspectors and explorer actions. */

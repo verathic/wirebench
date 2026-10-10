@@ -53,19 +53,15 @@ import type { PreflightResult } from '../expansion-preflight.js';
 import { toUnresolvedRefWire } from '../engine-wire.js';
 import { secretSourceContext, secretSourceRefCode } from '../expansion-preflight.js';
 import type { SecretSourcesSnapshot } from '../secret-sources-service.js';
+import type { HistoryEntryWire, RequestCurlRequest, LogEntryWire } from '../../shared/wire-types.js';
 import type {
   RestRequestPatchWire,
-  UnresolvedRefWire,
-  HistoryEntryWire,
-  FailedExchangeWire,
-  RequestCurlRequest,
-  RequestCurlResponse,
   RequestImportCurlRequest,
   RequestImportCurlTarget,
   RequestImportCurlResponse,
-  RequestPatchWire,
-  LogEntryWire,
-} from '../../shared/wire-types.js';
+} from '../../shared/kinds/rest/wire.js';
+import type { RequestPatchWire } from '../../shared/kinds/soap/wire.js';
+import type { UnresolvedRefWire, FailedExchangeWire, RequestCurlResponse } from '../../shared/wire-base.js';
 import { cancelEnvironmentBatch, sendToEnvironments } from '../multi-env-send.js';
 import { registerHandler } from './register.js';
 

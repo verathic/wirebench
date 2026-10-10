@@ -72,20 +72,11 @@ import { isInteractive, kindById } from '../../shared/kinds/kind-module.js';
 import { desktopSendHost, type DesktopSend, type DesktopSendDeps } from './host.js';
 import { toWireEvent } from './live.js';
 import { type HistoryLabel, type HistoryNameFallback } from './record.js';
-import type {
-  ExchangeSummary,
-  GrpcExchangeSummary,
-  GrpcLiveEvent,
-  GrpcRequestPatchWire,
-  HistoryEntryWire,
-  ResolvedSendInputWire,
-  RestExchangeSummary,
-  RestLiveEvent,
-  RestRequestPatchWire,
-  WsExchangeSummary,
-  WsLiveEvent,
-  WsRequestPatchWire,
-} from '../../shared/wire-types.js';
+import type { HistoryEntryWire, ResolvedSendInputWire } from '../../shared/wire-types.js';
+import type { GrpcExchangeSummary, GrpcLiveEvent, GrpcRequestPatchWire } from '../../shared/kinds/grpc/wire.js';
+import type { RestExchangeSummary, RestLiveEvent, RestRequestPatchWire } from '../../shared/kinds/rest/wire.js';
+import type { ExchangeSummary } from '../../shared/kinds/soap/wire.js';
+import type { WsExchangeSummary, WsLiveEvent, WsRequestPatchWire } from '../../shared/kinds/ws/wire.js';
 
 export interface SendOptions<D extends DraftOf = DraftOf> {
   readonly draft: D;

@@ -29,7 +29,8 @@ import { desktopSendHost, type DesktopSend, type DesktopSendDeps } from '../src/
 import { failedExchangeOf } from '../src/main/failed-exchange.js';
 import { toWsHandshakeWire } from '../src/main/engine-wire.js';
 import { containsRecordedSecret, redactSecretText } from '../src/main/redact.js';
-import type { FailedExchangeWire, HistoryEntryWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { HistoryEntryWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { FailedExchangeWire } from '../src/shared/wire-base.js';
 
 vi.mock('electron', () => ({ ipcMain: { handle: () => undefined } }));
 

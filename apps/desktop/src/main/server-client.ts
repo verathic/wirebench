@@ -86,7 +86,7 @@ import {
   type AuditExportQueryWire,
   type AuditPageWire,
   type AuditQueryWire,
-} from '../shared/wire-types.js';
+} from '../shared/wire-base.js';
 
 export interface ServerClientDeps {
   /** The engine's `sendHttp` by default; a stub in tests. */

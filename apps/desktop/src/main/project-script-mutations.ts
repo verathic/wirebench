@@ -9,7 +9,7 @@
 
 import { ProjectError, SCRIPT_LIMITS } from '@wirebench/engine';
 import type { Project, RequestScripts, ScriptSource } from '@wirebench/engine';
-import type { RequestScriptsPatchWire } from '../shared/wire-types.js';
+import type { RequestScriptsPatchWire } from '../shared/wire-base.js';
 import { mapRequests } from './project-request-map.js';
 import type { Identified } from './project-request-map.js';
 

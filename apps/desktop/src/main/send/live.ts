@@ -4,7 +4,9 @@
  */
 import type { LiveEvent } from '@wirebench/engine';
 import { kindSend } from '../kinds/kind-send.js';
-import type { GrpcLiveEvent, RestLiveEvent, WsLiveEvent } from '../../shared/wire-types.js';
+import type { GrpcLiveEvent } from '../../shared/kinds/grpc/wire.js';
+import type { RestLiveEvent } from '../../shared/kinds/rest/wire.js';
+import type { WsLiveEvent } from '../../shared/kinds/ws/wire.js';
 
 /** A live event as the renderer receives it, of any protocol. */
 export type LiveEventWire = RestLiveEvent | GrpcLiveEvent | WsLiveEvent;

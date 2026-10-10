@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ImportProblemWire, ValidationProblemWire } from '../../shared/wire-types.js';
+import type { ImportProblemWire, ValidationProblemWire } from '../../shared/kinds/soap/wire.js';
 
 /**
  * Where a problem came from: importing a definition, expanding properties before a send, the

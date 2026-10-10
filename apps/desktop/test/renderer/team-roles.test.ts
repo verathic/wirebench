@@ -12,7 +12,7 @@ import {
   roleSourceWireSchema,
   teamRoleWireSchema,
   workspaceRoleWireSchema,
-} from '../../src/shared/wire-types.js';
+} from '../../src/shared/wire-base.js';
 
 describe('team role labels (teams-access §3.5)', () => {
   it('restates the wire enums exactly', () => {

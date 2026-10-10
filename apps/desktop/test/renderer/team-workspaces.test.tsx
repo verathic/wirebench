@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { WorkspacesTab } from '../../src/renderer/features/team/workspaces-tab.js';
 import { useTeamStore } from '../../src/renderer/state/team.js';
-import type { AccessEntryWire, TeamWire, TeamWorkspaceWire } from '../../src/shared/wire-types.js';
+import type { AccessEntryWire, TeamWire, TeamWorkspaceWire } from '../../src/shared/wire-base.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
 
 const URL_ = 'https://wb.test';

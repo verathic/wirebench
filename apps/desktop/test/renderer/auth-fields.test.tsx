@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { AuthFields } from '../../src/renderer/components/auth-fields.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
 import { SOAP_AUTH_TYPES, asSoapAuth } from '../../src/renderer/components/auth-fields.js';
-import type { AuthConfigWire, EndpointAuthWire } from '../../src/shared/wire-types.js';
+import type { EndpointAuthWire } from '../../src/shared/kinds/soap/wire.js';
+import type { AuthConfigWire } from '../../src/shared/wire-base.js';
 
 afterEach(() => {
   cleanup();

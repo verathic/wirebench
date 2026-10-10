@@ -6,7 +6,7 @@
 
 import { ProjectError, takenContainerSlugs } from '@wirebench/engine';
 import type { AuthConfig, KeyValueEntry, Project } from '@wirebench/engine';
-import type { AuthConfigWire, KeyValueWire } from '../shared/wire-types.js';
+import type { AuthConfigWire, KeyValueWire } from '../shared/wire-base.js';
 
 /** @throws ProjectError `project-entity-not-found` naming `what` and `id`. */
 export function notFound(what: string, id: string): never {

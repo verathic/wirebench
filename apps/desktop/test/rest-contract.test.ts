@@ -11,7 +11,8 @@ import type { RestContractInput, RestContractResult } from '@wirebench/engine';
 import { buildRestHistoryEntry } from '../src/main/history-service.js';
 import { restContractOf, type RestContractTarget } from '../src/main/rest-contract.js';
 import { sendThroughEngine } from '../src/main/send/exchange.js';
-import { historyEntrySchema, restExchangeSummarySchema } from '../src/shared/wire-types.js';
+import { historyEntrySchema } from '../src/shared/wire-types.js';
+import { restExchangeSummarySchema } from '../src/shared/kinds/rest/wire.js';
 import { sendDepsFor } from './helpers/send-deps.js';
 
 const responses = {

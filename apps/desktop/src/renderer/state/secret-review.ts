@@ -10,7 +10,7 @@
 import { create } from 'zustand';
 import { SECRET_NAME_PATTERN } from '@wirebench/engine/rest';
 import type { IpcError } from '../../shared/ipc.js';
-import type { SecretFindingWire } from '../../shared/wire-types.js';
+import type { SecretFindingWire } from '../../shared/wire-base.js';
 import { showToast } from '../components/toast.js';
 import { ipc } from './ipc-client.js';
 import { useProjectStore } from './project.js';

@@ -34,7 +34,8 @@ function sent(n = 0): { sendId: string; requestId: string; options: Record<strin
   const [, sendId, requestId, options] = engineSend.mock.calls[n] as [unknown, string, string, Record<string, unknown>];
   return { sendId, requestId, options };
 }
-import type { ExchangeSummary, RestExchangeSummary } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary } from '../src/shared/kinds/rest/wire.js';
+import type { ExchangeSummary } from '../src/shared/kinds/soap/wire.js';
 
 const LOG_EXTRA = { picks: { rememberWrite: () => undefined }, appVersion: '0.0.0-test' };
 

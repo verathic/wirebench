@@ -1025,9 +1025,3 @@ export const workspaceRestoredResponseSchema = z.object({
   notices: z.array(unsavedRestoreNoticeSchema),
 });
 export type WorkspaceRestoredResponse = z.infer<typeof workspaceRestoredResponseSchema>;
-
-export * from './wire-base.js';
-export * from './kinds/soap/wire.js';
-export * from './kinds/rest/wire.js';
-export * from './kinds/grpc/wire.js';
-export * from './kinds/ws/wire.js';

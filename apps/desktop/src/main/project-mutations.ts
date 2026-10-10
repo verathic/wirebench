@@ -10,7 +10,8 @@
 
 import { ProjectError, slugify } from '@wirebench/engine';
 import type { AttachmentSource, Project, ProjectSettings, PropertyMap } from '@wirebench/engine';
-import type { ProjectChange, ProjectSettingsPatchWire } from '../shared/wire-types.js';
+import type { ProjectChange } from '../shared/wire-types.js';
+import type { ProjectSettingsPatchWire } from '../shared/wire-base.js';
 import type { ChangeReducer, KindTree } from './kinds/kind-main.js';
 import { MAIN_KINDS, mutationOwner } from './kinds/kind-main.js';
 import type { GeneratedEnvelope } from './kinds/soap/mutations.js';

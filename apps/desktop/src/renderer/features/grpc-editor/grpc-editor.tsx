@@ -26,11 +26,11 @@ import { useWorkspaceStore } from '../../state/workspace.js';
 import { groupOrientation, useEditorLayout } from '../request-editor/layout.js';
 import { RestAuthTab } from '../rest-editor/auth-tab.js';
 import type {
-  AuthConfigWire,
   GrpcMethodDescriptorWire,
   GrpcRequestPatchWire,
   GrpcServiceDescriptorWire,
-} from '../../../shared/wire-types.js';
+} from '../../../shared/kinds/grpc/wire.js';
+import type { AuthConfigWire } from '../../../shared/wire-base.js';
 import { CallBar } from './call-bar.js';
 import { GrpcBreadcrumb } from './grpc-breadcrumb.js';
 import { MessageTab } from './message-tab.js';

@@ -6,13 +6,13 @@ import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve as resolvePath } from 'node:path';
 import { channels } from '../../../shared/ipc.js';
+import type { HistoryEntryWire } from '../../../shared/wire-types.js';
 import type {
   ExchangeSummary,
-  HeaderEntryWire,
-  HistoryEntryWire,
   RequestRecreateRequest,
   RequestRecreateResponse,
-} from '../../../shared/wire-types.js';
+} from '../../../shared/kinds/soap/wire.js';
+import type { HeaderEntryWire } from '../../../shared/wire-base.js';
 import type { EngineService } from '../../engine-service.js';
 import { generateOptionsFrom } from '../../generate-options.js';
 import { type HistoryService } from '../../history-service.js';

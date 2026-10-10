@@ -29,7 +29,8 @@ import { EngineService } from '../src/main/engine-service.js';
 import { type RequestChannelDeps } from '../src/main/ipc/request.js';
 import type { HistoryService } from '../src/main/history-service.js';
 import type { SecretSourcesSnapshot } from '../src/main/secret-sources-service.js';
-import type { HistoryEntryWire, RestExchangeSummary } from '../src/shared/wire-types.js';
+import type { HistoryEntryWire } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary } from '../src/shared/kinds/rest/wire.js';
 import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();

@@ -160,14 +160,15 @@ import type {
 } from './workspace-share.js';
 import { WorkspaceState } from './workspace-state.js';
 import { recordToFiles, UnsavedStore } from './unsaved-store.js';
+import type { ProjectWire, WorkspaceRestoredResponse } from '../shared/wire-types.js';
+import type { GrpcRequestPatchWire } from '../shared/kinds/grpc/wire.js';
+import type { RestRequestPatchWire } from '../shared/kinds/rest/wire.js';
+import type { RequestPatchWire } from '../shared/kinds/soap/wire.js';
+import type { WsRequestPatchWire } from '../shared/kinds/ws/wire.js';
 import type {
   CertificatesCheckResponse,
   EngineProgressEvent,
-  GrpcRequestPatchWire,
   HydrationStatus,
-  ProjectWire,
-  RequestPatchWire,
-  RestRequestPatchWire,
   SecretSourcesSetRequest,
   SecretSourcesState,
   SyncSettingsPatchWire,
@@ -175,12 +176,10 @@ import type {
   WorkspaceChange,
   WorkspaceEnvironmentWire,
   WorkspaceProjectWire,
-  WorkspaceRestoredResponse,
   WorkspaceShareWire,
   WorkspaceSummaryWire,
   WorkspaceWire,
-  WsRequestPatchWire,
-} from '../shared/wire-types.js';
+} from '../shared/wire-base.js';
 
 /**
  * How long after a change a project's unsaved-changes record is rewritten. Short enough that a

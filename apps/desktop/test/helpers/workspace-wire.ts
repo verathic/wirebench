@@ -3,7 +3,7 @@ import type {
   WorkspaceProjectWire,
   WorkspaceShareWire,
   WorkspaceWire,
-} from '../../src/shared/wire-types.js';
+} from '../../src/shared/wire-base.js';
 
 /**
  * The smallest open workspace a renderer test needs: an id, a name, and whichever environments

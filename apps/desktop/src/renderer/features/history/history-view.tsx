@@ -9,7 +9,8 @@ import { useEditorsStore } from '../../state/editors.js';
 import { useHistoryStore } from '../../state/history.js';
 import { canResendHistoryEntry, entrySide, openCompareTab, resendHistoryEntry } from './history-actions.js';
 import { useWorkspaceStore } from '../../state/workspace.js';
-import type { HistoryEntryWire, WorkspaceProjectWire } from '../../../shared/wire-types.js';
+import type { HistoryEntryWire } from '../../../shared/wire-types.js';
+import type { WorkspaceProjectWire } from '../../../shared/wire-base.js';
 
 const ROW_HEIGHT = 40;
 const VIRTUALISE_ABOVE = 200;

@@ -32,7 +32,8 @@ import type {
   WsRequestSettings,
   WsSavedMessage,
 } from '@wirebench/engine';
-import type { WsApiPatchWire, WsRequestPatchWire, RestFolderPatchWire } from '../../../shared/wire-types.js';
+import type { RestFolderPatchWire } from '../../../shared/kinds/rest/wire.js';
+import type { WsApiPatchWire, WsRequestPatchWire } from '../../../shared/kinds/ws/wire.js';
 import { takenApiSlugs, toEngineAuthConfig, toEngineRows } from '../../project-api-mutations.js';
 import type { KindMutations } from '../kind-main.js';
 

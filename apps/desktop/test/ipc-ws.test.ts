@@ -21,7 +21,8 @@ import {
 import { EngineService } from '../src/main/engine-service.js';
 import { whenWsSessionsRecorded, type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { ExchangeRegistry } from '../src/main/send/exchange.js';
-import type { FailedExchangeWire, HistoryEntryWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { HistoryEntryWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { FailedExchangeWire } from '../src/shared/wire-base.js';
 import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();

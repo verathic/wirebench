@@ -1,7 +1,6 @@
 /**
  * The wire shapes only WebSocket uses (kind modules spec §4.2): APIs, requests, sessions in flight
- * and AsyncAPI import. Imports `wire-base.ts` and never another kind's file; `wire-types.ts`
- * re-exports every name.
+ * and AsyncAPI import. Imports `wire-base.ts` and never another kind's file.
  */
 
 import { z } from 'zod';

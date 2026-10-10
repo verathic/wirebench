@@ -2,13 +2,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EngineService } from '../src/main/engine-service.js';
 import { registerDefinitionChannels } from '../src/main/kinds/soap/channels/definition.js';
-import { MAX_ENVELOPE_XML_CHARS } from '../src/shared/wire-types.js';
+import { MAX_ENVELOPE_XML_CHARS } from '../src/shared/kinds/soap/wire.js';
 import type {
   DefinitionDeclarationAtResponse,
   DefinitionDocumentsResponse,
   DefinitionDocumentTextResponse,
   DefinitionSchemaIndexResponse,
-} from '../src/shared/wire-types.js';
+} from '../src/shared/kinds/soap/wire.js';
 import { readPublicFixture } from './helpers/fixtures.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();

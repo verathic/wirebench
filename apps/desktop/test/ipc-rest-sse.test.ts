@@ -18,7 +18,8 @@ import { whenRestSendsRecorded, type RequestChannelDeps } from '../src/main/ipc/
 import { toRestEventStreamWire } from '../src/main/engine-wire.js';
 import { ExchangeRegistry, sendThroughEngine } from '../src/main/send/exchange.js';
 import { sendDepsFor } from './helpers/send-deps.js';
-import type { FailedExchangeWire, RestExchangeSummary, RestLiveEvent } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary, RestLiveEvent } from '../src/shared/kinds/rest/wire.js';
+import type { FailedExchangeWire } from '../src/shared/wire-base.js';
 import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();

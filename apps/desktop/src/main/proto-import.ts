@@ -25,7 +25,8 @@ import {
   WirebenchError,
 } from '@wirebench/engine';
 import type { ImportedProto, ProtoSet, ProtoSources, TlsOptions } from '@wirebench/engine';
-import type { EngineProgressEvent, ProtoSourceWire } from '../shared/wire-types.js';
+import type { ProtoSourceWire } from '../shared/kinds/grpc/wire.js';
+import type { EngineProgressEvent } from '../shared/wire-base.js';
 import { protoImportsOf as importsOf } from './proto-imports-of.js';
 
 /** What one import needs beyond where to read from. */

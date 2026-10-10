@@ -65,18 +65,16 @@ import type {
   SoapRequestDef,
   Workspace,
 } from '@wirebench/engine';
+import type { HistoryEntryWire, ProjectChange, ProjectWire } from '../shared/wire-types.js';
 import type {
   EngineProgressEvent,
-  HistoryEntryWire,
   HydrationStatus,
-  ProjectChange,
   ProjectProblemWire,
   ProjectSaveResult,
   KeystoresInspectResponse,
-  ProjectWire,
   ProxyOptionsWire,
   TlsOptionsWire,
-} from '../shared/wire-types.js';
+} from '../shared/wire-base.js';
 import type { EngineService } from './engine-service.js';
 import { generateOptionsFrom } from './generate-options.js';
 import type { GlobalProperties } from './global-properties.js';

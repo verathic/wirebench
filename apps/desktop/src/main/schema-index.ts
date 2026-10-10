@@ -10,7 +10,7 @@ import type {
   DefinitionDeclarationAtResponse,
   SchemaComponentWire,
   SchemaNamespaceWire,
-} from '../shared/wire-types.js';
+} from '../shared/kinds/soap/wire.js';
 
 /** Renders a QName as Clark notation (`{namespaceUri}localName`), matching every other channel. */
 function toClark(name: QName): string {

@@ -3,7 +3,8 @@
  * Split out of `project.ts` so the store file stays about state and actions.
  */
 
-import type { EndpointSourceWire, EndpointWire, WorkspaceWire } from '../../shared/wire-types.js';
+import type { EndpointSourceWire, EndpointWire } from '../../shared/kinds/soap/wire.js';
+import type { WorkspaceWire } from '../../shared/wire-base.js';
 import type { ProjectSnapshot } from './project.js';
 import { resolveEndpointOverride } from './endpoint-override.js';
 

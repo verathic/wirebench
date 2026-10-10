@@ -30,7 +30,7 @@ import {
 import type { Environment, Preferences, Project, RestApi } from '@wirebench/engine';
 import { resolveAuthConfig } from '../src/main/secret-resolver.js';
 import { previewRest, sendThroughEngine, type RestPreview } from '../src/main/send/exchange.js';
-import type { RestRequestPatchWire } from '../src/shared/wire-types.js';
+import type { RestRequestPatchWire } from '../src/shared/kinds/rest/wire.js';
 import { sendDepsFor } from './helpers/send-deps.js';
 
 const UAT: Environment = {

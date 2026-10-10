@@ -126,7 +126,7 @@ import { createMainWindow } from './windows.js';
 import { createUpdateController } from './update-service.js';
 import type { IpcEvent } from '../shared/ipc.js';
 import type { z } from 'zod';
-import type { WorkspaceWire } from '../shared/wire-types.js';
+import type { WorkspaceWire } from '../shared/wire-base.js';
 
 // Must run before `app.ready` — Electron only honours scheme privileges registered this
 // early. This is what lets the packaged renderer be served from a real (non-`file://`)

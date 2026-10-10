@@ -5,16 +5,15 @@ import type { DefinitionAuth, RestOpRef, RestUpdatePlan, WebhookItemRef } from '
 import { composeUrl, joinBase, webhookItemsOf, WirebenchError } from '@wirebench/engine';
 import { randomUUID } from 'node:crypto';
 import { channels, events } from '../../../shared/ipc.js';
+import type { HistoryEntryWire } from '../../../shared/wire-types.js';
 import type {
-  EndpointSourceWire,
-  HistoryEntryWire,
-  OpenApiSourceWire,
   RestRequestPatchWire,
   RestUpdatePlanWire,
   RestUpdateSourceWire,
-  UnresolvedRefWire,
   WebhookItemWire,
-} from '../../../shared/wire-types.js';
+} from '../../../shared/kinds/rest/wire.js';
+import type { EndpointSourceWire } from '../../../shared/kinds/soap/wire.js';
+import type { OpenApiSourceWire, UnresolvedRefWire } from '../../../shared/wire-base.js';
 import type { EngineService } from '../../engine-service.js';
 import type { PreflightResult } from '../../expansion-preflight.js';
 import { type HistoryService } from '../../history-service.js';

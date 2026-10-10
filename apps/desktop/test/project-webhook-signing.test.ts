@@ -22,8 +22,9 @@ import {
   updateWebhooks,
 } from '../src/main/kinds/rest/webhooks/mutations.js';
 import { withDraft } from '../src/main/send/draft.js';
-import { projectChangeSchema, restRequestPatchSchema } from '../src/shared/wire-types.js';
-import type { WebhookSigningWire } from '../src/shared/wire-types.js';
+import { projectChangeSchema } from '../src/shared/wire-types.js';
+import { restRequestPatchSchema } from '../src/shared/kinds/rest/wire.js';
+import type { WebhookSigningWire } from '../src/shared/wire-base.js';
 
 const HMAC: WebhookSigningWire = {
   mode: 'sign',

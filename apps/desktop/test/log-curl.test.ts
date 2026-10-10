@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { curlForLogEntry, loggedRequestOf } from '../src/main/log-curl.js';
-import type { FailedExchangeWire, RestExchangeSummary, WsHandshakeExchangeSummary } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary } from '../src/shared/kinds/rest/wire.js';
+import type { WsHandshakeExchangeSummary } from '../src/shared/kinds/ws/wire.js';
+import type { FailedExchangeWire } from '../src/shared/wire-base.js';
 
 function makeWsHandshakeExchange(overrides: Partial<WsHandshakeExchangeSummary> = {}): WsHandshakeExchangeSummary {
   return {

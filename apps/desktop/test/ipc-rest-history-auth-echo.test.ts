@@ -15,7 +15,8 @@ import { createApi, createProject, createRestRequest, entry } from '@wirebench/e
 import type { AuthConfig, Project } from '@wirebench/engine';
 import { buildRestHistoryEntry, HistoryService, historyFilePath } from '../src/main/history-service.js';
 import { sendThroughEngine } from '../src/main/send/exchange.js';
-import type { HistoryEntryWire, RestExchangeSummary } from '../src/shared/wire-types.js';
+import type { HistoryEntryWire } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary } from '../src/shared/kinds/rest/wire.js';
 import { sendDepsFor } from './helpers/send-deps.js';
 
 vi.mock('electron', () => ({ ipcMain: { handle: () => undefined } }));

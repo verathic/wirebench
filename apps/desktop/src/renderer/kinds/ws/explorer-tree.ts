@@ -1,4 +1,5 @@
-import type { RestFolderWire, WsApiWire, WsRequestWire } from '../../../shared/wire-types.js';
+import type { WsApiWire, WsRequestWire } from '../../../shared/kinds/ws/wire.js';
+import type { RestFolderWire } from '../../../shared/wire-base.js';
 import { containerChildren } from '../../features/explorer/container-tree.js';
 import type { ExplorerNode } from '../../features/explorer/tree-nodes.js';
 import type { KindExplorerTree } from '../explorer-tree.js';

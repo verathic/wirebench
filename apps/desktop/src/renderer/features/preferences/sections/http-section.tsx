@@ -5,7 +5,7 @@ import {
   SettingsGroup,
   TextSetting,
 } from '../../../components/settings-grid.js';
-import type { PreferencesWire } from '../../../../shared/wire-types.js';
+import type { PreferencesWire } from '../../../../shared/wire-base.js';
 import type { SectionProps } from './section-props.js';
 
 /** HTTP transport defaults: identity, compression, connection reuse and the socket timeout. */

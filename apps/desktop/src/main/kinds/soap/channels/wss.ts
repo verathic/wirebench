@@ -15,7 +15,7 @@
 import { channels } from '../../../../shared/ipc.js';
 import { redactXml } from '../../../redact.js';
 import type { ProjectRouter } from '../../../project-router.js';
-import type { WssEntryWire, WssPolicyStatusResponse } from '../../../../shared/wire-types.js';
+import type { WssEntryWire, WssPolicyStatusResponse } from '../../../../shared/kinds/soap/wire.js';
 import {
   checkWssPolicy,
   describeSecurityHeader,

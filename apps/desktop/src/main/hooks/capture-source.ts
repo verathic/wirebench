@@ -9,7 +9,7 @@
  */
 import { WirebenchError, captureSourceOver, unavailableCaptureSource } from '@wirebench/engine';
 import type { CaptureSource } from '@wirebench/engine';
-import type { WorkspaceWire } from '../../shared/wire-types.js';
+import type { WorkspaceWire } from '../../shared/wire-base.js';
 import { normalizeServerUrl, type ServerClient } from '../server-client.js';
 import { withToken, type TokenSource } from '../server-token.js';
 

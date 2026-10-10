@@ -23,7 +23,7 @@ import type {
   SequenceTransferWire,
   SequenceWire,
   StepAssertionWire,
-} from '../shared/wire-types.js';
+} from '../shared/wire-base.js';
 
 /** The outcome of one sequence change. */
 export interface SequenceMutationResult {

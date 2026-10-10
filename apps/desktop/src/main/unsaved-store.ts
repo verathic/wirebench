@@ -18,18 +18,14 @@ import { dirname, join, relative, sep } from 'node:path';
 import { z } from 'zod';
 import { mergeFiles, nodeFs } from '@wirebench/engine';
 import type { DirEntry, FileStat, FileMerge, FsLike, ProjectFiles } from '@wirebench/engine';
-import {
-  grpcRequestPatchSchema,
-  requestPatchSchema,
-  restRequestPatchSchema,
-  wsRequestPatchSchema,
-} from '../shared/wire-types.js';
-import type {
-  GrpcRequestPatchWire,
-  RequestPatchWire,
-  RestRequestPatchWire,
-  WsRequestPatchWire,
-} from '../shared/wire-types.js';
+import { grpcRequestPatchSchema } from '../shared/kinds/grpc/wire.js';
+import { restRequestPatchSchema } from '../shared/kinds/rest/wire.js';
+import { requestPatchSchema } from '../shared/kinds/soap/wire.js';
+import { wsRequestPatchSchema } from '../shared/kinds/ws/wire.js';
+import type { GrpcRequestPatchWire } from '../shared/kinds/grpc/wire.js';
+import type { RestRequestPatchWire } from '../shared/kinds/rest/wire.js';
+import type { RequestPatchWire } from '../shared/kinds/soap/wire.js';
+import type { WsRequestPatchWire } from '../shared/kinds/ws/wire.js';
 
 /** Folder, inside a workspace's own folder, that holds its recovery records. */
 export const UNSAVED_DIR = 'unsaved';

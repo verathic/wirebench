@@ -5,7 +5,8 @@ import type { Project, PropertyScopes, WsaConfig } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
 import { type RequestChannelDeps } from '../src/main/ipc/request.js';
 import type { PreflightResult } from '../src/main/expansion-preflight.js';
-import type { ProjectChange, SoapSendInputWire } from '../src/shared/wire-types.js';
+import type { ProjectChange } from '../src/shared/wire-types.js';
+import type { SoapSendInputWire } from '../src/shared/kinds/soap/wire.js';
 import { readPublicFixture } from './helpers/fixtures.js';
 import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
