@@ -69,6 +69,17 @@ export function defaultRegistry(): ProtocolRegistry {
   return builtin;
 }
 
+/**
+ * Replaces the registry {@link defaultRegistry} answers with, for a host that switches protocols off
+ * for the whole process (the desktop's `WIREBENCH_KINDS`). `undefined` goes back to the built-in
+ * registry with every feature on. Call it at start-up, before anything loads a project.
+ *
+ * @internal Exported for the engine's own hosts; not yet a plugin API (ADR-0017).
+ */
+export function setDefaultRegistry(registry: ProtocolRegistry | undefined): void {
+  builtin = registry;
+}
+
 /** One saved request selected for a run, of any built-in protocol a run can send. */
 export type SelectedRequest = SoapSelected | RestSelected | GrpcSelected | WsSelected;
 

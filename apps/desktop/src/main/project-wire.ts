@@ -20,7 +20,9 @@ import {
   wssEntrySchema,
   wssIncomingFileSchema,
   wssOutgoingFileSchema,
+  unsupportedOf,
 } from '@wirebench/engine';
+import { KINDS } from '../shared/kinds/kind-module.js';
 import { hasUnmirroredFields, KNOWN_WSS_ENTRY_KINDS, opaqueEntryFingerprint } from './wss-opaque.js';
 import type {
   Assertion,
@@ -47,6 +49,7 @@ import type {
   WssRef,
 } from '@wirebench/engine';
 import type {
+  UnsupportedContainerWire,
   RequestAssertionWire,
   AuthConfigWire,
   GrpcApiWire,
@@ -808,6 +811,7 @@ export function toProjectWire(project: Project, context: ProjectWireContext): Pr
   const webhookTree =
     webhooks !== undefined ? toWebhookTreeWires(webhooks, webhookCollectionId(project.id)) : undefined;
   const webhooksWire = toWebhookCollectionWire(project);
+  const unsupported = toUnsupportedWires(project);
   return {
     id: project.id,
     name: project.name,
@@ -835,7 +839,39 @@ export function toProjectWire(project: Project, context: ProjectWireContext): Pr
     keystores: project.keystores.map(toKeystoreWire),
     wssOutgoing: wssConfigsOf(project).outgoing.map(toWssOutgoingWire),
     wssIncoming: wssConfigsOf(project).incoming.map(toWssIncomingWire),
+    ...(unsupported.length > 0 ? { unsupported } : {}),
   };
+}
+
+/**
+ * The containers the explorer shows as placeholders (kind modules spec §7.1): what the engine loaded
+ * as unsupported (a kind that is off), and every container of a kind the engine knows and the desktop
+ * has no half of.
+ */
+function toUnsupportedWires(project: Project): UnsupportedContainerWire[] {
+  const desktop = new Set<string>(KINDS.map((kind) => kind.kind));
+  return [
+    ...unsupportedOf(project).map((placeholder) => ({
+      dir: placeholder.dir,
+      slug: placeholder.slug,
+      kind: placeholder.kind,
+      reason: placeholder.reason,
+      ...(placeholder.name !== undefined ? { name: placeholder.name } : {}),
+      ...(placeholder.order !== undefined ? { order: placeholder.order } : {}),
+    })),
+    ...Object.entries(project.containers)
+      .filter(([kind]) => !desktop.has(kind))
+      .flatMap(([kind, containers]) =>
+        containers.map((container) => ({
+          dir: 'apis' as const,
+          slug: container.slug,
+          kind,
+          reason: 'unknown-kind' as const,
+          name: container.name,
+          order: container.order,
+        })),
+      ),
+  ];
 }
 
 /**

@@ -574,6 +574,21 @@ export const environmentWireSchema = z.object({
 });
 export type EnvironmentWire = z.infer<typeof environmentWireSchema>;
 
+/**
+ * A container the desktop shows as a placeholder (kind modules spec §7.1): one whose kind is switched
+ * off (`feature-disabled`), or one of a kind this version does not know (`unknown-kind`). The engine
+ * still loads and saves it; nothing in the desktop can change it.
+ */
+export const unsupportedContainerWireSchema = z.object({
+  dir: z.enum(['interfaces', 'apis']),
+  slug: z.string(),
+  kind: z.string(),
+  reason: z.enum(['unknown-kind', 'feature-disabled']),
+  name: z.string().optional(),
+  order: z.number().optional(),
+});
+export type UnsupportedContainerWire = z.infer<typeof unsupportedContainerWireSchema>;
+
 /** A recoverable inconsistency found while loading (or hydrating) a project folder. */
 export const projectProblemSchema = z.object({
   code: z.string(),

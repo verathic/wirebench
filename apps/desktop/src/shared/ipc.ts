@@ -341,6 +341,8 @@ export const channels = {
     checkForUpdates: defineChannel('app.checkForUpdates', z.undefined(), appUpdateStatusSchema),
     /** The sidebar areas this run has switched on (`WIREBENCH_AREAS`); the renderer hides the rest. */
     areas: defineChannel('app.areas', z.undefined(), z.object({ enabled: z.array(z.string()) })),
+    /** The protocol kinds this run has switched on (`WIREBENCH_KINDS`); the renderer shows the rest as placeholders. */
+    kinds: defineChannel('app.kinds', z.undefined(), z.object({ enabled: z.array(z.string()) })),
     /**
      * Opens another window at the workspace picker (the "New Window" command). Each window holds its
      * own workspace; see the multi-window design.

@@ -26,6 +26,7 @@ import {
   mockWireSchema,
   projectAddInterfaceTargetSchema,
   projectProblemSchema,
+  unsupportedContainerWireSchema,
   projectSettingsPatchSchema,
   projectSettingsSchema,
   requestAssertionWireSchema,
@@ -282,6 +283,8 @@ export const projectWireSchema = z.object({
   wssOutgoing: z.array(wssOutgoingWireSchema),
   /** The project's incoming WS-Security configurations; empty when it has none. */
   wssIncoming: z.array(wssIncomingWireSchema),
+  /** Containers shown as placeholders: a kind that is off, or one this version does not know. Absent when none. */
+  unsupported: z.array(unsupportedContainerWireSchema).optional(),
 });
 export type ProjectWire = z.infer<typeof projectWireSchema>;
 

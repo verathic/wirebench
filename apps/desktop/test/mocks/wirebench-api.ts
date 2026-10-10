@@ -31,6 +31,7 @@ export function stubWirebenchApi(overrides: ApiOverrides = {}): WirebenchApi {
     app: {
       version: fail('app.version'),
       areas: fail('app.areas'),
+      kinds: fail('app.kinds'),
       registerMenu: vi.fn().mockResolvedValue({ ok: true, value: { items: 0 } }),
     },
     auth: {

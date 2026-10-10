@@ -37,6 +37,7 @@
     "api.webhookItems",
     "app.areas",
     "app.checkForUpdates",
+    "app.kinds",
     "app.newWindow",
     "app.registerMenu",
     "app.version",

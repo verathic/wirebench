@@ -11,6 +11,7 @@ import {
   WirebenchError,
   enabledProperties,
   overlayCurrent,
+  setDefaultRegistry,
   type ConnectOptions,
   type GetSecret,
 } from '@wirebench/engine';
@@ -58,6 +59,7 @@ import { windowHosts, type HostsService } from './hosts-service.js';
 import { SshService, sshSessionsEndOnSwitch } from './ssh-service.js';
 import { registerKerberosChannels, setUpKerberos } from './kerberos.js';
 import { clearAttachmentsTmp } from './kinds/soap/channels/attachments.js';
+import { enabledKindsFromEnv, kindRegistry } from './kinds/enabled-kinds.js';
 import { MAIN_KINDS } from './kinds/kind-main.js';
 import { registerKeystoreChannels } from './ipc/keystores.js';
 import { registerCertificateChannels } from './ipc/certificates.js';
@@ -487,6 +489,14 @@ const secretScans = scoped(scopes, (scope) => scope.secretScans);
 /** The areas `WIREBENCH_AREAS` leaves switched on (see `areas.ts`). */
 const enabledAreas = enabledAreasFromEnv();
 
+/**
+ * The kinds `WIREBENCH_KINDS` leaves switched on (see `kinds/enabled-kinds.ts`). Every engine call
+ * that is passed no registry uses this run's, so a project's containers of a kind that is off load
+ * as placeholders and are saved untouched; set before anything loads a project.
+ */
+const enabledKinds = enabledKindsFromEnv();
+setDefaultRegistry(kindRegistry(enabledKinds));
+
 /** The calling window's `hosts.yaml` (each window has its own, for its own workspace; see `createWindowScope`). */
 const hostsService = scoped(scopes, (scope) => scope.hosts);
 
@@ -804,6 +814,7 @@ void app.whenReady().then(() => {
       openWindow({ reopenLast: false });
     },
     enabledAreas,
+    enabledKinds,
   );
   // The calling window's open projects' folders: the containment roots a renderer-named import path may sit in.
   const openProjectDirs = (): readonly string[] =>
@@ -1102,7 +1113,8 @@ void app.whenReady().then(() => {
   });
   registerDialogsChannels(dialogPicks);
   registerFsChannels();
-  for (const kind of MAIN_KINDS) {
+  // A kind that is off registers no channels: a call to one is refused as an unknown channel.
+  for (const kind of MAIN_KINDS.filter((candidate) => enabledKinds.includes(candidate.kind))) {
     kind.registerChannels({
       engine: engineService,
       request: requestDeps,
