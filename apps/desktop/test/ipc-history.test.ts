@@ -16,10 +16,11 @@ import {
 } from '@wirebench/engine';
 import type { AuthConfig, CreateRestRequestInput, Project, SoapRequestDef } from '@wirebench/engine';
 import { buildRestHistoryEntry, isTruncatedBody } from '../src/main/history-service.js';
-import { grpcResendDraft, registerHistoryChannels, restResendDraft } from '../src/main/ipc/history.js';
+import { grpcResendDraft, restResendDraft } from '../src/main/ipc/history.js';
 import type { SendThroughEngineDeps } from '../src/main/send/exchange.js';
 import type { HistoryEntryWire } from '../src/shared/wire-types.js';
 import { sendDepsFor, type SendDepsExtra } from './helpers/send-deps.js';
+import { registerHistoryChannelsWithKinds } from './helpers/kind-channels.js';
 
 /**
  * The engine send every re-send goes through, spied on: it sends for real unless a test stubs it,
@@ -178,7 +179,7 @@ describe('registerHistoryChannels', () => {
   it('history.list returns entries and total from the history service', async () => {
     const entries = [makeEntry({ id: 'a', requestName: 'Alpha' }), makeEntry({ id: 'b', requestName: 'Beta' })];
     const history = fakeHistory(entries);
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: noLiveRequests(),
     });
 
@@ -195,7 +196,7 @@ describe('registerHistoryChannels', () => {
       makeEntry({ id: 'b', requestName: 'Beta', projectId: 'proj-2' }),
     ];
     const history = fakeHistory(entries);
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: noLiveRequests(),
     });
 
@@ -211,7 +212,7 @@ describe('registerHistoryChannels', () => {
   it('history.get returns the entry or undefined', async () => {
     const entries = [makeEntry({ id: 'a' })];
     const history = fakeHistory(entries);
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: noLiveRequests(),
     });
 
@@ -222,7 +223,7 @@ describe('registerHistoryChannels', () => {
   it('history.clear empties the store and reports how many were cleared', async () => {
     const entries = [makeEntry({ id: 'a' }), makeEntry({ id: 'b' })];
     const history = fakeHistory(entries);
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: noLiveRequests(),
     });
 
@@ -234,7 +235,7 @@ describe('registerHistoryChannels', () => {
     'history.resend refuses a %s entry with history-resend-unsupported, sending nothing',
     async (kind) => {
       const send = engineSend;
-      registerHistoryChannels(fakeHistory([makeEntry({ id: 'k', kind })]) as never, {
+      registerHistoryChannelsWithKinds(fakeHistory([makeEntry({ id: 'k', kind })]) as never, {
         project: noLiveRequests(),
         send: sendDeps(),
       });
@@ -246,7 +247,7 @@ describe('registerHistoryChannels', () => {
 
   it('history.resend rejects an unknown id with unknown-history-entry', async () => {
     const history = fakeHistory([]);
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: noLiveRequests(),
     });
 
@@ -269,7 +270,7 @@ describe('registerHistoryChannels', () => {
     ];
     const history = fakeHistory(entries);
     const send = engineSend;
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: noLiveRequests(),
       send: sendDeps(),
     });
@@ -300,7 +301,7 @@ describe('registerHistoryChannels', () => {
       envelopeXml: '<Envelope>current, with the real password</Envelope>',
       headers: [{ name: 'X-Live', value: 'yes' }],
     });
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: {
         ...noLiveRequests(),
         endpointFor: (requestId: string) => (requestId === 'req-1' ? `${soapUrl}/new-endpoint` : undefined),
@@ -330,7 +331,7 @@ describe('registerHistoryChannels', () => {
     ];
     const history = fakeHistory(entries);
     const send = engineSend;
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: noLiveRequests(), // endpointFor always undefined: the request is gone.
       send: sendDeps(),
     });
@@ -371,7 +372,7 @@ describe('registerHistoryChannels', () => {
       },
       problems: [],
     });
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: noLiveRequests(),
       send: sendDeps(),
     });
@@ -415,7 +416,7 @@ describe('registerHistoryChannels', () => {
       properties: { token: 'abc' },
     };
     const proxyFor = vi.fn(() => Promise.resolve(undefined));
-    registerHistoryChannels(fakeHistory(entries) as never, {
+    registerHistoryChannelsWithKinds(fakeHistory(entries) as never, {
       project: noLiveRequests(),
       send: sendDeps(model, {
         project: { proxyFor },
@@ -441,7 +442,7 @@ describe('registerHistoryChannels', () => {
 
   it('history.resend refuses a request that maps no endpoint now when the recorded one holds a redacted value', async () => {
     const entries = [makeEntry({ id: 'a', requestId: 'req-1', endpoint: `${soapUrl}/recorded?key=%3Credacted%3E` })];
-    registerHistoryChannels(fakeHistory(entries) as never, {
+    registerHistoryChannelsWithKinds(fakeHistory(entries) as never, {
       project: noLiveRequests(),
       send: sendDeps(soapModel()),
     });
@@ -454,7 +455,7 @@ describe('registerHistoryChannels', () => {
 
   it('history.resend sends an entry whose request was deleted ad hoc, never through a project', async () => {
     const entries = [makeEntry({ id: 'a', requestId: 'req-gone', endpoint: `${soapUrl}/orphan` })];
-    registerHistoryChannels(fakeHistory(entries) as never, {
+    registerHistoryChannelsWithKinds(fakeHistory(entries) as never, {
       project: noLiveRequests(),
       send: sendDeps(soapModel(), { project: { projectId: () => undefined } }),
     });
@@ -476,7 +477,7 @@ describe('registerHistoryChannels', () => {
     ];
     const history = fakeHistory(entries);
     const failures: unknown[] = [];
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: noLiveRequests(),
       send: sendDeps(undefined, {
         history: history as never,
@@ -511,7 +512,7 @@ describe('registerHistoryChannels', () => {
     const entries = [makeEntry({ id: 'dead', endpoint: 'http://127.0.0.1:1/nope' })];
     const history = fakeHistory(entries);
     const onSendFailed = vi.fn();
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: noLiveRequests(),
       send: sendDeps(undefined, { onSendFailed }),
     });
@@ -575,7 +576,7 @@ function grpcModel(): Project {
 /** Registers the channels with a gRPC sender stub and a project that knows request `r-1`. */
 function registerGrpc(entries: HistoryEntryWire[], send = vi.fn(() => Promise.resolve({}))) {
   stubEngine(send);
-  registerHistoryChannels(fakeHistory(entries) as never, {
+  registerHistoryChannelsWithKinds(fakeHistory(entries) as never, {
     project: noLiveRequests(),
     send: sendDeps(grpcModel()),
   });
@@ -959,7 +960,7 @@ function registerRest(
   model: Project = savedModel(),
 ) {
   stubEngine(send);
-  registerHistoryChannels(fakeHistory(entries) as never, {
+  registerHistoryChannelsWithKinds(fakeHistory(entries) as never, {
     project: noLiveRequests(),
     ...(withSender ? { send: sendDeps(model) } : {}),
   });

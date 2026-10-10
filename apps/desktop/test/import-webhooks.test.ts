@@ -28,8 +28,8 @@ vi.mock('electron', () => ({
   },
 }));
 
-const { registerApiChannels } = await import('../src/main/ipc/api.js');
-type ApiChannelDeps = Parameters<typeof registerApiChannels>[0];
+const { registerApiChannelsWithKinds } = await import('./helpers/kind-channels.js');
+type ApiChannelDeps = Parameters<typeof registerApiChannelsWithKinds>[0];
 
 const sender = { isDestroyed: () => false, send: vi.fn() };
 
@@ -112,7 +112,7 @@ beforeEach(async () => {
     history: { open: unused, recordImportedRestBatch: unused },
     onHistoryChanged: unused,
   };
-  registerApiChannels(deps);
+  registerApiChannelsWithKinds(deps);
 });
 
 afterEach(() => {

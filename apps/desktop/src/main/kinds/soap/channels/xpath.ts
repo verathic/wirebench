@@ -1,8 +1,8 @@
 import { collectNamespaces, evaluateWithTimeout, suggestPrefixes } from '@wirebench/engine';
 import type { QueryResult } from '@wirebench/engine';
-import { channels } from '../../shared/ipc.js';
-import type { ChannelResponse } from '../../shared/ipc.js';
-import { registerHandler } from './register.js';
+import { channels } from '../../../../shared/ipc.js';
+import type { ChannelResponse } from '../../../../shared/ipc.js';
+import { registerHandler } from '../../../ipc/register.js';
 
 /** Spreads the engine's `readonly`-everywhere `QueryResult` into the plain mutable shape the
  * `xpath.evaluate` wire schema (a `z.infer`) expects — the two are structurally identical, only

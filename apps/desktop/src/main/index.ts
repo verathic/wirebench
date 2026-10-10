@@ -57,28 +57,22 @@ import { sshScopeOf, sshSecretsFor } from './ssh-window.js';
 import { windowHosts, type HostsService } from './hosts-service.js';
 import { SshService, sshSessionsEndOnSwitch } from './ssh-service.js';
 import { registerKerberosChannels, setUpKerberos } from './kerberos.js';
-import { clearAttachmentsTmp, registerAttachmentChannels } from './ipc/attachments.js';
+import { clearAttachmentsTmp } from './kinds/soap/channels/attachments.js';
+import { MAIN_KINDS } from './kinds/kind-main.js';
 import { registerKeystoreChannels } from './ipc/keystores.js';
 import { registerCertificateChannels } from './ipc/certificates.js';
-import { registerWsaChannels } from './ipc/wsa.js';
-import { registerWssChannels } from './ipc/wss.js';
-import { registerDefinitionChannels } from './ipc/definition.js';
 import { registerDialogsChannels } from './ipc/dialogs.js';
 import { registerExchangeChannels } from './ipc/exchanges.js';
 import { registerLogChannels } from './ipc/log.js';
 import { registerFsChannels } from './ipc/fs.js';
-import { registerXmlChannels } from './ipc/xml.js';
-import { registerXpathChannels } from './ipc/xpath.js';
-import { registerValidateChannels } from './ipc/validate.js';
-import { registerWsiChannels } from './ipc/wsi.js';
 import { registerGlobalsChannels } from './ipc/globals.js';
 import { CookieStore } from './cookie-store.js';
 import { CurrentValuesStore } from './current-values.js';
 import { registerCookiesChannels } from './ipc/cookies.js';
 import { registerCurrentValuesChannels } from './ipc/current-values.js';
-import { registerHistoryChannels } from './ipc/history.js';
+import { registerHistoryChannels, type HistoryChannelDeps } from './ipc/history.js';
 import { registerPreferencesChannels } from './ipc/preferences.js';
-import { registerApiChannels } from './ipc/api.js';
+import { registerApiChannels, type ApiChannelDeps } from './ipc/api.js';
 import { registerProjectChannels } from './ipc/project.js';
 import { registerWorkspaceChannels } from './ipc/workspace.js';
 import { registerMockChannels } from './ipc/mock.js';
@@ -817,11 +811,6 @@ void app.whenReady().then(() => {
       .hosts()
       .map((host) => host.snapshot()?.dir)
       .filter((dir): dir is string => dir !== undefined);
-  registerDefinitionChannels(engineService, {
-    project: workspaceService,
-    picks: dialogPicks,
-    projectDirs: openProjectDirs,
-  });
   // Request scripts (#63): one sandbox and one checker for the app, started on first use.
   const scripts = new ScriptHost({
     modelOf: (entityId) =>
@@ -946,7 +935,7 @@ void app.whenReady().then(() => {
     // onChange, so there is nothing further to log and never a token to log.
     .catch(() => {});
   // A resend is a send like any other: the request channels' dependencies, scripts and registry.
-  registerHistoryChannels(historyService, {
+  const historyDeps: HistoryChannelDeps = {
     project: workspaceService,
     send: toSendDeps(engineService, requestDeps),
     // One window's History is its own workspace's projects (another window may have others open).
@@ -958,7 +947,8 @@ void app.whenReady().then(() => {
           const id = host.snapshot()?.id;
           return id === undefined ? [] : [id];
         }),
-  });
+  };
+  registerHistoryChannels(historyService, historyDeps);
   registerProjectChannels({
     router: workspaceService,
     addProject: async (name) => await workspaceService.addProject(name),
@@ -978,7 +968,7 @@ void app.whenReady().then(() => {
       scope.currentValues.syncGlobals(state);
     }
   };
-  registerApiChannels({
+  const apiDeps: ApiChannelDeps = {
     router: workspaceService,
     imports: openApiImports,
     asyncApiImports: openApiImports,
@@ -1055,7 +1045,8 @@ void app.whenReady().then(() => {
         : {}),
       secrets: teamSecretStore,
     }),
-  });
+  };
+  registerApiChannels(apiDeps);
   registerWorkspaceChannels({
     service: workspaceService,
     suggestions: async () => await readLeftoverProjectFolders(app.getPath('userData')),
@@ -1111,16 +1102,20 @@ void app.whenReady().then(() => {
   });
   registerDialogsChannels(dialogPicks);
   registerFsChannels();
-  registerXmlChannels(engineService);
-  registerXpathChannels();
-  registerValidateChannels(engineService, workspaceService);
-  registerWsiChannels(engineService, {
-    project: workspaceService,
-    picks: dialogPicks,
-    dialog: {
+  for (const kind of MAIN_KINDS) {
+    kind.registerChannels({
+      engine: engineService,
+      request: requestDeps,
+      api: apiDeps,
+      history: historyService,
+      historyDeps,
+      router: workspaceService,
+      picks: dialogPicks,
+      projectDirs: openProjectDirs,
+      userDataDir: app.getPath('userData'),
       // Mirrors `dialogs.saveFile`, including its e2e override: a Playwright run cannot drive a
       // native Save-as panel, so the same env var short-circuits both.
-      showSave: async (options) => {
+      showSaveHtml: async (options) => {
         const override = saveOverride();
         if (override !== undefined) {
           return override;
@@ -1132,8 +1127,8 @@ void app.whenReady().then(() => {
         });
         return result.canceled ? undefined : result.filePath;
       },
-    },
-  });
+    });
+  }
   registerSearchChannels(engineService, workspaceService);
   registerSecretsChannels(teamSecretStore, showSecretsFlag);
   registerSecretSourcesChannels(workspaceService, secretSources);
@@ -1161,16 +1156,8 @@ void app.whenReady().then(() => {
     picks: dialogPicks,
     appVersion: appVersion(),
   });
-  registerAttachmentChannels({
-    exchanges: engineService.exchanges,
-    project: workspaceService,
-    picks: dialogPicks,
-    userDataDir: app.getPath('userData'),
-  });
   registerKeystoreChannels({ project: workspaceService, picks: dialogPicks });
   registerCertificateChannels({ project: workspaceService, preferences: preferencesService });
-  registerWsaChannels({ project: workspaceService });
-  registerWssChannels({ project: workspaceService });
   registerEnabledAreaChannels(enabledAreas, {
     hosts: hostsService,
     secrets: sshSecrets,

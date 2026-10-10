@@ -16,7 +16,7 @@ import type { AuthConfig, ExchangeHandle, GetSecret, Project, WsRequestDef } fro
 import { EngineService } from '../src/main/engine-service.js';
 import { harOf } from '../src/main/har.js';
 import { HistoryService } from '../src/main/history-service.js';
-import { registerRequestChannels, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { recordSecretValue } from '../src/main/redact.js';
 import { ExchangeRegistry } from '../src/main/send/exchange.js';
 import type {
@@ -27,6 +27,7 @@ import type {
   WsExchangeSummary,
   WsFrameWire,
 } from '../src/shared/wire-types.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -138,7 +139,7 @@ function registerOver(
 ): ExchangeRegistry {
   handlers.clear();
   const registry = new ExchangeRegistry();
-  registerRequestChannels(new EngineService(), {
+  registerRequestChannelsWithKinds(new EngineService(), {
     project: {
       scopesFor: () => ({ project: { ...model.properties }, global: {}, system: {} }),
       ...projectExtra,

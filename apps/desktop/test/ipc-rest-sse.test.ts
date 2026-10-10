@@ -14,11 +14,12 @@ import { startTestRestServer, type TestRestServer } from '@wirebench/engine/test
 import { createApi, createProject, createRestRequest } from '@wirebench/engine';
 import type { Project } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
-import { registerRequestChannels, whenRestSendsRecorded, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { whenRestSendsRecorded, type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { toRestEventStreamWire } from '../src/main/engine-wire.js';
 import { ExchangeRegistry, sendThroughEngine } from '../src/main/send/exchange.js';
 import { sendDepsFor } from './helpers/send-deps.js';
 import type { FailedExchangeWire, RestExchangeSummary, RestLiveEvent } from '../src/shared/wire-types.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -124,7 +125,7 @@ function project(restSend: (requestId: string) => Project | undefined) {
 /** Registers the channels; answers the registry the sends are kept in. */
 function register(overrides: Partial<RequestChannelDeps> = {}, restSend: (requestId: string) => Project | undefined) {
   const registry = new ExchangeRegistry();
-  registerRequestChannels(new EngineService(), {
+  registerRequestChannelsWithKinds(new EngineService(), {
     project: project(restSend),
     adHocScopes: () => ({ project: {}, global: {}, system: {} }),
     registry,

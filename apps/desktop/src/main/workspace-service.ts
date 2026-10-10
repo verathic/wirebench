@@ -111,7 +111,8 @@ import { isWorkspaceManagedDir, isWorkspaceManagedPath, ProjectWatcher, SELF_WRI
 import { ProjectHost } from './project-host.js';
 import { checkCertificates } from './certificate-expiry.js';
 import type { KindRouters } from './kinds/kind-main.js';
-import { MAIN_KINDS } from './kinds/kind-main.js';
+import { KIND_ROUTES } from './kinds/kind-routes.js';
+import type { KindId } from '../shared/kinds/kind-module.js';
 import type { ProjectRouter } from './project-router.js';
 import type { SecretScanSessions } from './secret-scan-session.js';
 import type { SecretUse, TeamSecretsService } from './team-secrets-service.js';
@@ -3335,12 +3336,12 @@ export class WorkspaceService implements ProjectRouter {
  * the entity id the call takes first, or by a leading project id) and calls the kind's host method.
  */
 function routeKinds(): void {
-  for (const kind of MAIN_KINDS) {
-    for (const [name, route] of Object.entries(kind.routes)) {
+  for (const [kind, routes] of Object.entries(KIND_ROUTES) as [KindId, (typeof KIND_ROUTES)[KindId]][]) {
+    for (const [name, route] of Object.entries(routes)) {
       const forward = function (this: WorkspaceService, ...args: unknown[]): unknown {
         const [id] = args as [string];
         const host = route.by === 'entity' ? this.hostOfEntity(id) : this.hostFor(id);
-        const kindHost = host.kind(kind.kind) as unknown as Record<string, (...rest: unknown[]) => unknown>;
+        const kindHost = host.kind(kind) as unknown as Record<string, (...rest: unknown[]) => unknown>;
         return kindHost[route.method]!.apply(kindHost, route.by === 'project' ? args.slice(1) : args);
       };
       Object.defineProperty(WorkspaceService.prototype, name, { value: forward, writable: true, configurable: true });

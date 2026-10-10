@@ -287,11 +287,31 @@ and the SOAP-only modules (`definition`, `wsa`, `wss`, `wsi`, `xml`, `xpath`, `v
 names no kind. The importers that write several kinds' APIs (Postman, `.http`, OpenCollection) stay
 in core `ipc/api.ts` until phase 7, and call each kind's host for its part.
 
+_As built (slice 6):_ each `kinds/<k>/ipc.ts` ends with `register<K>Channels(deps: KindChannelDeps)`,
+which registers that kind's request, API and History-resend channels; `index.ts` calls every
+kind's `registerChannels` once. The core modules export the helpers the kinds' channels share.
+The SOAP-only modules moved to `kinds/soap/channels/`. Search and the HTTP log took facets
+instead of channels: `ipc/search.ts` walks `MAIN_KINDS` (`search.requests`, then
+`search.definitions`), and `log.resend` calls the kind's `log` facet (WebSocket refuses with
+`ws-resend-streaming`). The Code panel's `request.curl` stays in core `ipc/request.ts` for now:
+its builders share the redaction and network-note helpers there. Tests register channels through
+`test/helpers/kind-channels.ts`.
+
 ### 5.5 The send path
 
 `send/exchange.ts`, `draft.ts`, `live.ts`, `record.ts` and `sequence-runner.ts` look up the item's
 kind in `MAIN_KINDS` instead of switching. `ExchangeRegistry`'s WebSocket session rules stay in
 `exchange.ts`, keyed by the module's `interactive` flag rather than the kind name.
+
+_As built (slice 6):_ the per-kind send steps (`selected`, `summarise`, `record`,
+`recordFailure`, `sentAudit`, `failedAudit`, `liveEvent`) are each kind's `send` facet in
+`kinds/<k>/send.ts`. The send path reads them from `kinds/kind-send.ts` (`KIND_SENDS`) and the
+router from `kinds/kind-routes.ts` (`KIND_ROUTES`), not from `MAIN_KINDS`: `kind-main` imports
+every kind's channels, which import the send path, so reading `MAIN_KINDS` there closes a cycle.
+`test/kind-main-load-order.test.ts` loads each entry first and checks all four kinds are seen.
+`isInteractive(kind)` reads `KindModule.interactive`, which only the WebSocket module sets. The
+typed per-kind preview functions in `exchange.ts` keep their kind names, since each one is
+already a single kind's entry point.
 
 ## 6. Renderer: a registry of kinds
 

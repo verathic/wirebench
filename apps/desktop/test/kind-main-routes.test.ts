@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAIN_KINDS } from '../src/main/kinds/kind-main.js';
+import { KIND_ROUTES } from '../src/main/kinds/kind-routes.js';
+import { KIND_SENDS } from '../src/main/kinds/kind-send.js';
 import type { ProjectHostCore } from '../src/main/project-host-core.js';
 import { WorkspaceService } from '../src/main/workspace-service.js';
 
@@ -24,5 +26,13 @@ describe("the kinds' router methods (spec §5.3)", () => {
         expect(typeof (WorkspaceService.prototype as unknown as Record<string, unknown>)[name], name).toBe('function');
       }
     }
+  });
+
+  it('looks each kind up to the same route table and send steps MAIN_KINDS carries', () => {
+    for (const kind of MAIN_KINDS) {
+      expect(KIND_ROUTES[kind.kind], kind.kind).toBe(kind.routes);
+      expect(KIND_SENDS[kind.kind], kind.kind).toBe(kind.send);
+    }
+    expect(Object.keys(KIND_ROUTES)).toEqual(MAIN_KINDS.map((kind) => kind.kind));
   });
 });

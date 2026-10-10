@@ -42,8 +42,7 @@ import {
   type RecordSendInput,
   type RecordWsSessionInput,
 } from '../src/main/history-service.js';
-import { registerHistoryChannels } from '../src/main/ipc/history.js';
-import { registerRequestChannels, toSendDeps, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { toSendDeps, type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { recordSecretValue } from '../src/main/redact.js';
 import { projectSecretGetter, secretStoreLabel } from '../src/main/secret-resolver.js';
 import { SecretStore, type CryptoBackend } from '../src/main/secrets.js';
@@ -55,6 +54,7 @@ import type {
   RestLiveEvent,
   WsFrameWire,
 } from '../src/shared/wire-types.js';
+import { registerHistoryChannelsWithKinds, registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -165,7 +165,7 @@ function wsProject(header: string): Project {
 function registerWs(options: { header?: string; show?: boolean; secretsFor?: (id: string | undefined) => GetSecret }) {
   const project = wsProject(options.header ?? 'plain');
   const written: HistoryEntry[] = [];
-  registerRequestChannels(new EngineService(), {
+  registerRequestChannelsWithKinds(new EngineService(), {
     project: {
       scopesFor: () => SCOPES,
       projectId: () => 'p1',
@@ -558,7 +558,7 @@ describe('a gRPC call with tokens', () => {
     sender: unknown,
   ): Promise<GrpcExchangeSummary> {
     handlers.clear();
-    registerRequestChannels(new EngineService(), deps);
+    registerRequestChannelsWithKinds(new EngineService(), deps);
     return unwrap<GrpcExchangeSummary>(await invoke('request.sendGrpc', payload, sender));
   }
 
@@ -746,7 +746,7 @@ describe('an event stream that echoes a token value', () => {
       containers: { rest: [createApi('Api', { id: 'api-1', baseUrl: url, requests: [request] })] },
     };
     const written: HistoryEntry[] = [];
-    registerRequestChannels(new EngineService(), {
+    registerRequestChannelsWithKinds(new EngineService(), {
       project: {
         scopesFor: () => SCOPES,
         requestMeta: () => undefined,
@@ -879,7 +879,7 @@ describe('a History resend with a token', () => {
       runContextFor: () => ({ project: model, projectDir: '/tmp/none', globals: {} }),
       endpointFor: () => url,
     } as unknown as RequestChannelDeps['project'];
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project,
       send: toSendDeps(new EngineService(), {
         project,

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EngineService } from '../src/main/engine-service.js';
-import { registerDefinitionChannels } from '../src/main/ipc/definition.js';
+import { registerDefinitionChannels } from '../src/main/kinds/soap/channels/definition.js';
 import { MAX_ENVELOPE_XML_CHARS } from '../src/shared/wire-types.js';
 import type {
   DefinitionDeclarationAtResponse,

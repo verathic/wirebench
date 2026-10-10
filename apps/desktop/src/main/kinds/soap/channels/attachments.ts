@@ -13,12 +13,12 @@ import { join } from 'node:path';
 import { BrowserWindow, dialog, shell } from 'electron';
 import type { WebContents } from 'electron';
 import { nodeFs, WirebenchError, writeFileAtomic } from '@wirebench/engine';
-import { channels } from '../../shared/ipc.js';
-import { MAX_DROPPED_BASE64_LENGTH } from '../../shared/wire-types.js';
-import type { RecordsReadPicks } from '../dialog-picks.js';
-import type { ExchangeCache } from '../exchange-cache.js';
-import type { ProjectRouter } from '../project-router.js';
-import { registerHandler } from './register.js';
+import { channels } from '../../../../shared/ipc.js';
+import { MAX_DROPPED_BASE64_LENGTH } from '../../../../shared/wire-types.js';
+import type { RecordsReadPicks } from '../../../dialog-picks.js';
+import type { ExchangeCache } from '../../../exchange-cache.js';
+import type { ProjectRouter } from '../../../project-router.js';
+import { registerHandler } from '../../../ipc/register.js';
 
 /** Subdirectory of `userData` that {@link registerAttachmentChannels}'s "open" writes into. */
 export const ATTACHMENTS_TMP_DIR = 'attachments-tmp';

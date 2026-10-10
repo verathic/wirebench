@@ -12,10 +12,10 @@
  * WS-SecurityPolicy its WSDL attaches (#58).
  */
 
-import { channels } from '../../shared/ipc.js';
-import { redactXml } from '../redact.js';
-import type { ProjectRouter } from '../project-router.js';
-import type { WssEntryWire, WssPolicyStatusResponse } from '../../shared/wire-types.js';
+import { channels } from '../../../../shared/ipc.js';
+import { redactXml } from '../../../redact.js';
+import type { ProjectRouter } from '../../../project-router.js';
+import type { WssEntryWire, WssPolicyStatusResponse } from '../../../../shared/wire-types.js';
 import {
   checkWssPolicy,
   describeSecurityHeader,
@@ -24,8 +24,8 @@ import {
   WssError,
 } from '@wirebench/engine';
 import type { WssEntry, WssPolicy } from '@wirebench/engine';
-import { toTimelineStepWire } from '../engine-wire.js';
-import { registerHandler } from './register.js';
+import { toTimelineStepWire } from '../../../engine-wire.js';
+import { registerHandler } from '../../../ipc/register.js';
 
 /** What the `wss.*` channels need; a stub stands in for it in tests. */
 export interface WssChannelDeps {

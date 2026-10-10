@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { registerXpathChannels } from '../src/main/ipc/xpath.js';
+import { registerXpathChannels } from '../src/main/kinds/soap/channels/xpath.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -149,7 +149,7 @@ describe('xpath.evaluate wiring (mocked engine)', () => {
       },
     }));
 
-    const { registerXpathChannels: register } = await import('../src/main/ipc/xpath.js');
+    const { registerXpathChannels: register } = await import('../src/main/kinds/soap/channels/xpath.js');
     register();
     const handler = localHandlers.get('xpath.evaluate');
     expect(handler).toBeDefined();

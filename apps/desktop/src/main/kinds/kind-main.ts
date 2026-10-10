@@ -4,7 +4,23 @@
  * than switching on a kind's name.
  */
 
-import type { Project } from '@wirebench/engine';
+import type { LiveEvent, Project, SelectedRequest, SentRequest, WsExchange } from '@wirebench/engine';
+import type { DraftOf } from '../send/draft.js';
+import type { AuditedSend, HeldFailure, Recorded, SendSummary, SendThroughEngineDeps } from '../send/exchange.js';
+import type { LiveEventWire } from '../send/live.js';
+import type { DesktopSend } from '../send/host.js';
+import type { ExchangeSummary, ProjectWire, SearchQueryRequest } from '../../shared/wire-types.js';
+import type { SearchChannelEngine } from '../ipc/search.js';
+import type { LogChannelDeps } from '../ipc/log.js';
+import type { ApiChannelDeps } from '../ipc/api.js';
+import type { HistoryChannelDeps } from '../ipc/history.js';
+import type { RequestChannelDeps } from '../ipc/request.js';
+import type { DialogPicks } from '../dialog-picks.js';
+import type { EngineService } from '../engine-service.js';
+import type { HistoryService } from '../history-service.js';
+import type { WorkspaceService } from '../workspace-service.js';
+import type { ChannelRequest, ChannelResponse, channels } from '../../shared/ipc.js';
+import type { SearchDocument } from '../search.js';
 import type { KindId } from '../../shared/kinds/kind-module.js';
 import type { ProjectChange, RestFolderPatchWire } from '../../shared/wire-types.js';
 import type { ProjectHostCore } from '../project-host-core.js';
@@ -120,6 +136,109 @@ export type KindRouter<H, R extends Readonly<Record<string, KindRoute<H>>>> = {
 /** Every kind's router methods, which `ProjectRouter` adds to the core's. */
 export type KindRouters = SoapRouter & RestRouter & GrpcRouter & WsRouter;
 
+/** A kind's saved request as a send item, its live event, and its exchange as `SentRequest` holds it. */
+type ItemOf<K extends KindId> = Extract<SelectedRequest, { kind: K }>;
+type LiveOf<K extends KindId> = Extract<LiveEvent, { protocol: K }>;
+type ExchangeOf<K extends KindId> = Extract<NonNullable<SentRequest['exchange']>, { kind: K }>;
+
+/** What one send's summary is built from (`exchange.ts`'s `summarise`). */
+export interface SummariseInput<K extends KindId> {
+  readonly deps: SendThroughEngineDeps;
+  readonly sendId: string;
+  readonly item: ItemOf<K>;
+  readonly sent: SentRequest;
+  readonly masks: Pick<DesktopSend, 'keyParams' | 'keyHeaders'>;
+  readonly show: boolean;
+  /** The saved request the rows name, or the one a resent entry came from. */
+  readonly requestId: string | undefined;
+  /** A WebSocket session's exchange with its frames' contract results. */
+  readonly checked: WsExchange | undefined;
+}
+
+/**
+ * The send path's steps for one kind (spec §5.5): `exchange.ts`, `draft.ts` and `live.ts` look the
+ * item's kind up here rather than switching on it.
+ */
+export interface KindSend<K extends KindId> {
+  /** The saved request as a send item with the editor's draft applied; undefined: no such request of this kind. */
+  selected(project: Project, requestId: string, draft: Extract<DraftOf, { kind: K }>): ItemOf<K> | undefined;
+  /** One live event as the renderer receives it; absent for a kind that reports none. */
+  liveEvent?(sendId: string, event: LiveOf<K>, show: boolean, keyParams?: readonly string[]): LiveEventWire;
+  /** The summary the renderer is handed and, where History records more, the unredacted one. */
+  summarise(input: SummariseInput<K>): { readonly summary: SendSummary; readonly unredacted?: ExchangeSummary };
+  /** Writes History for a send that got its answer. */
+  record(
+    deps: SendThroughEngineDeps,
+    recorded: Recorded & { readonly item: ItemOf<K> },
+    sent: SentRequest,
+    summary: SendSummary,
+    unredacted: ExchangeSummary | undefined,
+  ): Promise<void>;
+  /** Writes History for a send that failed on the wire. */
+  recordFailure(
+    deps: SendThroughEngineDeps,
+    recorded: Recorded & { readonly item: ItemOf<K> },
+    failed: HeldFailure,
+    error: unknown,
+    summaryOf: { readonly sendId: string; readonly show: boolean },
+  ): Promise<void>;
+  /** What the audit log keeps of a send that got its answer. */
+  sentAudit(exchange: ExchangeOf<K>, summary: SendSummary): AuditedSend;
+  /** What the audit log keeps of a send that failed on the wire; undefined when it never reached it. */
+  failedAudit(item: ItemOf<K>, failed: HeldFailure): AuditedSend | undefined;
+}
+
+/** What one project's search documents are built from. */
+export interface KindSearchContext {
+  readonly snapshot: ProjectWire;
+  readonly scopes: SearchQueryRequest['scopes'];
+  readonly projectId: string;
+  readonly projectName: string;
+  readonly engine: SearchChannelEngine;
+}
+
+/** A kind's share of `search.query`'s corpus (spec §5.4). */
+export interface KindSearch {
+  /** Its requests' documents, as the scopes ask. */
+  requests(context: KindSearchContext): readonly SearchDocument[];
+  /** Its cached definitions' documents, which follow every kind's requests. */
+  definitions?(context: KindSearchContext): readonly SearchDocument[];
+}
+
+/** What a Log row's resend is handed (spec §5.4). */
+export interface KindLogContext {
+  readonly request: ChannelRequest<typeof channels.log.resend>;
+  readonly deps: LogChannelDeps;
+  /** The request channels' own send through the engine, cancelled through the same registry. */
+  readonly sendDeps: SendThroughEngineDeps;
+  readonly sendId: string;
+}
+
+/** A kind's answer to the HTTP Log's Resend. */
+export interface KindLog {
+  /** Replays the saved request behind a row as it is now — never the row's own (redacted) copy. */
+  resend(context: KindLogContext): Promise<ChannelResponse<typeof channels.log.resend>>;
+}
+
+/**
+ * What a kind's IPC channels are registered with (spec §5.4): the deps main wires the core channel
+ * modules with, and the app services a kind's own modules take theirs from.
+ */
+export interface KindChannelDeps {
+  readonly engine: EngineService;
+  readonly request: RequestChannelDeps;
+  readonly api: ApiChannelDeps;
+  readonly history: HistoryService;
+  readonly historyDeps: HistoryChannelDeps;
+  readonly router: WorkspaceService;
+  readonly picks: DialogPicks;
+  /** The folders of every project open in the calling window's workspace. */
+  readonly projectDirs: () => readonly string[];
+  readonly userDataDir: string;
+  /** The native Save-as panel for an HTML export (with the e2e override), the chosen path or undefined. */
+  readonly showSaveHtml: (options: { defaultPath: string; title: string }) => Promise<string | undefined>;
+}
+
 export interface MainKind<K extends KindId = KindId> {
   readonly kind: K;
   /** Its share of the project host: caches and methods, built once per open project. */
@@ -129,6 +248,12 @@ export interface MainKind<K extends KindId = KindId> {
   /** Applies the change kinds this kind owns. */
   readonly mutations: KindMutations;
   readonly tree?: KindTree;
+  /** The send path's steps (spec §5.5). */
+  readonly send: KindSend<K>;
+  readonly search?: KindSearch;
+  readonly log?: KindLog;
+  /** Registers its channels against the routed workspace. */
+  registerChannels(deps: KindChannelDeps): void;
 }
 
 /** Any one kind's main half. */

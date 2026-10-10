@@ -1,14 +1,14 @@
 import { nodeFs, WirebenchError, writeFileAtomic } from '@wirebench/engine';
-import { channels, events } from '../../shared/ipc.js';
-import { MAX_DOCUMENT_TEXT_BYTES } from '../../shared/wire-types.js';
-import type { ReadPicks, RecordsWritePicks } from '../dialog-picks.js';
-import { checkedImportSource } from '../path-access.js';
-import type { EngineService } from '../engine-service.js';
-import { pickFolder, pickSaveFile } from '../native-dialogs.js';
-import type { ProjectRouter } from '../project-router.js';
-import { declarationAtOffset, schemaIndexOf } from '../schema-index.js';
-import { emitEvent } from './events.js';
-import { registerHandler } from './register.js';
+import { channels, events } from '../../../../shared/ipc.js';
+import { MAX_DOCUMENT_TEXT_BYTES } from '../../../../shared/wire-types.js';
+import type { ReadPicks, RecordsWritePicks } from '../../../dialog-picks.js';
+import { checkedImportSource } from '../../../path-access.js';
+import type { EngineService } from '../../../engine-service.js';
+import { pickFolder, pickSaveFile } from '../../../native-dialogs.js';
+import type { ProjectRouter } from '../../../project-router.js';
+import { declarationAtOffset, schemaIndexOf } from '../../../schema-index.js';
+import { emitEvent } from '../../../ipc/events.js';
+import { registerHandler } from '../../../ipc/register.js';
 
 /**
  * The `ProjectRouter` surface the Update/Export/Docs channels drive; a stub stands in for it

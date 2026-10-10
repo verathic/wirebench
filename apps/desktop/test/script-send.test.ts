@@ -25,13 +25,13 @@ import {
 import type { Project, RequestScripts, RestRequestDef } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
 import { HistoryService } from '../src/main/history-service.js';
-import { registerHistoryChannels } from '../src/main/ipc/history.js';
 import type { RequestChannelDeps } from '../src/main/ipc/request.js';
 import { ScriptHost } from '../src/main/script-host.js';
 import { SequenceRunner } from '../src/main/sequence-runner.js';
 import { sendThroughEngine } from '../src/main/send/exchange.js';
 import { sendDepsFor } from './helpers/send-deps.js';
 import type { HistoryEntryWire, RestExchangeSummary } from '../src/shared/wire-types.js';
+import { registerHistoryChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -442,7 +442,7 @@ describe('a SOAP resend from History', () => {
         sizeBytes: 1,
       } satisfies HistoryEntryWire;
       handlers.clear();
-      registerHistoryChannels(
+      registerHistoryChannelsWithKinds(
         { get: (id: string) => (id === 'h-1' ? entry : undefined) } as unknown as HistoryService,
         {
           project: {

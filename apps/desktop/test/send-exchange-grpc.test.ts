@@ -26,7 +26,7 @@ import {
 import type { ExchangeHandle, GrpcMethodKind, GrpcRequestDef, Project } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
 import { HistoryService } from '../src/main/history-service.js';
-import { registerRequestChannels, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { recordSecretValue } from '../src/main/redact.js';
 import { ExchangeRegistry } from '../src/main/send/exchange.js';
 import type {
@@ -36,6 +36,7 @@ import type {
   HistoryEntryWire,
   RequestCurlResponse,
 } from '../src/shared/wire-types.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -151,7 +152,7 @@ async function openHistory(): Promise<HistoryService> {
 /** Registers the `request.*` channels over `model`, with `extra` laid over the dependencies. */
 function registerOver(model: Project, extra: Partial<RequestChannelDeps> = {}): void {
   handlers.clear();
-  registerRequestChannels(new EngineService(), {
+  registerRequestChannelsWithKinds(new EngineService(), {
     project: {
       projectId: () => model.id,
       runContextFor: () => ({ project: model, projectDir: '/tmp/none', globals: {} }),

@@ -24,7 +24,7 @@ import type { Project, RequestScripts, RestRequestDef, WebhookSigning } from '@w
 import { buildRestHistoryEntry, toHistoryEntryWire, type RecordRestSendInput } from '../src/main/history-service.js';
 import { EngineService } from '../src/main/engine-service.js';
 import { HistoryService } from '../src/main/history-service.js';
-import { registerRequestChannels, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { ScriptHost } from '../src/main/script-host.js';
 import { recordSecretValue, redactSecretText } from '../src/main/redact.js';
 import { sendThroughEngine } from '../src/main/send/exchange.js';
@@ -35,6 +35,7 @@ import type {
   RestLiveEvent,
 } from '../src/shared/wire-types.js';
 import { sendDepsFor } from './helpers/send-deps.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -66,7 +67,7 @@ function unwrap<T>(result: unknown): T {
 /** Registers the `request.*` channels over `model`, with `extra` laid over the dependencies. */
 function registerOver(model: Project, extra: Partial<RequestChannelDeps> = {}): void {
   handlers.clear();
-  registerRequestChannels(new EngineService(), {
+  registerRequestChannelsWithKinds(new EngineService(), {
     project: {
       projectId: () => model.id,
       runContextFor: () => ({ project: model, projectDir: '/tmp/none', globals: {} }),

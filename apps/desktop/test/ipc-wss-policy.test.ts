@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { importWsdl } from '@wirebench/engine';
-import { registerWssChannels } from '../src/main/ipc/wss.js';
+import { registerWssChannels } from '../src/main/kinds/soap/channels/wss.js';
 import { toInterfaceSummary } from '../src/main/engine-wire.js';
 import { fixturePath } from './helpers/fixtures.js';
 import type { WssEntry } from '@wirebench/engine';

@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { WirebenchError } from '@wirebench/engine';
 import type { KindRouters } from './kinds/kind-main.js';
-import { MAIN_KINDS } from './kinds/kind-main.js';
+import { KIND_ROUTES } from './kinds/kind-routes.js';
 import type { ProjectRouter } from './project-router.js';
 import type { WorkspaceService } from './workspace-service.js';
 
@@ -107,11 +107,13 @@ const CORE_ROUTER_METHODS = {
   inspectKeystore: true,
 } satisfies Record<Exclude<keyof ProjectRouter, keyof KindRouters>, true>;
 
-/** Every `ProjectRouter` method: the core's and each kind's. */
-const ROUTER_METHODS = [...Object.keys(CORE_ROUTER_METHODS), ...MAIN_KINDS.flatMap((kind) => Object.keys(kind.routes))];
-
-/** Entity-addressed `WorkspaceService` methods: the router's, plus the host lookups main itself uses. */
-const ENTITY_ROUTED = new Set<string>([...ROUTER_METHODS, 'hostFor', 'hostOfEntity']);
+/** Entity-addressed `WorkspaceService` methods: every router method, the core's and each kind's, plus the host lookups main itself uses. */
+const ENTITY_ROUTED = new Set<string>([
+  ...Object.keys(CORE_ROUTER_METHODS),
+  ...Object.values(KIND_ROUTES).flatMap((routes) => Object.keys(routes)),
+  'hostFor',
+  'hostOfEntity',
+]);
 
 /**
  * One object standing in for every window's `WorkspaceService` (design D2). An entity-addressed call

@@ -117,9 +117,9 @@ function seeded(endpoint = `${server.url}/soap`): Project {
  * which main resolves for the request's project.
  */
 async function register(options: { readonly trustAnchorsFor?: () => Promise<readonly string[]> } = {}): Promise<void> {
-  const { registerRequestChannels } = await import('../src/main/ipc/request.js');
+  const { registerRequestChannelsWithKinds } = await import('./helpers/kind-channels.js');
   const model = seeded();
-  registerRequestChannels(new EngineService(), {
+  registerRequestChannelsWithKinds(new EngineService(), {
     project: {
       scopesFor: () => scopes,
       preflight: () => ({
@@ -265,7 +265,7 @@ describe('a SOAP resend trusts the anchors of its project', () => {
   }
 
   it('from History', async () => {
-    const { registerHistoryChannels } = await import('../src/main/ipc/history.js');
+    const { registerHistoryChannelsWithKinds } = await import('./helpers/kind-channels.js');
     const { project, send } = await resendDeps();
     const entry = {
       id: 'h-1',
@@ -282,7 +282,7 @@ describe('a SOAP resend trusts the anchors of its project', () => {
       request: { envelopeXml: '<a/>', headers: [] },
       sizeBytes: 1,
     };
-    registerHistoryChannels({ get: () => entry } as never, { project, send });
+    registerHistoryChannelsWithKinds({ get: () => entry } as never, { project, send });
 
     const result = await handlers.get('history.resend')!({ sender: {} }, { id: 'h-1' });
 
@@ -312,7 +312,7 @@ describe('a SOAP resend trusts the anchors of its project', () => {
     ) as { peerAuthorized: boolean; peerCN?: string };
 
   it('presents the project client certificate, from History and from the HTTP Log', async () => {
-    const { registerHistoryChannels } = await import('../src/main/ipc/history.js');
+    const { registerHistoryChannelsWithKinds } = await import('./helpers/kind-channels.js');
     const { registerLogChannels } = await import('../src/main/ipc/log.js');
     const { project, send } = await resendDeps(`${mtls.url}/tls-info`);
     const entry = {
@@ -330,7 +330,7 @@ describe('a SOAP resend trusts the anchors of its project', () => {
       request: { envelopeXml: '<a/>', headers: [] },
       sizeBytes: 1,
     };
-    registerHistoryChannels({ get: () => entry } as never, { project, send });
+    registerHistoryChannelsWithKinds({ get: () => entry } as never, { project, send });
     registerLogChannels({
       showSecrets: { get: () => false },
       service: new EngineService(),

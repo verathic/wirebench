@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EngineService } from '../src/main/engine-service.js';
-import { registerDefinitionChannels } from '../src/main/ipc/definition.js';
-import type { DefinitionChannelProject } from '../src/main/ipc/definition.js';
+import { registerDefinitionChannels } from '../src/main/kinds/soap/channels/definition.js';
+import type { DefinitionChannelProject } from '../src/main/kinds/soap/channels/definition.js';
 import type {
   ApplyUpdateWire,
   DefinitionExportResponse,

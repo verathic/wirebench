@@ -12,7 +12,7 @@ import { applyChange } from '../src/main/project-mutations.js';
 import type { MutationDeps } from '../src/main/project-mutations.js';
 import { findRequest, toInterfaceWire, toRequestWire } from '../src/main/project-wire.js';
 import { preflightRequest } from '../src/main/expansion-preflight.js';
-import { registerWsaChannels } from '../src/main/ipc/wsa.js';
+import { registerWsaChannels } from '../src/main/kinds/soap/channels/wsa.js';
 
 const BINDING = '{urn:wb:wsa}WsaBinding';
 

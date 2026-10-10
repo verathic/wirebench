@@ -36,8 +36,8 @@ vi.mock('../src/main/native-dialogs.js', () => ({
   pickOpenFile: () => Promise.resolve(undefined),
 }));
 
-const { registerApiChannels } = await import('../src/main/ipc/api.js');
-type ApiChannelDeps = Parameters<typeof registerApiChannels>[0];
+const { registerApiChannelsWithKinds } = await import('./helpers/kind-channels.js');
+type ApiChannelDeps = Parameters<typeof registerApiChannelsWithKinds>[0];
 
 /** A valid reply body, so an accepted import's envelope passes the response schema. */
 const PROJECT: ProjectWire = {
@@ -233,7 +233,7 @@ function setup(overrides: Partial<ApiChannelDeps> = {}): {
     onHistoryChanged: vi.fn(),
     ...overrides,
   };
-  registerApiChannels(deps);
+  registerApiChannelsWithKinds(deps);
   return { deps, addApi, run };
 }
 

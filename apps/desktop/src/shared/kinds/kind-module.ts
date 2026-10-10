@@ -21,6 +21,11 @@ export interface KindModule<K extends string = string> {
   readonly label: string;
   /** Its editor tab kinds, as `EditorTab.kind` names them. */
   readonly tabs: { readonly request: string; readonly container: string };
+  /**
+   * A send of this kind is a session the person drives once it opens (WebSocket): its send id is
+   * its address for every push and close, so a second open of one still held is refused.
+   */
+  readonly interactive?: boolean;
 }
 
 /** Every desktop kind, in the explorer's tie-break order. */
@@ -33,6 +38,12 @@ export function kindById(kind: KindId): KindModule<KindId> {
   const found = KINDS.find((candidate) => candidate.kind === kind);
   if (!found) throw new Error(`unknown kind: ${String(kind)}`);
   return found;
+}
+
+/** Whether sends of `kind` are sessions a person drives once open; false for a kind the desktop has no half of. */
+export function isInteractive(kind: string): boolean {
+  const found: KindModule | undefined = KINDS.find((candidate) => candidate.kind === kind);
+  return found?.interactive === true;
 }
 
 /** Narrows a kind from outside (the wire, a project file) to a desktop kind; undefined for any other. */

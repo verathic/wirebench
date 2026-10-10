@@ -7,9 +7,9 @@
  * so unlike `wss.*` the envelopes are returned unredacted.
  */
 
-import { channels } from '../../shared/ipc.js';
-import type { ProjectRouter } from '../project-router.js';
-import { registerHandler } from './register.js';
+import { channels } from '../../../../shared/ipc.js';
+import type { ProjectRouter } from '../../../project-router.js';
+import { registerHandler } from '../../../ipc/register.js';
 
 /** What the `wsa.*` channels need; a stub stands in for it in tests. */
 export interface WsaChannelDeps {

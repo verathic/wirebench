@@ -8,9 +8,9 @@ import {
   qnameToString,
 } from '@wirebench/engine';
 import type { WsdlImportResult, OperationRef, QName } from '@wirebench/engine';
-import { channels } from '../../shared/ipc.js';
-import type { EngineService } from '../engine-service.js';
-import { registerHandler } from './register.js';
+import { channels } from '../../../../shared/ipc.js';
+import type { EngineService } from '../../../engine-service.js';
+import { registerHandler } from '../../../ipc/register.js';
 
 /** Parses a Clark-notation QName string (`{namespaceUri}localName`) back into a `QName`. */
 function parseClarkQName(clark: string): QName {

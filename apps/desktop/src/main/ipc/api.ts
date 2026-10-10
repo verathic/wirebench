@@ -26,45 +26,23 @@ import {
   readOpenCollectionFile,
   ReportBuilder,
   VariableSetBuilder,
-  webhookItemsOf,
   WirebenchError,
 } from '@wirebench/engine';
-import type {
-  AsyncApiOpRef,
-  ImportedVariables,
-  AsyncApiUpdatePlan,
-  DefinitionAuth,
-  MappedOpenCollection,
-  OpenApiSource,
-  RestOpRef,
-  RestUpdatePlan,
-  WebhookItemRef,
-} from '@wirebench/engine';
-import { channels, events } from '../../shared/ipc.js';
-import type {
-  AsyncApiUpdatePlanWire,
-  DefinitionAuthWire,
-  OpenApiSourceWire,
-  PostmanSourceWire,
-  RestUpdatePlanWire,
-  RestUpdateSourceWire,
-  WebhookItemWire,
-} from '../../shared/wire-types.js';
+import type { ImportedVariables, DefinitionAuth, MappedOpenCollection, OpenApiSource } from '@wirebench/engine';
+import { channels } from '../../shared/ipc.js';
+import type { DefinitionAuthWire, OpenApiSourceWire, PostmanSourceWire } from '../../shared/wire-types.js';
 import { MAX_DOCUMENT_TEXT_BYTES } from '../../shared/wire-types.js';
 import type { ReadPicks } from '../dialog-picks.js';
 import { pickFolder } from '../native-dialogs.js';
 import type { OpenApiImportService } from '../openapi-import.js';
 import type { ProtoImportService } from '../proto-import.js';
-import { allowsReadPath, checkedCompanionPaths, checkedImportSource, readCompanionFile } from '../path-access.js';
+import { checkedCompanionPaths, checkedImportSource, readCompanionFile } from '../path-access.js';
 import { checkedOpenCollectionRoot, readCompanionProtos, readOpenCollectionTree } from '../opencollection-tree.js';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
-import type { ProtoSourceWire } from '../../shared/wire-types.js';
-import { toAuthConfigWire } from '../project-wire.js';
 import type { HistoryService, ImportedHistoryOutcome } from '../history-service.js';
 import type { ProjectRouter } from '../project-router.js';
 import { applyImportedVariables } from '../import-variables-apply.js';
 import type { VariablesApplyPorts } from '../import-variables-apply.js';
-import { emitEvent } from './events.js';
 import { registerHandler } from './register.js';
 
 /** What the `api.*` channels need. A stub stands in for each part in tests. */
@@ -155,7 +133,7 @@ function historyOutcomeWarnings(outcome: ImportedHistoryOutcome): string[] {
 }
 
 /** The engine's source shape. A `file` path becomes a `file:` URL here, where the platform is known. */
-function toEngineSource(source: OpenApiSourceWire): OpenApiSource {
+export function toEngineSource(source: OpenApiSourceWire): OpenApiSource {
   if (source.kind === 'file') {
     return { kind: 'file', path: pathToFileURL(source.path).href };
   }
@@ -166,7 +144,7 @@ function toEngineSource(source: OpenApiSourceWire): OpenApiSource {
 }
 
 /** A definition's fetch credentials off the wire, into the model: references only, absent optionals dropped. */
-function toDefinitionAuth(wire: DefinitionAuthWire): DefinitionAuth {
+export function toDefinitionAuth(wire: DefinitionAuthWire): DefinitionAuth {
   switch (wire.type) {
     case 'basic':
       return { type: 'basic', username: wire.username, passwordRef: wire.passwordRef };
@@ -187,7 +165,7 @@ function toDefinitionAuth(wire: DefinitionAuthWire): DefinitionAuth {
 }
 
 /** A sha256 over every document an update read, location and bytes, in the order they were read. */
-function fingerprintOf(documents: readonly { readonly location: string; readonly bytes: Uint8Array }[]): string {
+export function fingerprintOf(documents: readonly { readonly location: string; readonly bytes: Uint8Array }[]): string {
   const hash = createHash('sha256');
   for (const document of documents) {
     hash.update(document.location).update('\0').update(document.bytes).update('\0');
@@ -195,47 +173,8 @@ function fingerprintOf(documents: readonly { readonly location: string; readonly
   return hash.digest('hex');
 }
 
-/** An update plan onto the wire: the engine's read-only arrays copied into the schema's own. */
-function toAsyncApiUpdatePlanWire(plan: AsyncApiUpdatePlan): AsyncApiUpdatePlanWire {
-  const ref = (op: AsyncApiOpRef) => ({ key: op.key, channel: op.channel, direction: op.direction });
-  return {
-    added: plan.added.map(ref),
-    removed: plan.removed.map(ref),
-    changed: plan.changed.map((change) => ({ op: ref(change.op), reasons: [...change.reasons] })),
-  };
-}
-
-/** A webhook/callback item onto the wire: the engine's ref, minus the fields the wire has no use for. */
-function toWebhookItemWire(item: WebhookItemRef): WebhookItemWire {
-  return { key: item.key, kind: item.kind, name: item.name, method: item.method, label: item.label };
-}
-
-/** A REST update plan onto the wire: the engine's read-only arrays copied into the schema's own. */
-function toRestUpdatePlanWire(plan: RestUpdatePlan, linked: boolean): RestUpdatePlanWire {
-  const ref = (op: RestOpRef) => ({
-    method: op.method,
-    path: op.path,
-    ...(op.summary !== undefined ? { summary: op.summary } : {}),
-  });
-  return {
-    added: plan.added.map(ref),
-    removed: plan.removed.map(ref),
-    changed: plan.changed.map((change) => ({ op: ref(change.op), reasons: [...change.reasons] })),
-    api: [...plan.api],
-    webhooks: {
-      added: plan.webhooks.added.map(toWebhookItemWire),
-      removed: plan.webhooks.removed.map(toWebhookItemWire),
-      changed: plan.webhooks.changed.map((change) => ({
-        item: toWebhookItemWire(change.item),
-        reasons: [...change.reasons],
-      })),
-      linked,
-    },
-  };
-}
-
 /** What the API records as where its definition came from: the location as the user gave it. */
-function sourceLabel(source: OpenApiSourceWire): string {
+export function sourceLabel(source: OpenApiSourceWire): string {
   if (source.kind === 'url') {
     return source.url;
   }
@@ -243,45 +182,6 @@ function sourceLabel(source: OpenApiSourceWire): string {
     return source.path;
   }
   return source.location ?? 'inline:openapi';
-}
-
-/**
- * The path-access check for a `.proto` source: a folder or each file must be inside an open project
- * or picked this session; text and URLs are not paths and pass as they are.
- *
- * @throws WirebenchError `import-path-refused`
- */
-async function checkedProtoSource(
-  roots: readonly string[],
-  picks: ReadPicks | undefined,
-  source: ProtoSourceWire,
-): Promise<ProtoSourceWire> {
-  const refuse = (path: string): never => {
-    throw new WirebenchError(
-      'import-path-refused',
-      `Wirebench will not read "${path}": use Browse… to pick .proto files outside the project folder`,
-      { details: { path } },
-    );
-  };
-  if (source.kind === 'folder') {
-    const resolved = resolve(source.path);
-    if (!(await allowsReadPath(roots, picks, resolved))) {
-      refuse(source.path);
-    }
-    return { kind: 'folder', path: resolved };
-  }
-  if (source.kind === 'files') {
-    const paths: string[] = [];
-    for (const path of source.paths) {
-      const resolved = resolve(path);
-      if (!(await allowsReadPath(roots, picks, resolved))) {
-        refuse(path);
-      }
-      paths.push(resolved);
-    }
-    return { kind: 'files', paths };
-  }
-  return source;
 }
 
 /**
@@ -379,308 +279,6 @@ export function registerApiChannels(deps: ApiChannelDeps): void {
       ),
     };
   };
-
-  registerHandler(channels.api.importOpenApi, async (request, sender) => {
-    // A `file` source is a read at a renderer-named path, answered before any project is created,
-    // so a refusal changes nothing — the same order `project.addInterface` uses.
-    const checked = await checkedImportSource(deps.projectDirs(), deps.picks, request.source);
-    const auth = request.auth === undefined ? undefined : toDefinitionAuth(request.auth);
-    const imported = await deps.imports.run(
-      {
-        source: toEngineSource(checked),
-        ...(auth !== undefined ? { auth } : {}),
-        ...(request.token !== undefined ? { token: request.token } : {}),
-        ...(request.name !== undefined ? { name: request.name } : {}),
-        ...(request.baseUrl !== undefined ? { baseUrl: request.baseUrl } : {}),
-        ...(request.securityScheme !== undefined ? { securityScheme: request.securityScheme } : {}),
-        ...(request.webhooks !== undefined ? { webhooks: request.webhooks } : {}),
-      },
-      {
-        onProgress: (progress) => {
-          emitEvent(sender, events.engine.progress, progress);
-        },
-      },
-    );
-    // Full order, no `only`: the mapped folder's requests line up one to one with the document's
-    // own webhook/callback list, so a label is pulled from there rather than the plain request name.
-    const webhookItems = imported.webhooks !== undefined ? webhookItemsOf(imported.document) : [];
-    const webhookGroup =
-      imported.webhooks !== undefined
-        ? {
-            folderId: imported.webhooks.id,
-            name: imported.webhooks.name,
-            items: imported.webhooks.requests.map((item, index) => ({
-              id: item.id,
-              label: webhookItems[index]?.label ?? item.name,
-            })),
-          }
-        : undefined;
-    const summary = {
-      ...imported.summary,
-      servers: imported.summary.servers.map((server) => ({ ...server })),
-      securitySchemes: imported.summary.securitySchemes.map((scheme) => ({
-        name: scheme.name,
-        type: scheme.type,
-        applied: scheme.applied,
-        ...(scheme.description !== undefined ? { description: scheme.description } : {}),
-        ...(scheme.reason !== undefined ? { reason: scheme.reason } : {}),
-        // Flattened here rather than spread with the rest, so the field carries the wire shape
-        // alone: a spread would leave the engine's own union in the type beside it.
-        ...(scheme.auth !== undefined ? { auth: toAuthConfigWire(scheme.auth) } : {}),
-      })),
-      skipped: imported.summary.skipped.map((entry) => ({ ...entry })),
-    };
-    const place = {
-      api: imported.api,
-      documents: imported.documents,
-      source: sourceLabel(checked),
-      declaredVersion: imported.document.declaredVersion,
-      ...(auth !== undefined ? { auth } : {}),
-      ...(request.cache !== undefined ? { cache: request.cache } : {}),
-      ...(imported.webhooks !== undefined ? { webhooks: imported.webhooks } : {}),
-    };
-
-    if ('projectId' in request.target) {
-      const added = await router.addApi(request.target.projectId, place);
-      return {
-        ...added,
-        projectId: request.target.projectId,
-        summary,
-        ...(webhookGroup !== undefined ? { webhookGroup } : {}),
-      };
-    }
-    // A `newProjectName` target creates the project only once the document has been read, so a
-    // document that cannot be imported never leaves a project behind; if placing it fails anyway,
-    // the project goes again and the placement's own error is what the caller hears.
-    const { projectId } = await deps.addProject(request.target.newProjectName);
-    try {
-      const added = await router.addApi(projectId, place);
-      return { ...added, projectId, summary, ...(webhookGroup !== undefined ? { webhookGroup } : {}) };
-    } catch (error) {
-      await deps.removeProject(projectId, { deleteFiles: true }).catch(() => undefined);
-      throw error;
-    }
-  });
-
-  registerHandler(channels.api.importAsyncApi, async (request, sender) => {
-    const asyncApiImports = deps.asyncApiImports;
-    if (asyncApiImports === undefined) {
-      throw new WirebenchError('not-supported', 'This build cannot import AsyncAPI documents');
-    }
-    // Checked before anything is read or created, as `api.importOpenApi` does.
-    const checked = await checkedImportSource(deps.projectDirs(), deps.picks, request.source);
-    const auth = request.auth === undefined ? undefined : toDefinitionAuth(request.auth);
-    const imported = await asyncApiImports.runAsyncApi(
-      {
-        source: toEngineSource(checked),
-        ...(auth !== undefined ? { auth } : {}),
-        ...(request.token !== undefined ? { token: request.token } : {}),
-        ...(request.server !== undefined ? { server: request.server } : {}),
-      },
-      {
-        onProgress: (progress) => {
-          emitEvent(sender, events.engine.progress, progress);
-        },
-      },
-    );
-    const api =
-      request.name !== undefined && request.name.trim() !== '' ? { ...imported.api, name: request.name } : imported.api;
-    const summary = {
-      name: api.name,
-      title: imported.summary.title,
-      declaredVersion: imported.summary.declaredVersion,
-      ...(imported.summary.server !== undefined ? { server: imported.summary.server } : {}),
-      servers: [...imported.summary.servers],
-      requests: imported.summary.requests,
-      messages: imported.summary.messages,
-      skipped: imported.summary.skipped.map((entry) => ({ where: entry.where, reason: entry.reason })),
-      unresolved: [...imported.summary.unresolved],
-      unsupportedKeywords: [...imported.summary.unsupportedKeywords],
-    };
-    const place = {
-      api,
-      documents: imported.documents,
-      source: checked.kind === 'text' ? (checked.location ?? 'inline:asyncapi') : sourceLabel(checked),
-      declaredVersion: imported.declaredVersion,
-      ...(imported.summary.server !== undefined ? { server: imported.summary.server } : {}),
-      ...(auth !== undefined ? { auth } : {}),
-      ...(request.cache !== undefined ? { cache: request.cache } : {}),
-    };
-
-    if ('projectId' in request.target) {
-      const added = await router.importAsyncApi(request.target.projectId, place);
-      return { ...added, projectId: request.target.projectId, summary };
-    }
-    // As for OpenAPI: the project is created only once the document has been read and mapped, and
-    // is taken back if placing the API fails.
-    const { projectId } = await deps.addProject(request.target.newProjectName);
-    try {
-      const added = await router.importAsyncApi(projectId, place);
-      return { ...added, projectId, summary };
-    } catch (error) {
-      await deps.removeProject(projectId, { deleteFiles: true }).catch(() => undefined);
-      throw error;
-    }
-  });
-
-  registerHandler(channels.api.asyncApiServers, async (request) => {
-    const asyncApiImports = deps.asyncApiImports;
-    if (asyncApiImports === undefined) {
-      throw new WirebenchError('not-supported', 'This build cannot import AsyncAPI documents');
-    }
-    // The same path check an import makes: a preview must not read what an import could not.
-    const checked = await checkedImportSource(deps.projectDirs(), deps.picks, request.source);
-    // The picker reads the same document the import will, so it needs the same credentials.
-    const auth = request.auth === undefined ? undefined : toDefinitionAuth(request.auth);
-    const { document } = await asyncApiImports.readAsyncApi(toEngineSource(checked), auth);
-    return {
-      servers: document.servers
-        .filter((server) => ['ws', 'wss'].includes(server.protocol.toLowerCase()))
-        .map((server) => ({ key: server.key, url: server.url })),
-    };
-  });
-
-  /**
-   * Reads an AsyncAPI-imported API's source again, the way the import read it: a URL as written, a
-   * file only when it passes the same path check an import does.
-   */
-  const readAsyncApiSource = async (apiId: string) => {
-    const asyncApiImports = deps.asyncApiImports;
-    if (asyncApiImports === undefined) {
-      throw new WirebenchError('not-supported', 'This build cannot import AsyncAPI documents');
-    }
-    const { source: recorded, auth } = router.asyncApiSource(apiId);
-    if (recorded.startsWith('inline:')) {
-      throw new WirebenchError(
-        'definition-source-unavailable',
-        'This API was imported from pasted text, so there is no source to read again',
-        {
-          details: { apiId },
-        },
-      );
-    }
-    const wire: OpenApiSourceWire = /^https?:\/\//i.test(recorded)
-      ? { kind: 'url', url: recorded }
-      : { kind: 'file', path: recorded };
-    const checked = await checkedImportSource(deps.projectDirs(), deps.picks, wire);
-    // The credentials it was imported with, without asking again; a file is read without any.
-    return asyncApiImports.readAsyncApi(toEngineSource(checked), checked.kind === 'url' ? auth : undefined);
-  };
-
-  registerHandler(channels.api.asyncApiPlanUpdate, async (request) => {
-    const next = await readAsyncApiSource(request.apiId);
-    const plan = toAsyncApiUpdatePlanWire(await router.asyncApiPlanUpdate(request.apiId, next.document));
-    return { ...plan, fingerprint: fingerprintOf(next.documents) };
-  });
-
-  registerHandler(channels.api.asyncApiApplyUpdate, async (request) => {
-    const next = await readAsyncApiSource(request.apiId);
-    // The user agreed to the plan they were shown; a source edited since would apply something else.
-    if (fingerprintOf(next.documents) !== request.fingerprint) {
-      throw new WirebenchError(
-        'definition-changed',
-        'The definition changed after the update was planned. Plan the update again to see what it does now.',
-        { details: { apiId: request.apiId } },
-      );
-    }
-    const { project, plan, applied } = await router.asyncApiApplyUpdate(request.apiId, next);
-    return {
-      project,
-      plan: toAsyncApiUpdatePlanWire(plan),
-      applied: {
-        requestsAdded: [...applied.requestsAdded],
-        requestsOrphaned: [...applied.requestsOrphaned],
-        requestsRestored: [...applied.requestsRestored],
-        requestsRewritten: [...applied.requestsRewritten],
-        messagesReplaced: [...applied.messagesReplaced],
-        messagesAdded: [...applied.messagesAdded],
-      },
-    };
-  });
-
-  /**
-   * Reads a REST API's new definition: the source the user chose, with the credentials chosen with
-   * it, or else the one the API records, with the credentials it records — so an update never asks
-   * for what the import was given. Either way through the same path check an import makes. Answers
-   * the checked location and the credentials used, so an apply can record a chosen source as the
-   * API's own.
-   */
-  const readRestSource = async (apiId: string, chosen: RestUpdateSourceWire | undefined) => {
-    let wire: OpenApiSourceWire;
-    let auth: DefinitionAuth | undefined;
-    if (chosen !== undefined) {
-      if (chosen.kind === 'url') {
-        wire = { kind: 'url', url: chosen.url };
-        auth = chosen.auth === undefined ? undefined : toDefinitionAuth(chosen.auth);
-      } else {
-        wire = chosen;
-      }
-    } else {
-      const recorded = router.restSource(apiId);
-      if (recorded.source.startsWith('inline:')) {
-        throw new WirebenchError(
-          'definition-source-unavailable',
-          'This API was imported from pasted text, so there is no source to read again',
-          { details: { apiId } },
-        );
-      }
-      wire = /^https?:\/\//i.test(recorded.source)
-        ? { kind: 'url', url: recorded.source }
-        : { kind: 'file', path: recorded.source };
-      auth = wire.kind === 'url' ? recorded.auth : undefined;
-    }
-    const checked = await checkedImportSource(deps.projectDirs(), deps.picks, wire);
-    const parsed = await deps.imports.readOpenApi(toEngineSource(checked), auth);
-    return { parsed, label: sourceLabel(checked), auth };
-  };
-
-  registerHandler(channels.api.restPlanUpdate, async (request) => {
-    const { parsed, label } = await readRestSource(request.apiId, request.source);
-    const { plan, cached, linked } = await router.restPlanUpdate(request.apiId, parsed.document);
-    // Both halves of the diff: a cache rewritten since (another update) changes the plan too.
-    // The label says what was actually read, so the dialog can name the recorded source it planned
-    // against — which the renderer does not otherwise know, having passed no source at all.
-    return {
-      ...toRestUpdatePlanWire(plan, linked),
-      source: label,
-      fingerprint: fingerprintOf([...cached, ...parsed.documents]),
-    };
-  });
-
-  registerHandler(channels.api.restApplyUpdate, async (request) => {
-    const { parsed, label, auth } = await readRestSource(request.apiId, request.source);
-    const { project, plan, linked, applied, warning } = await router.restApplyUpdate(request.apiId, parsed, {
-      // A chosen source brings its own credentials, or none: a file, or a URL given without any.
-      ...(request.source !== undefined ? { source: label, ...(auth !== undefined ? { auth } : {}) } : {}),
-      // The user agreed to the plan they were shown; a source or cache changed since would apply
-      // something else.
-      check: (cached) => {
-        if (fingerprintOf([...cached, ...parsed.documents]) !== request.fingerprint) {
-          throw new WirebenchError(
-            'definition-changed',
-            'The definition changed after the update was planned. Plan the update again to see what it does now.',
-            { details: { apiId: request.apiId } },
-          );
-        }
-      },
-    });
-    return {
-      project,
-      plan: toRestUpdatePlanWire(plan, linked),
-      applied: { ...applied, webhooks: { ...applied.webhooks } },
-      ...(warning !== undefined ? { warning } : {}),
-    };
-  });
-
-  registerHandler(channels.api.webhookItems, async (request) => {
-    const { items, imported } = await router.webhookItems(request.apiId);
-    return { items: items.map(toWebhookItemWire), imported: [...imported] };
-  });
-
-  registerHandler(channels.api.importWebhooks, async (request) => {
-    const { folderId, added } = await router.importWebhooks(request.apiId, request.keys);
-    return { folderId, added };
-  });
 
   registerHandler(channels.api.importPostman, async (request) => {
     const checkedSource = await checkedPostmanSource(request.source);
@@ -1161,129 +759,6 @@ export function registerApiChannels(deps: ApiChannelDeps): void {
   registerHandler(channels.api.importPostmanGlobals, async (request) =>
     importPostmanVariablesFrom(request.source, 'globals'),
   );
-
-  registerHandler(channels.api.importProto, async (request, sender) => {
-    const protoImports = deps.protoImports;
-    if (protoImports === undefined) {
-      throw new WirebenchError('not-supported', 'This build cannot import .proto files');
-    }
-    // A folder or a file is a read at a renderer-named path: each must be inside an open project or
-    // have been picked in a native dialog this session, checked before anything is created.
-    const source = await checkedProtoSource(deps.projectDirs(), deps.picks, request.source);
-    const run = await protoImports.run(
-      {
-        source,
-        ...(request.token !== undefined ? { token: request.token } : {}),
-        ...(request.name !== undefined ? { name: request.name } : {}),
-        ...(request.grpcTarget !== undefined ? { target: request.grpcTarget } : {}),
-        ...(request.tls !== undefined ? { tls: request.tls } : {}),
-      },
-      {
-        onProgress: (progress) => {
-          emitEvent(sender, events.engine.progress, progress);
-        },
-      },
-    );
-    const summary = {
-      name: run.imported.api.name,
-      target: run.imported.api.target,
-      ...run.imported.summary,
-      roots: [...run.roots],
-      kind: run.kind === 'proto' ? ('proto' as const) : ('reflection' as const),
-      ...(run.kind === 'reflection' ? { reflectionVersion: run.version } : {}),
-    };
-    const place = {
-      api: run.imported.api,
-      roots: run.roots,
-      source: run.sourceLabel,
-      ...(request.cache !== undefined ? { cache: request.cache } : {}),
-      ...(request.source.kind === 'reflection' && request.source.version !== undefined
-        ? { requestedVersion: request.source.version }
-        : {}),
-      ...(run.kind === 'proto'
-        ? { kind: 'proto' as const, sources: run.sources }
-        : {
-            kind: 'reflection' as const,
-            descriptors: run.descriptors,
-            version: run.version,
-            trustInvalid: run.trustInvalid,
-          }),
-    };
-    if ('projectId' in request.target) {
-      const added = await router.addGrpcApi(request.target.projectId, place);
-      return { ...added, projectId: request.target.projectId, summary };
-    }
-    const { projectId } = await deps.addProject(request.target.newProjectName);
-    try {
-      const added = await router.addGrpcApi(projectId, place);
-      return { ...added, projectId, summary };
-    } catch (error) {
-      await deps.removeProject(projectId, { deleteFiles: true }).catch(() => undefined);
-      throw error;
-    }
-  });
-
-  registerHandler(channels.api.grpcDefinition, async (request) => {
-    const definition = await router.grpcDefinition(request.apiId);
-    return {
-      services: definition.services.map((service) => ({
-        name: service.name,
-        fullName: service.fullName,
-        package: service.package,
-        ...(service.comment !== undefined ? { comment: service.comment } : {}),
-        methods: service.methods.map((method) => ({ ...method })),
-      })),
-      files: definition.files.map((file) => ({ ...file })),
-      source: definition.source,
-      fetchedAt: definition.fetchedAt,
-      roots: [...definition.roots],
-      kind: definition.kind,
-      ...(definition.reflectionVersion !== undefined ? { reflectionVersion: definition.reflectionVersion } : {}),
-    };
-  });
-
-  registerHandler(channels.api.grpcSample, async (request) => ({
-    text: await router.grpcSample(request.apiId, request.type),
-  }));
-
-  registerHandler(channels.api.grpcFields, async (request) => {
-    const descriptor = await router.grpcFields(request.apiId, request.type, request.path);
-    if (descriptor === undefined) {
-      return { fields: [] };
-    }
-    return {
-      fullName: descriptor.fullName,
-      fields: descriptor.fields.map((field) => ({
-        name: field.name,
-        type: field.type,
-        valueKind: field.valueKind,
-        repeated: field.repeated,
-        ...(field.oneof !== undefined ? { oneof: field.oneof } : {}),
-        ...(field.enumValues !== undefined ? { enumValues: [...field.enumValues] } : {}),
-        ...(field.comment !== undefined ? { comment: field.comment } : {}),
-      })),
-    };
-  });
-
-  registerHandler(channels.api.grpcRefresh, async (request) => {
-    const refreshed = await router.grpcRefresh(request.apiId, {
-      ...(request.version !== undefined ? { version: request.version } : {}),
-    });
-    return {
-      projectId: refreshed.project.id,
-      project: refreshed.project,
-      summary: {
-        ...refreshed.summary,
-        roots: [...(refreshed.project.grpcApis.find((api) => api.id === request.apiId)?.definition?.roots ?? [])],
-        kind: 'reflection' as const,
-        reflectionVersion: refreshed.version,
-      },
-      requestsAdded: refreshed.reconciled.requestsAdded.length,
-      requestsOrphaned: refreshed.reconciled.requestsOrphaned.length,
-      requestsRestored: refreshed.reconciled.requestsRestored.length,
-      foldersAdded: refreshed.reconciled.foldersAdded.length,
-    };
-  });
 
   registerHandler(channels.api.cancelImport, (request) =>
     Promise.resolve({

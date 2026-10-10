@@ -6,8 +6,6 @@
  */
 import { tmpdir } from 'node:os';
 import {
-  applyAuth,
-  composeUrl,
   createProject,
   createRunScope,
   deferredSession,
@@ -32,13 +30,12 @@ import type {
   BaseUrlSource,
   DesktopAuditEvent,
   ExchangeHandle,
-  GrpcFailedInput,
   GrpcResolvedInput,
   GrpcSelected,
   LiveEvent,
+  Project,
   PropertyMap,
   PropertyScopes,
-  RestContractResult,
   RestSelected,
   RestSendInput,
   RunContext,
@@ -65,24 +62,15 @@ import { requestSentEvent } from '../audit/desktop-events.js';
 import type { HistoryService } from '../history-service.js';
 import { containsRecordedSecret, recordSecretValue } from '../redact.js';
 import { finishScripts, scriptsFailed, scriptsForSend, sessionValuesFor, type SendScripts } from '../script-send.js';
-import { callbackUrlFor, withSentSigningHeaders, type WebhookUrlSource } from '../webhook-send.js';
+import { callbackUrlFor, type WebhookUrlSource } from '../webhook-send.js';
 import { editorAssertionResults } from './assertions.js';
-import { adHocSoapItem, AD_HOC_ID, selectedFor, type DraftOf } from './draft.js';
+import { adHocSoapItem, AD_HOC_ID, type DraftOf } from './draft.js';
+import { kindSend } from '../kinds/kind-send.js';
+import { wsSent } from '../kinds/ws/send.js';
+import { isInteractive, kindById } from '../../shared/kinds/kind-module.js';
 import { desktopSendHost, type DesktopSend, type DesktopSendDeps } from './host.js';
 import { toWireEvent } from './live.js';
-import {
-  recordGrpc,
-  recordRest,
-  recordSoap,
-  recordWs,
-  reportWsHandshakeFailure,
-  summariseGrpc,
-  summariseRest,
-  summariseSoap,
-  summariseWs,
-  type HistoryLabel,
-  type HistoryNameFallback,
-} from './record.js';
+import { type HistoryLabel, type HistoryNameFallback } from './record.js';
 import { withContracts, wsContractChecks, type WsContractChecks } from './ws-contract.js';
 import type {
   ExchangeSummary,
@@ -228,7 +216,7 @@ export class ExchangeRegistry {
    * @throws WirebenchError `ws-session-exists`
    */
   reserve(sendId: string, requestId: string, kind: string): object {
-    if (kind === 'websocket' && this.kept.has(sendId)) {
+    if (isInteractive(kind) && this.kept.has(sendId)) {
       throw new WirebenchError('ws-session-exists', 'That connection is already open.', { details: { sendId } });
     }
     const token = {};
@@ -289,7 +277,7 @@ export class ExchangeRegistry {
    */
   closeWs(sendId: string, code?: number, reason?: string): boolean {
     const kept = this.kept.get(sendId);
-    if (kept?.handle === undefined || kept.kind !== 'websocket' || kept.closed === true) return false;
+    if (kept?.handle === undefined || !isInteractive(kept.kind) || kept.closed === true) return false;
     kept.handle.close(code, reason);
     kept.closed = true;
     return true;
@@ -329,7 +317,7 @@ export class ExchangeRegistry {
         kept.ending = true;
         continue;
       }
-      if (kind !== 'websocket' || kept.opened?.() !== true) {
+      if (!isInteractive(kind) || kept.opened?.() !== true) {
         if (kept.handle.cancel()) ended += 1;
         continue;
       }
@@ -352,6 +340,11 @@ export class ExchangeRegistry {
   }
 }
 
+/** The saved request as a send item with the editor's draft applied. Undefined: no such request of that kind. */
+function selectedFor(project: Project, requestId: string, draft: DraftOf): SelectedRequest | undefined {
+  return kindSend(draft.kind).selected(project, requestId, draft);
+}
+
 export interface SendThroughEngineDeps extends DesktopSendDeps {
   readonly registry: ExchangeRegistry;
   readonly history?: HistoryService;
@@ -372,14 +365,6 @@ export interface SendThroughEngineDeps extends DesktopSendDeps {
   /** The server workspace audit events are queued for now. */
   readonly auditWorkspace?: () => string | undefined;
 }
-
-/** What the "no such request" refusal calls a kind, as the app always has. */
-const KIND_LABEL: Readonly<Record<DraftOf['kind'], string>> = {
-  rest: 'REST',
-  soap: 'SOAP',
-  grpc: 'gRPC',
-  websocket: 'WebSocket',
-};
 
 /**
  * Sends one saved request through the engine. Its scripts are type-checked first; a request that
@@ -433,9 +418,13 @@ async function sendReserved(
         ? adHocSoapItem(adHoc.input, adHoc.names)
         : selectedFor(located.project, requestId, options.draft);
   if (located === undefined || item === undefined) {
-    throw new ProjectError('unknown-entity', `No ${KIND_LABEL[options.draft.kind]} request with id "${requestId}"`, {
-      details: { requestId },
-    });
+    throw new ProjectError(
+      'unknown-entity',
+      `No ${kindById(options.draft.kind).label} request with id "${requestId}"`,
+      {
+        details: { requestId },
+      },
+    );
   }
   // An ad-hoc send belongs to no project: no project's secrets, proxy, keystore or session values.
   const projectId = adHoc === undefined ? deps.project.projectId(requestId) : undefined;
@@ -1013,7 +1002,7 @@ async function forwardLive(
 }
 
 /** A send-stage failure held back until History is written. */
-interface HeldFailure {
+export interface HeldFailure {
   /** The protocol's input as the engine reports it; it may hold live credentials, never logged. */
   readonly input: unknown;
   /** What the protocol recorded of the exchange before it failed, when it settled part way. */
@@ -1024,7 +1013,7 @@ interface HeldFailure {
 }
 
 /** What a send's History entry is written from beyond the result: the item, its masks, an ad-hoc send's names. */
-interface Recorded {
+export interface Recorded {
   readonly item: SelectedRequest;
   readonly masks: Pick<DesktopSend, 'keyParams' | 'keyHeaders'>;
   readonly adHoc?: HistoryNameFallback;
@@ -1054,32 +1043,6 @@ function recordedOf(
   };
 }
 
-/** The request a SOAP entry is keyed to: the saved one, or the one an ad-hoc resend came from. */
-function soapRequestId(recorded: Recorded): { readonly requestId?: string } {
-  if (recorded.adHoc === undefined) return { requestId: recorded.item.request.id };
-  return recorded.adHocRequestId !== undefined ? { requestId: recorded.adHocRequestId } : {};
-}
-
-function restSent(sent: SentRequest): Extract<NonNullable<SentRequest['exchange']>, { kind: 'rest' }> {
-  if (sent.exchange?.kind !== 'rest') throw new Error('A REST send came back without its exchange');
-  return sent.exchange;
-}
-
-function soapSent(sent: SentRequest): Extract<NonNullable<SentRequest['exchange']>, { kind: 'soap' }> {
-  if (sent.exchange?.kind !== 'soap') throw new Error('A SOAP send came back without its exchange');
-  return sent.exchange;
-}
-
-function grpcSent(sent: SentRequest): Extract<NonNullable<SentRequest['exchange']>, { kind: 'grpc' }> {
-  if (sent.exchange?.kind !== 'grpc') throw new Error('A gRPC send came back without its exchange');
-  return sent.exchange;
-}
-
-function wsSent(sent: SentRequest): Extract<NonNullable<SentRequest['exchange']>, { kind: 'websocket' }> {
-  if (sent.exchange?.kind !== 'websocket') throw new Error('A WebSocket session came back without its exchange');
-  return sent.exchange;
-}
-
 /**
  * The summary the renderer is handed and, for SOAP, the unredacted one History records. A WebSocket
  * session's is built from `checked`, its exchange with its frames' contract results.
@@ -1094,52 +1057,7 @@ function summarise(
   requestId: string | undefined,
   checked: WsExchange | undefined,
 ): { readonly summary: SendSummary; readonly unredacted?: ExchangeSummary } {
-  switch (item.kind) {
-    case 'rest': {
-      const exchange = restSent(sent);
-      return {
-        summary: summariseRest(
-          deps.service,
-          sendId,
-          exchange.rest,
-          exchange.contract as RestContractResult | undefined,
-          {
-            method: exchange.input.request.method,
-            ...masks,
-            show,
-          },
-        ),
-      };
-    }
-    case 'soap': {
-      const exchange = soapSent(sent);
-      const { summary, full } = summariseSoap(deps.service, sendId, exchange.soap, {
-        ...(requestId !== undefined ? { requestId } : {}),
-        requestEnvelopeXml: exchange.input.envelopeXml,
-        ...masks,
-        show,
-      });
-      return { summary, unredacted: full };
-    }
-    case 'grpc':
-      return { summary: summariseGrpc(grpcSent(sent).grpc, sendId, show) };
-    case 'websocket':
-      return {
-        summary: summariseWs(checked ?? wsSent(sent).ws, sendId, {
-          show,
-          ...(masks.keyParams !== undefined ? { keyParams: masks.keyParams } : {}),
-        }),
-      };
-  }
-}
-
-/** What History names a SOAP item by when the project has no meta for it: an ad-hoc send's own names. */
-function soapNames(recorded: Recorded): HistoryNameFallback {
-  if (recorded.adHoc !== undefined) return recorded.adHoc;
-  const { item } = recorded;
-  return item.kind === 'soap'
-    ? { requestName: item.request.name, interfaceName: item.iface.name, operationName: item.operation.name }
-    : { requestName: item.request.name, interfaceName: '', operationName: '' };
+  return kindSend(item.kind).summarise({ deps, sendId, item, sent, masks, show, requestId, checked });
 }
 
 async function record(
@@ -1149,53 +1067,7 @@ async function record(
   summary: SendSummary,
   unredacted: ExchangeSummary | undefined,
 ): Promise<void> {
-  const { item, masks } = recorded;
-  switch (item.kind) {
-    case 'rest': {
-      const { input, rest: exchange } = restSent(sent);
-      // History keeps the signing headers as they went out, so its resend replays them (R1).
-      const rest = summary as RestExchangeSummary;
-      const sentInput =
-        input.sign === undefined ? input : withSentSigningHeaders(input, input.sign.scheme, rest.http.request.headers);
-      // The exchange's own time on the wire, as for every protocol: never the prepare stage's.
-      await recordRest(deps, item, sentInput, rest, exchange.durationMs, masks.keyParams, undefined, recorded.label);
-      return;
-    }
-    case 'soap': {
-      const exchange = soapSent(sent);
-      await recordSoap(deps, {
-        ...soapRequestId(recorded),
-        names: soapNames(recorded),
-        input: exchange.input,
-        ...(unredacted !== undefined ? { exchange: unredacted } : {}),
-        // The exchange's own time on the wire: History has never counted resolving and connecting.
-        durationMs: exchange.soap.durationMs,
-        ...(recorded.label !== undefined ? { label: recorded.label } : {}),
-      });
-      return;
-    }
-    case 'grpc': {
-      const exchange = grpcSent(sent);
-      await recordGrpc(
-        deps,
-        item,
-        exchange,
-        summary as GrpcExchangeSummary,
-        exchange.grpc.exchange.durationMs,
-        undefined,
-        recorded.label,
-      );
-      return;
-    }
-    case 'websocket': {
-      // As the app always has: the refused handshake's Log row, then History.
-      const ws = summary as WsExchangeSummary;
-      const opened = recorded.handshakeLogged === true;
-      reportWsHandshakeFailure(deps, ws.sendId, item.request.id, ws, masks.keyParams, opened);
-      await recordWs(deps, item, ws, masks.keyParams, opened, recorded.label);
-      return;
-    }
-  }
+  await kindSend(recorded.item.kind).record(deps, recorded, sent, summary, unredacted);
 }
 
 async function recordFailure(
@@ -1205,55 +1077,11 @@ async function recordFailure(
   error: unknown,
   summaryOf: { readonly sendId: string; readonly show: boolean },
 ): Promise<void> {
-  const { item, masks } = recorded;
-  if (failed.input === undefined) return;
-  switch (item.kind) {
-    case 'rest':
-      await recordRest(
-        deps,
-        item,
-        failed.input as RestSendInput,
-        undefined,
-        failed.durationMs,
-        masks.keyParams,
-        error,
-        recorded.label,
-      );
-      return;
-    case 'soap':
-      await recordSoap(deps, {
-        ...soapRequestId(recorded),
-        names: soapNames(recorded),
-        input: failed.input as SoapSendInput,
-        error,
-        durationMs: failed.durationMs,
-        ...(recorded.label !== undefined ? { label: recorded.label } : {}),
-      });
-      return;
-    case 'grpc': {
-      // The call as connected, with the message it was to send: a send-stage failure has both.
-      const { messageText, ...input } = failed.input as GrpcFailedInput;
-      if (messageText === undefined) return;
-      await recordGrpc(deps, item, { input, messageText }, undefined, failed.durationMs, error, recorded.label);
-      return;
-    }
-    case 'websocket': {
-      // A session cancelled before it opened, or a run's cancelled after, settled with its transcript,
-      // which History keeps as the app always has; one that failed as it was built (a bad option) has
-      // none to record.
-      if (failed.exchange === undefined) return;
-      const summary = summariseWs(failed.exchange as WsExchange, summaryOf.sendId, {
-        show: summaryOf.show,
-        ...(masks.keyParams !== undefined ? { keyParams: masks.keyParams } : {}),
-      });
-      await recordWs(deps, item, summary, masks.keyParams, recorded.handshakeLogged === true, recorded.label);
-      return;
-    }
-  }
+  await kindSend(recorded.item.kind).recordFailure(deps, recorded, failed, error, summaryOf);
 }
 
 /** What the audit log keeps of one send beyond its request: where it went and how it ended. */
-interface AuditedSend {
+export interface AuditedSend {
   readonly method: string | null;
   /** Unredacted: `requestSentEvent` masks it. */
   readonly url: string;
@@ -1306,70 +1134,10 @@ function reportSend(
 /** A send that got its answer: the URL as it went out, the status, and the time the summary shows. */
 function sentAudit(sent: SentRequest, summary: SendSummary): AuditedSend | undefined {
   const { exchange } = sent;
-  const durationMs = summary.durationMs;
-  switch (exchange?.kind) {
-    case 'rest': {
-      const { request, status } = exchange.rest;
-      return { method: request.method, url: request.url, status, outcome: 'ok', durationMs };
-    }
-    case 'soap': {
-      const { request, status } = exchange.soap.http;
-      return { method: request.method, url: request.url, status, outcome: 'ok', durationMs };
-    }
-    case 'grpc': {
-      const { input } = exchange;
-      const status = 'statusName' in summary ? summary.status : null;
-      return { method: `${input.service}/${input.method}`, url: input.target, status, outcome: 'ok', durationMs };
-    }
-    case 'websocket': {
-      const { ws } = exchange;
-      const opened = ws.handshake.error === undefined;
-      return {
-        method: null,
-        url: ws.url,
-        status: ws.handshake.status ?? null,
-        outcome: opened ? 'ok' : 'failed',
-        durationMs,
-      };
-    }
-    case undefined:
-      return undefined;
-  }
+  return exchange === undefined ? undefined : kindSend(exchange.kind).sentAudit(exchange, summary);
 }
 
 /** A send that failed on the wire (desktop audit events plan, ruling 8): no status, where it was going. */
 function failedAudit(item: SelectedRequest, failed: HeldFailure): AuditedSend | undefined {
-  const base = { status: null, outcome: 'failed', durationMs: failed.durationMs } as const;
-  switch (item.kind) {
-    case 'rest': {
-      const input = failed.input as RestSendInput | undefined;
-      if (input === undefined) return undefined;
-      const { request, settings } = input;
-      // Built as a successful send's URL is: the auth the input already carries (resolved values;
-      // nothing is fetched here) adds its query rows, and the audit event masks the key's value.
-      const { url } = composeUrl(
-        input.baseUrl,
-        request.url,
-        request.pathParams,
-        [...request.query, ...applyAuth(input.auth).query],
-        { ...(settings.encodeUrl !== undefined ? { encode: settings.encodeUrl } : {}) },
-      );
-      return { ...base, method: request.method, url };
-    }
-    case 'soap': {
-      const input = failed.input as SoapSendInput | undefined;
-      return input === undefined ? undefined : { ...base, method: 'POST', url: input.endpoint };
-    }
-    case 'grpc': {
-      const input = failed.input as GrpcFailedInput | undefined;
-      return input === undefined
-        ? undefined
-        : { ...base, method: `${input.service}/${input.method}`, url: input.target };
-    }
-    case 'websocket': {
-      // A session that failed as it was built has no transcript, and never reached the wire.
-      const exchange = failed.exchange as WsExchange | undefined;
-      return exchange === undefined ? undefined : { ...base, method: null, url: exchange.url };
-    }
-  }
+  return kindSend(item.kind).failedAudit(item, failed);
 }

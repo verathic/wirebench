@@ -19,12 +19,12 @@ import {
   wsiWsdlContext,
 } from '@wirebench/engine';
 import type { QName, WsiReport } from '@wirebench/engine';
-import { channels } from '../../shared/ipc.js';
-import type { WsiReportWire } from '../../shared/wire-types.js';
-import type { EngineService } from '../engine-service.js';
-import type { ProjectRouter } from '../project-router.js';
-import type { RecordsWritePicks } from '../dialog-picks.js';
-import { registerHandler } from './register.js';
+import { channels } from '../../../../shared/ipc.js';
+import type { WsiReportWire } from '../../../../shared/wire-types.js';
+import type { EngineService } from '../../../engine-service.js';
+import type { ProjectRouter } from '../../../project-router.js';
+import type { RecordsWritePicks } from '../../../dialog-picks.js';
+import { registerHandler } from '../../../ipc/register.js';
 
 /** The `ProjectRouter` surface the `wsi.*` channels need; a stub stands in for it in tests. */
 export type WsiChannelProject = Pick<ProjectRouter, 'validationTargetFor' | 'projectSnapshot' | 'projectId'>;

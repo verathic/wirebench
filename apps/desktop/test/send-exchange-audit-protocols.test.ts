@@ -36,12 +36,12 @@ import {
   type HistoryService,
   type RecordRestSendInput,
 } from '../src/main/history-service.js';
-import { registerHistoryChannels } from '../src/main/ipc/history.js';
 import { registerLogChannels } from '../src/main/ipc/log.js';
 import { toSendDeps, type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { sendThroughEngine } from '../src/main/send/exchange.js';
 import type { HistoryEntryWire } from '../src/shared/wire-types.js';
 import { sendDepsFor } from './helpers/send-deps.js';
+import { registerHistoryChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -372,7 +372,7 @@ describe('a resend', () => {
     };
     const engine = new EngineService();
     const sendDeps = toSendDeps(engine, requestDeps);
-    registerHistoryChannels(history as never, {
+    registerHistoryChannelsWithKinds(history as never, {
       project: { projectId: () => 'p1', endpointFor: () => undefined },
       send: sendDeps,
     });
