@@ -15,12 +15,12 @@ import {
   toEngineSigning,
   updateFolder,
   updateRestRequest,
-} from '../src/main/project-rest-mutations.js';
+} from '../src/main/kinds/rest/mutations.js';
 import {
   setWebhookFolderSigning,
   setWebhookFolderTarget,
   updateWebhooks,
-} from '../src/main/project-webhook-mutations.js';
+} from '../src/main/kinds/rest/webhooks/mutations.js';
 import { withDraft } from '../src/main/send/draft.js';
 import { projectChangeSchema, restRequestPatchSchema } from '../src/shared/wire-types.js';
 import type { WebhookSigningWire } from '../src/shared/wire-types.js';

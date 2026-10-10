@@ -67,7 +67,7 @@ function newService(options: ServiceOptions = {}): ProjectHost {
 async function openProject(service: ProjectHost): Promise<{ dir: string; requestId: string }> {
   const dir = tempDir('proj');
   await service.create({ dir, name: 'Demo' });
-  const imported = await service.addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
+  const imported = await service.kind('soap').addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
   await service.whenHydrated();
   return { dir, requestId: imported.project.requests[0]?.id as string };
 }

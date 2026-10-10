@@ -9,9 +9,10 @@ import {
   soapInterfacesOf,
 } from '@wirebench/engine';
 import type { Interface, Project, RestResponseExample } from '@wirebench/engine';
-import { addRequest, applyChange, contentTypeForPath, projectNameFromDir } from '../src/main/project-mutations.js';
+import { addRequest, contentTypeForPath } from '../src/main/kinds/soap/mutations.js';
+import { applyChange, projectNameFromDir } from '../src/main/project-mutations.js';
 import type { AddAttachmentFile, MutationDeps } from '../src/main/project-mutations.js';
-import { findRestRequest } from '../src/main/project-rest-mutations.js';
+import { findRestRequest } from '../src/main/kinds/rest/mutations.js';
 import { findRequest } from '../src/main/project-wire.js';
 
 const BINDING = '{http://tempuri.org/}CalculatorSoap';

@@ -84,8 +84,14 @@ describe('ProjectHost sending a webhook item', () => {
 
   it('names the item for History and never checks it against a contract', async () => {
     const { projectId, requestId } = await webhookItem();
-    expect(host.restMeta(requestId)).toEqual({ requestName: 'Paid', apiName: 'Webhooks', folderPath: 'Orders' });
-    expect(host.restContractFor(requestId, { method: 'POST', url: 'https://receiver.test/in/paid' })).toBeUndefined();
-    expect(host.restAuthOf(webhookCollectionId(projectId))).toMatchObject({ type: 'bearer' });
+    expect(host.kind('rest').restMeta(requestId)).toEqual({
+      requestName: 'Paid',
+      apiName: 'Webhooks',
+      folderPath: 'Orders',
+    });
+    expect(
+      host.kind('rest').restContractFor(requestId, { method: 'POST', url: 'https://receiver.test/in/paid' }),
+    ).toBeUndefined();
+    expect(host.kind('rest').restAuthOf(webhookCollectionId(projectId))).toMatchObject({ type: 'bearer' });
   });
 });

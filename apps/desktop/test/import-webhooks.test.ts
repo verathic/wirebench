@@ -81,17 +81,17 @@ beforeEach(async () => {
   const unused = vi.fn();
   const deps: ApiChannelDeps = {
     router: {
-      addApi: (_projectId, input) => host.addApi(input),
+      addApi: (_projectId, input) => host.kind('rest').addApi(input),
       addGrpcApi: unused,
       importAsyncApi: unused,
       asyncApiSource: unused,
       asyncApiPlanUpdate: unused,
       asyncApiApplyUpdate: unused,
-      restSource: (apiId) => host.restSource(apiId),
-      restPlanUpdate: (apiId, next) => host.planRestUpdate(apiId, next),
-      restApplyUpdate: (apiId, next, options) => host.applyRestUpdate(apiId, next, options),
-      webhookItems: (apiId) => host.webhookItems(apiId),
-      importWebhooks: (apiId, keys) => host.importWebhooks(apiId, keys),
+      restSource: (apiId) => host.kind('rest').restSource(apiId),
+      restPlanUpdate: (apiId, next) => host.kind('rest').planRestUpdate(apiId, next),
+      restApplyUpdate: (apiId, next, options) => host.kind('rest').applyRestUpdate(apiId, next, options),
+      webhookItems: (apiId) => host.kind('rest').webhookItems(apiId),
+      importWebhooks: (apiId, keys) => host.kind('rest').importWebhooks(apiId, keys),
       apiDefinitionDocuments: unused,
       apiDefinitionText: unused,
       exportApiDefinitionTo: unused,

@@ -18,10 +18,10 @@ import {
   soapInterfacesOf,
 } from '@wirebench/engine';
 import type { Project, RequestScripts } from '@wirebench/engine';
-import { findGrpcRequest } from '../src/main/project-grpc-mutations.js';
+import { findGrpcRequest } from '../src/main/kinds/grpc/mutations.js';
 import { applyChange } from '../src/main/project-mutations.js';
 import type { MutationDeps } from '../src/main/project-mutations.js';
-import { findRestRequest } from '../src/main/project-rest-mutations.js';
+import { findRestRequest } from '../src/main/kinds/rest/mutations.js';
 import { findRequest, toRequestScriptsWire } from '../src/main/project-wire.js';
 
 const deps: MutationDeps = {

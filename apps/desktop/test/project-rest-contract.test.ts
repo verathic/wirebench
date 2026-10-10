@@ -41,7 +41,7 @@ async function importPets(cache: boolean): Promise<{ api: RestApi; apiId: string
     { kind: 'text', text: DOCUMENT, location: 'https://pets.example.test/openapi.yaml' },
     { fetchDocument: createDefaultFetchDocument() },
   );
-  const { apiId } = await host.addApi({
+  const { apiId } = await host.kind('rest').addApi({
     api: imported.api,
     documents: imported.documents,
     source: 'https://pets.example.test/openapi.yaml',
@@ -69,10 +69,10 @@ describe('ProjectHost.restContractFor', () => {
   it("answers a linked request's operation and its responses from the cache, memoised per API", async () => {
     const { api, apiId } = await importPets(true);
     const get = requestNamed(api, 'GET');
-    const target = await host.restContractFor(get.id, { method: 'GET', url: get.url });
+    const target = await host.kind('rest').restContractFor(get.id, { method: 'GET', url: get.url });
     expect(target?.operation).toEqual({ method: 'get', path: '/pets/{id}' });
     expect(Object.keys(target?.responses ?? {})).toEqual(['200']);
-    expect(host.openApiDocumentFor(apiId)).toBe(host.openApiDocumentFor(apiId));
+    expect(host.kind('rest').openApiDocumentFor(apiId)).toBe(host.kind('rest').openApiDocumentFor(apiId));
   });
 
   it('matches an unlinked request by method and URL', async () => {
@@ -84,7 +84,7 @@ describe('ProjectHost.restContractFor', () => {
       (request) => !before.has(request.id),
     );
     expect(added?.contract).toBeUndefined();
-    const target = await host.restContractFor(added?.id ?? '', {
+    const target = await host.kind('rest').restContractFor(added?.id ?? '', {
       method: 'GET',
       url: 'https://pets.example.test/v1/pets/7',
     });
@@ -94,8 +94,8 @@ describe('ProjectHost.restContractFor', () => {
   it('has nothing for a request whose API has no cached definition, or no request at all', async () => {
     const { api } = await importPets(false);
     const get = requestNamed(api, 'GET');
-    expect(host.restContractFor(get.id, { method: 'GET', url: get.url })).toBeUndefined();
-    expect(host.restContractFor('no-such-request', { method: 'GET', url: '/' })).toBeUndefined();
+    expect(host.kind('rest').restContractFor(get.id, { method: 'GET', url: get.url })).toBeUndefined();
+    expect(host.kind('rest').restContractFor('no-such-request', { method: 'GET', url: '/' })).toBeUndefined();
   });
 
   it('a broken cache rejects, is not remembered, and the memo is dropped on close', async () => {
@@ -106,20 +106,22 @@ describe('ProjectHost.restContractFor', () => {
     const root =
       files.find((file) => file !== 'manifest.yaml' && (file.endsWith('.yaml') || file.endsWith('.json'))) ?? '';
     await writeFile(join(definition, root), 'tampered: [');
-    await expect(host.restContractFor(get.id, { method: 'GET', url: get.url })).rejects.toThrow();
+    await expect(host.kind('rest').restContractFor(get.id, { method: 'GET', url: get.url })).rejects.toThrow();
     await writeFile(join(definition, root), DOCUMENT);
-    const first = host.openApiDocumentFor(apiId);
+    const first = host.kind('rest').openApiDocumentFor(apiId);
     await expect(first).resolves.toBeDefined();
     await host.close();
     await host.openProject(join(dir, 'project'));
-    expect(host.openApiDocumentFor(apiId)).not.toBe(first);
+    expect(host.kind('rest').openApiDocumentFor(apiId)).not.toBe(first);
   });
 
   it('rematches a linked request whose method was changed since import', async () => {
     const { api } = await importPets(true);
     const get = requestNamed(api, 'GET');
     expect(get.contract).toEqual({ method: 'get', path: '/pets/{id}' });
-    const target = await host.restContractFor(get.id, { method: 'POST', url: 'https://pets.example.test/v1/pets' });
+    const target = await host
+      .kind('rest')
+      .restContractFor(get.id, { method: 'POST', url: 'https://pets.example.test/v1/pets' });
     expect(target?.operation).toEqual({ method: 'post', path: '/pets' });
   });
 
@@ -127,10 +129,14 @@ describe('ProjectHost.restContractFor', () => {
     const { api } = await importPets(true);
     const post = requestNamed(api, 'POST');
     expect(post.contract).toEqual({ method: 'post', path: '/pets' });
-    const moved = await host.restContractFor(post.id, { method: 'POST', url: 'https://pets.example.test/v1/pets/3' });
+    const moved = await host
+      .kind('rest')
+      .restContractFor(post.id, { method: 'POST', url: 'https://pets.example.test/v1/pets/3' });
     expect(moved).toEqual({});
     const get = requestNamed(api, 'GET');
-    const same = await host.restContractFor(get.id, { method: 'get', url: 'https://pets.example.test/v1/pets/9' });
+    const same = await host
+      .kind('rest')
+      .restContractFor(get.id, { method: 'get', url: 'https://pets.example.test/v1/pets/9' });
     expect(same?.operation).toEqual({ method: 'get', path: '/pets/{id}' });
   });
 });

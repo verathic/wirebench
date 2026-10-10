@@ -246,6 +246,14 @@ mutations today (`takenApiSlugs`, `toEngineAuthConfig`, `toEngineRows`) moves in
 The cross-kind cases that probe each kind's lists (`add-folder`, `update-folder`, `remove-folder`,
 `move-node`) ask each kind whether it owns the API or folder id instead.
 
+_As built (slice 5):_ each kind's table sits at the end of its `mutations.ts`
+(`kinds/<kind>/mutations.ts`, REST's webhook changes in `kinds/rest/webhooks/mutations.ts`, the
+WS-Security reducers in `kinds/soap/wss-mutations.ts`), and a reducer takes `(project, change, deps)`.
+The four folder changes stay core change kinds: core asks each kind's optional `tree` facet
+(`ownsApi`, `ownsNode`, and the four reducers) and refuses an id no kind owns with
+`project-entity-not-found`. `CORE_CHANGE_KINDS` lists what core applies, so a test can hold every
+change kind to exactly one owner.
+
 ### 5.3 The project host
 
 `ProjectHost` keeps what is about no protocol: open, close, save, autosave, the watcher, mutate,
@@ -259,6 +267,17 @@ on a `ProjectHostCore` the host passes in. `ProjectHost.kind('rest')` returns it
 - The three methods that serve REST and gRPC (`apiDefinitionDocuments`, `apiDefinitionText`,
   `exportApiDefinitionTo`) ask each kind whether it owns the API id.
 - `closeInternal`, `hydrateAll` and the post-mutation cache drops call every kind's host.
+
+_As built (slice 5):_ `ProjectHostCore` is a `Pick` of `ProjectHost` (`project-host-core.ts`), so the
+members a kind's host reads are public on the host. Each kind declares its router methods once, in
+`kinds/<kind>/router.ts`: a table naming the host method each reaches and how its host is found (by
+the leading entity id, or by a leading project id that is dropped or kept). `ProjectRouter` extends
+the kinds' router types derived from those tables, `window-scope.ts` lists the core's methods and
+adds each kind's, and `WorkspaceService` installs the kinds' forwarders on its prototype from the
+same tables. Core calls each kind's host through optional hooks (`hydrate`, `close`,
+`afterChange`, `wireOptions`, `apiDefinitions`). `preflight` still asks SOAP's host for a request's
+default `wsa:Action`, and `mutate` hands SOAP's `addAttachmentFile`, until slice 6 moves the send
+path.
 
 ### 5.4 IPC
 

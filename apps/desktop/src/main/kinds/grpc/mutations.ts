@@ -19,8 +19,9 @@ import {
   uniqueSlug,
 } from '@wirebench/engine';
 import type { AuthConfig, GrpcApi, GrpcFolder, GrpcRequestDef, GrpcRequestSettings, Project } from '@wirebench/engine';
-import type { GrpcApiPatchWire, GrpcRequestPatchWire, RestFolderPatchWire } from '../shared/wire-types.js';
-import { takenApiSlugs, toEngineAuthConfig, toEngineRows } from './project-rest-mutations.js';
+import type { GrpcApiPatchWire, GrpcRequestPatchWire, RestFolderPatchWire } from '../../../shared/wire-types.js';
+import { takenApiSlugs, toEngineAuthConfig, toEngineRows } from '../../project-api-mutations.js';
+import type { KindMutations } from '../kind-main.js';
 
 /** What a mutation produced: the next model, and the entity it created when it created one. */
 export interface GrpcMutationResult {
@@ -516,3 +517,28 @@ export function moveGrpcNode(
   if (next === undefined) notFound('folder', input.parentId ?? api.id);
   return { project: replaceApi(project, next) };
 }
+
+/** The change kinds gRPC owns. */
+export const grpcMutations: KindMutations = {
+  'add-grpc-api': (project, change) =>
+    addGrpcApi(project, {
+      name: change.name,
+      target: change.target,
+      ...(change.tls !== undefined ? { tls: change.tls } : {}),
+    }),
+  'update-grpc-api': (project, change) => updateGrpcApi(project, change.apiId, change.patch),
+  'remove-grpc-api': (project, change) => removeGrpcApi(project, change.apiId),
+  'add-grpc-request': (project, change) =>
+    addGrpcRequest(project, {
+      apiId: change.apiId,
+      ...(change.parentId !== undefined ? { parentId: change.parentId } : {}),
+      ...(change.name !== undefined ? { name: change.name } : {}),
+      ...(change.service !== undefined ? { service: change.service } : {}),
+      ...(change.method !== undefined ? { method: change.method } : {}),
+      ...(change.methodKind !== undefined ? { methodKind: change.methodKind } : {}),
+      ...(change.message !== undefined ? { message: change.message } : {}),
+    }),
+  'update-grpc-request': (project, change) => updateGrpcRequest(project, change.requestId, change.patch),
+  'remove-grpc-request': (project, change) => removeGrpcRequest(project, change.requestId),
+  'clone-grpc-request': (project, change) => cloneGrpcRequest(project, change.requestId),
+};

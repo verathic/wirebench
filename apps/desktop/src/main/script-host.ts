@@ -47,8 +47,8 @@ import type {
   ScriptValue,
   ScriptedRequest,
 } from '@wirebench/engine';
-import { findGrpcRequest, grpcApiOwning } from './project-grpc-mutations.js';
-import { findRestRequest, restApiOwning } from './project-rest-mutations.js';
+import { findGrpcRequest, grpcApiOwning } from './kinds/grpc/mutations.js';
+import { findRestRequest, restApiOwning } from './kinds/rest/mutations.js';
 import { findRequest } from './project-wire.js';
 import { containsRecordedSecret, recordSecretValue, redactSecretText } from './redact.js';
 

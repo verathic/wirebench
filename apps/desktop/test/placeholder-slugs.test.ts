@@ -5,9 +5,9 @@
 import { describe, expect, it } from 'vitest';
 import { createApi, createGrpcApi, createProject, grpcApisOf, restApisOf, wsApisOf } from '@wirebench/engine';
 import type { Project } from '@wirebench/engine';
-import { addGrpcApi, updateGrpcApi } from '../src/main/project-grpc-mutations.js';
-import { addApi, updateApi } from '../src/main/project-rest-mutations.js';
-import { addWsApi } from '../src/main/project-ws-mutations.js';
+import { addGrpcApi, updateGrpcApi } from '../src/main/kinds/grpc/mutations.js';
+import { addApi, updateApi } from '../src/main/kinds/rest/mutations.js';
+import { addWsApi } from '../src/main/kinds/ws/mutations.js';
 
 const project: Project = {
   ...createProject('Placeholders', { id: 'p1' }),

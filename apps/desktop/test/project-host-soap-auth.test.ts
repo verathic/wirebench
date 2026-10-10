@@ -25,7 +25,7 @@ beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), 'wirebench-soap-auth-'));
   host = new ProjectHost(new EngineService());
   await host.create({ dir: join(root, 'p'), name: 'P' });
-  await host.addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
+  await host.kind('soap').addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
   const project = host.snapshot()!;
   const iface = project.interfaces[0]!;
   const request = project.requests.find((candidate) => candidate.interfaceId === iface.id)!;
@@ -69,9 +69,9 @@ describe('ProjectHost SOAP owner auth', () => {
   it('soapAuthOf finds an interface, an endpoint and a request by id, and nothing for an unknown one', async () => {
     await host.mutate({ kind: 'update-interface-auth', interfaceId: ids.interfaceId, auth: { type: 'none' } });
 
-    expect(host.soapAuthOf(ids.interfaceId)).toEqual({ type: 'none' });
-    expect(host.soapAuthOf(ids.endpointId)).toMatchObject(BEARER);
-    expect(host.soapAuthOf(ids.requestId)).toMatchObject(API_KEY);
-    expect(host.soapAuthOf('01J8NOTHINGATALL')).toBeUndefined();
+    expect(host.kind('soap').soapAuthOf(ids.interfaceId)).toEqual({ type: 'none' });
+    expect(host.kind('soap').soapAuthOf(ids.endpointId)).toMatchObject(BEARER);
+    expect(host.kind('soap').soapAuthOf(ids.requestId)).toMatchObject(API_KEY);
+    expect(host.kind('soap').soapAuthOf('01J8NOTHINGATALL')).toBeUndefined();
   });
 });

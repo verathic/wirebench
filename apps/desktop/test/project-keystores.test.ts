@@ -256,7 +256,7 @@ describe('ProjectHost keystores', () => {
     const dir = tempDir('proj');
     const service = newService(tempDir('ud'), undefined, { get: () => Promise.resolve(PASSWORD) });
     await service.create({ dir, name: 'Demo' });
-    const imported = await service.addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
+    const imported = await service.kind('soap').addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
     await service.whenHydrated();
     const requestId = imported.project.requests[0]?.id as string;
     await writeFile(join(dir, 'client.p12'), pkcs12Bytes());

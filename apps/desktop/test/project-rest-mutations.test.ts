@@ -21,7 +21,7 @@ import {
   updateApi,
   updateFolder,
   updateRestRequest,
-} from '../src/main/project-rest-mutations.js';
+} from '../src/main/kinds/rest/mutations.js';
 import { restRequestPatchSchema } from '../src/shared/wire-types.js';
 
 /** A project with one API: a root request, a `Pets` folder with two, and `Pets/Admin` with one. */

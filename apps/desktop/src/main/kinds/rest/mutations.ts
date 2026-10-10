@@ -1,10 +1,8 @@
 /**
  * Applying the REST half of a {@link ProjectChange} to a project model.
  *
- * Kept apart from `project-mutations.ts` — which is already long, and entirely about SOAP
- * interfaces, operations and envelopes — because the two share nothing but the `Project` they
- * return. Everything here is immutable: a change rebuilds the path from the API down to the node it
- * touched and leaves the rest of the tree by reference.
+ * REST's `mutations` table (spec §5.2) is at the end. Everything here is immutable: a change rebuilds
+ * the path from the API down to the node it touched and leaves the rest of the tree by reference.
  *
  * Slugs are derived here rather than in the renderer, and made unique within their own container,
  * because the file layout is main's business (ADR-0005): two requests called `Get pet` in one folder
@@ -15,21 +13,17 @@ import {
   createApi,
   createFolder,
   createRestRequest,
-  grpcApisOf,
   nextApiOrder,
   ProjectError,
   restApisOf,
   signatureSchemeSchema,
-  takenContainerSlugs,
   toSignatureScheme,
   uniqueSlug,
   webhooksOf,
   withWebhooks,
-  wsApisOf,
 } from '@wirebench/engine';
 import type {
   AuthConfig,
-  KeyValueEntry,
   Project,
   RestApi,
   RestBody,
@@ -43,13 +37,13 @@ import type {
 } from '@wirebench/engine';
 import type {
   ApiPatchWire,
-  AuthConfigWire,
-  KeyValueWire,
   RestBodyWire,
   RestFolderPatchWire,
   RestRequestPatchWire,
   WebhookSigningWire,
-} from '../shared/wire-types.js';
+} from '../../../shared/wire-types.js';
+import { notFound, takenApiSlugs, toEngineAuthConfig, toEngineRows } from '../../project-api-mutations.js';
+import type { KindMutations } from '../kind-main.js';
 
 /** What a mutation produced: the next model, and anything the caller has to do about it. */
 export interface RestMutationResult {
@@ -88,6 +82,11 @@ function restTreeOwnerOf(project: Project, nodeId: string): RestTreeOwner | unde
   );
 }
 
+/** Whether the folder or request with this id sits in an API or the webhook collection. */
+export function restOwnsNode(project: Project, nodeId: string): boolean {
+  return restTreeOwnerOf(project, nodeId) !== undefined;
+}
+
 /**
  * Runs `edit` against whichever REST tree holds `nodeId` — an API, or the project's webhook
  * collection, which a folder or request belongs to exactly the same way an API's does — and
@@ -122,10 +121,6 @@ export function inRestTreeContainer<O extends RestTreeOwner>(
   }
   const folders = mapFolder(owner.folders, parentId, (folder) => ({ ...folder, ...transform(folder) }));
   return folders === undefined ? undefined : { ...owner, folders };
-}
-
-export function notFound(what: string, id: string): never {
-  throw new ProjectError('project-entity-not-found', `No ${what} with id ${id}`, { details: { what, id } });
 }
 
 /** The API with this id, or a clear error naming it. */
@@ -323,12 +318,6 @@ function chainWithin(
   return undefined;
 }
 
-/** Turns a wire auth configuration into the engine's, dropping keys the sender left undefined. */
-export function toEngineAuthConfig(auth: AuthConfigWire): AuthConfig {
-  const entries = Object.entries(auth).filter(([, value]) => value !== undefined);
-  return Object.fromEntries(entries) as unknown as AuthConfig;
-}
-
 /** What the project file schema accepts as a CI secret name (`WIREBENCH_SECRET_<name>`). */
 const SECRET_ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
 
@@ -364,16 +353,6 @@ export function toEngineSigning(wire: WebhookSigningWire): WebhookSigning {
     ...(wire.secretRef !== undefined && wire.secretRef !== '' ? { secretRef: wire.secretRef } : {}),
     ...(secretEnv !== undefined ? { secretEnv } : {}),
   };
-}
-
-/** One table row from the wire, with an absent description absent rather than undefined. */
-export function toEngineRows(rows: readonly KeyValueWire[]): KeyValueEntry[] {
-  return rows.map((row) => ({
-    name: row.name,
-    value: row.value,
-    enabled: row.enabled,
-    ...(row.description !== undefined ? { description: row.description } : {}),
-  }));
 }
 
 /** Turns a wire body into the engine's, which differs only in that a raw body carries its text. */
@@ -415,30 +394,6 @@ export function toEngineBody(body: RestBodyWire): RestBody {
     default:
       return { kind: 'none' };
   }
-}
-
-/**
- * Every slug in use at the project's top level: the APIs of every kind (they share `apis/`), the
- * interfaces and the placeholders (spec R3, §6). Hand it to `uniqueSlug` when naming an API.
- *
- * With `exceptApiId`, that API's own slug is left out so a rename may keep it — unless another API,
- * an interface or a placeholder holds the same slug too: the slug is dropped by leaving the API out,
- * never by deleting it from the set, so it is never freed while someone else still has it.
- */
-export function takenApiSlugs(project: Project, exceptApiId?: string): Set<string> {
-  const others: Project =
-    exceptApiId === undefined
-      ? project
-      : {
-          ...project,
-          containers: {
-            ...project.containers,
-            rest: restApisOf(project).filter((api) => api.id !== exceptApiId),
-            grpc: grpcApisOf(project).filter((api) => api.id !== exceptApiId),
-            websocket: wsApisOf(project).filter((api) => api.id !== exceptApiId),
-          },
-        };
-  return new Set([...takenContainerSlugs(others, 'apis'), ...takenContainerSlugs(others, 'interfaces')]);
 }
 
 /** Adds an API to the project, ordered after every interface and API it already has. */
@@ -860,7 +815,6 @@ export function moveNode(
       });
     }
   }
-
   const folderMove = extractFolder(owner.folders, input.nodeId);
   if (folderMove.removed !== undefined) {
     const moved = folderMove.removed;
@@ -883,7 +837,6 @@ export function moveNode(
     }
     return { project: replaceRestTreeOwner(project, owner, next) };
   }
-
   const requestMove = extractRequestFrom(owner, input.nodeId);
   if (requestMove.removed === undefined) {
     notFound('node', input.nodeId);
@@ -907,3 +860,26 @@ export function moveNode(
 function clamp(index: number, length: number): number {
   return Math.max(0, Math.min(index, length));
 }
+
+/** The change kinds REST owns. */
+export const restMutations: KindMutations = {
+  'add-api': (project, change) => addApi(project, { name: change.name, baseUrl: change.baseUrl }),
+  'update-api': (project, change) => updateApi(project, change.apiId, change.patch),
+  'remove-api': (project, change) => {
+    return removeApi(project, change.apiId);
+
+    // The folder changes serve every API kind: a folder is a folder, and the change names the
+    // folder or its API, from which the model knows which kind of tree it sits in.
+  },
+  'add-rest-request': (project, change) => {
+    return addRestRequest(project, {
+      apiId: change.apiId,
+      ...(change.parentId !== undefined ? { parentId: change.parentId } : {}),
+      ...(change.name !== undefined ? { name: change.name } : {}),
+    });
+  },
+  'update-rest-request': (project, change) => updateRestRequest(project, change.requestId, change.patch),
+  'remove-rest-request': (project, change) => removeRestRequest(project, change.requestId),
+  'clone-rest-request': (project, change) => cloneRestRequest(project, change.requestId),
+  'remove-rest-example': (project, change) => removeRestExample(project, change.requestId, change.exampleId),
+};

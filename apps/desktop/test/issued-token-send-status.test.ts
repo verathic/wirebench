@@ -57,7 +57,7 @@ describe('an issued token fetched by a desktop send', () => {
       get: (ref) => Promise.resolve(ref === 'sec' ? 'hunter2' : undefined),
     });
     await host.create({ dir, name: 'Demo' });
-    const imported = await host.addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
+    const imported = await host.kind('soap').addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
     await host.whenHydrated();
     const requestId = imported.project.requests[0]?.id as string;
     const outgoing = await host.mutate({ kind: 'add-wss-outgoing', name: 'Tokens' });
@@ -84,7 +84,8 @@ describe('an issued token fetched by a desktop send', () => {
 
     const request = vi.fn<typeof requestIssuedToken>(() => Promise.resolve(issued()));
     const issuedTokens = new IssuedTokensService(
-      (locator) => host.issuedTokenTarget(locator.projectId, locator.configId, locator.entryIndex, locator.requestId),
+      (locator) =>
+        host.kind('soap').issuedTokenTarget(locator.projectId, locator.configId, locator.entryIndex, locator.requestId),
       createIssuedTokenSource({ request }),
     );
     const located = host.runContextFor(requestId);
@@ -104,7 +105,7 @@ describe('an issued token fetched by a desktop send', () => {
     expect(request).toHaveBeenCalledTimes(1);
     // A Kerberos credential reaches #40's seam from a send and from the panel's Fetch now alike.
     expect(request.mock.calls[0]?.[2].kerberosToken).toBeTypeOf('function');
-    const resolved = await host.issuedTokenTarget(located.project.id, configId, 0, requestId);
+    const resolved = await host.kind('soap').issuedTokenTarget(located.project.id, configId, 0, requestId);
     expect(resolved.deps.kerberosToken).toBeTypeOf('function');
     await host.close();
   });

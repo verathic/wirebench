@@ -32,8 +32,9 @@ import type {
   WsRequestSettings,
   WsSavedMessage,
 } from '@wirebench/engine';
-import type { WsApiPatchWire, WsRequestPatchWire, RestFolderPatchWire } from '../shared/wire-types.js';
-import { takenApiSlugs, toEngineAuthConfig, toEngineRows } from './project-rest-mutations.js';
+import type { WsApiPatchWire, WsRequestPatchWire, RestFolderPatchWire } from '../../../shared/wire-types.js';
+import { takenApiSlugs, toEngineAuthConfig, toEngineRows } from '../../project-api-mutations.js';
+import type { KindMutations } from '../kind-main.js';
 
 /** What a mutation produced: the next model, and the entity it created when it created one. */
 export interface WsMutationResult {
@@ -627,3 +628,40 @@ export function removeWsMessage(
   }));
   return { project: replaceApi(project, next) };
 }
+
+/** The change kinds WebSocket owns. */
+export const wsMutations: KindMutations = {
+  'add-ws-api': (project, change) =>
+    addWsApi(project, { name: change.name, ...(change.url !== undefined ? { url: change.url } : {}) }),
+  'update-ws-api': (project, change) => updateWsApi(project, change.apiId, change.patch),
+  'remove-ws-api': (project, change) => removeWsApi(project, change.apiId),
+  'add-ws-request': (project, change) =>
+    addWsRequest(project, {
+      apiId: change.apiId,
+      ...(change.parentId !== undefined ? { parentId: change.parentId } : {}),
+      ...(change.name !== undefined ? { name: change.name } : {}),
+      ...(change.url !== undefined ? { url: change.url } : {}),
+    }),
+  'update-ws-request': (project, change) => updateWsRequest(project, change.requestId, change.patch),
+  'remove-ws-request': (project, change) => removeWsRequest(project, change.requestId),
+  'clone-ws-request': (project, change) => cloneWsRequest(project, change.requestId),
+  'add-ws-message': (project, change) =>
+    addWsMessage(project, {
+      requestId: change.requestId,
+      name: change.name,
+      ...(change.format !== undefined ? { format: change.format } : {}),
+      ...(change.content !== undefined ? { content: change.content } : {}),
+    }),
+  'update-ws-message': (project, change) =>
+    updateWsMessage(project, {
+      requestId: change.requestId,
+      messageId: change.messageId,
+      patch: {
+        ...(change.patch.name !== undefined ? { name: change.patch.name } : {}),
+        ...(change.patch.format !== undefined ? { format: change.patch.format } : {}),
+        ...(change.patch.content !== undefined ? { content: change.patch.content } : {}),
+      },
+    }),
+  'remove-ws-message': (project, change) =>
+    removeWsMessage(project, { requestId: change.requestId, messageId: change.messageId }),
+};

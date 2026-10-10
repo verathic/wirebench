@@ -38,7 +38,7 @@ import {
   updateWsRequest,
   wsAuthChainFor,
   withWsPatch,
-} from '../src/main/project-ws-mutations.js';
+} from '../src/main/kinds/ws/mutations.js';
 import { applyChange } from '../src/main/project-mutations.js';
 
 /** A project with one WebSocket API: a root request and an `Echo` folder with two requests. */

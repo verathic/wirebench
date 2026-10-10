@@ -1,5 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { WirebenchError } from '@wirebench/engine';
+import type { KindRouters } from './kinds/kind-main.js';
+import { MAIN_KINDS } from './kinds/kind-main.js';
 import type { ProjectRouter } from './project-router.js';
 import type { WorkspaceService } from './workspace-service.js';
 
@@ -78,10 +80,11 @@ export class WindowScopes<S> {
 }
 
 /**
- * Every `ProjectRouter` method, each taking the entity (or project) id it acts on first. Typed so a
- * method added to the router without being added here fails to compile.
+ * The core's `ProjectRouter` methods, each taking the entity (or project) id it acts on first. Typed so
+ * a core method added to the router without being added here fails to compile; each kind's come from
+ * its route table.
  */
-const ROUTER_METHODS = {
+const CORE_ROUTER_METHODS = {
   projectSnapshot: true,
   projectMutate: true,
   save: true,
@@ -89,73 +92,26 @@ const ROUTER_METHODS = {
   trustAnchorsFor: true,
   clientIdentityFor: true,
   keystoreFor: true,
-  addInterface: true,
-  importLegacyProject: true,
   writeImportedScripts: true,
-  importWsApi: true,
-  importGrpcApi: true,
   importProperties: true,
-  addApi: true,
-  importAsyncApi: true,
-  addGrpcApi: true,
   reload: true,
   projectId: true,
   scopesFor: true,
   preflight: true,
-  requestMeta: true,
-  requestSource: true,
-  sendAttachmentsFor: true,
-  endpointFor: true,
-  dumpFileFor: true,
   tlsFor: true,
   sendEnvironments: true,
-  restAuthOf: true,
-  soapAuthOf: true,
-  restMeta: true,
-  restContractFor: true,
-  restBodySchema: true,
   runContextFor: true,
-  defaultWsaActionFor: true,
-  grpcMeta: true,
-  grpcAuthOf: true,
-  grpcProtoSetFor: true,
-  grpcDefinition: true,
-  grpcSample: true,
-  grpcFields: true,
-  grpcRefresh: true,
-  wsContractFor: true,
-  wsMeta: true,
-  hasOutgoingWss: true,
-  wssPolicyInputs: true,
-  validationTargetFor: true,
-  insertWsaHeaders: true,
-  removeWsaHeadersFrom: true,
-  previewOutgoingWss: true,
-  issuedTokenTarget: true,
-  insertWssEntry: true,
-  removeOutgoingWssFrom: true,
-  resolveAttachmentPath: true,
-  addAttachmentBytes: true,
-  planDefinitionUpdate: true,
-  applyDefinitionUpdate: true,
-  exportDefinitionTo: true,
-  definitionDocs: true,
   apiDefinitionDocuments: true,
   apiDefinitionText: true,
   exportApiDefinitionTo: true,
-  asyncApiSource: true,
-  asyncApiPlanUpdate: true,
-  asyncApiApplyUpdate: true,
-  restSource: true,
-  restPlanUpdate: true,
-  restApplyUpdate: true,
-  webhookItems: true,
-  importWebhooks: true,
   inspectKeystore: true,
-} satisfies Record<keyof ProjectRouter, true>;
+} satisfies Record<Exclude<keyof ProjectRouter, keyof KindRouters>, true>;
+
+/** Every `ProjectRouter` method: the core's and each kind's. */
+const ROUTER_METHODS = [...Object.keys(CORE_ROUTER_METHODS), ...MAIN_KINDS.flatMap((kind) => Object.keys(kind.routes))];
 
 /** Entity-addressed `WorkspaceService` methods: the router's, plus the host lookups main itself uses. */
-const ENTITY_ROUTED = new Set<string>([...Object.keys(ROUTER_METHODS), 'hostFor', 'hostOfEntity']);
+const ENTITY_ROUTED = new Set<string>([...ROUTER_METHODS, 'hostFor', 'hostOfEntity']);
 
 /**
  * One object standing in for every window's `WorkspaceService` (design D2). An entity-addressed call

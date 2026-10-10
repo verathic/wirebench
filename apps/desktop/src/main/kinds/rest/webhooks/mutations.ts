@@ -33,22 +33,22 @@ import type {
   WebhookFolder,
   WebhookSigning,
 } from '@wirebench/engine';
-import type { AuthConfigWire, RestRequestPatchWire, WebhookSigningWire } from '../shared/wire-types.js';
+import type { AuthConfigWire, RestRequestPatchWire, WebhookSigningWire } from '../../../../shared/wire-types.js';
 import {
   applyRestRequestPatch,
   cleanUndefined,
   inRestTreeContainer,
   mapFolder,
   nextName,
-  notFound,
   takenSlugs,
-  toEngineAuthConfig,
   toEngineSigning,
   type Container,
   type RestMutationResult,
-} from './project-rest-mutations.js';
+} from '../mutations.js';
+import { notFound, toEngineAuthConfig } from '../../../project-api-mutations.js';
 
-import { isWebhookCollectionId, webhookCollectionId } from './webhook-ids.js';
+import { isWebhookCollectionId, webhookCollectionId } from '../../../webhook-ids.js';
+import type { KindMutations } from '../../kind-main.js';
 
 export { isWebhookCollectionId, webhookCollectionId };
 
@@ -270,3 +270,39 @@ export function appendWebhookItems(
   }
   return { project: withWebhooks(project, { ...webhooks, folders }) };
 }
+
+/** The change kinds REST's webhook collection owns. */
+export const webhookMutations: KindMutations = {
+  'ensure-webhooks': (project, change, deps) => ensureWebhooks(project, deps.workspaceProperties),
+  'update-webhooks': (project, change, deps) =>
+    updateWebhooks(
+      project,
+      {
+        ...(change.patch.target !== undefined ? { target: change.patch.target } : {}),
+        ...(change.patch.auth !== undefined ? { auth: change.patch.auth } : {}),
+        ...(change.patch.signing !== undefined ? { signing: change.patch.signing } : {}),
+      },
+      deps.workspaceProperties,
+    ),
+  'add-webhook-request': (project, change, deps) =>
+    addWebhookRequest(
+      project,
+      {
+        ...(change.parentId !== undefined ? { parentId: change.parentId } : {}),
+        ...(change.name !== undefined ? { name: change.name } : {}),
+        ...(change.draft !== undefined ? { draft: change.draft } : {}),
+      },
+      deps.workspaceProperties,
+    ),
+  'add-webhook-folder': (project, change, deps) =>
+    addWebhookFolder(
+      project,
+      {
+        ...(change.parentId !== undefined ? { parentId: change.parentId } : {}),
+        ...(change.name !== undefined ? { name: change.name } : {}),
+      },
+      deps.workspaceProperties,
+    ),
+  'set-webhook-folder-target': (project, change) => setWebhookFolderTarget(project, change.folderId, change.target),
+  'set-webhook-folder-signing': (project, change) => setWebhookFolderSigning(project, change.folderId, change.signing),
+};

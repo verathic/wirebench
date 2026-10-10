@@ -110,6 +110,8 @@ import type { PreferencesService } from './preferences.js';
 import { isWorkspaceManagedDir, isWorkspaceManagedPath, ProjectWatcher, SELF_WRITE_TTL_MS } from './project-watch.js';
 import { ProjectHost } from './project-host.js';
 import { checkCertificates } from './certificate-expiry.js';
+import type { KindRouters } from './kinds/kind-main.js';
+import { MAIN_KINDS } from './kinds/kind-main.js';
 import type { ProjectRouter } from './project-router.js';
 import type { SecretScanSessions } from './secret-scan-session.js';
 import type { SecretUse, TeamSecretsService } from './team-secrets-service.js';
@@ -625,6 +627,14 @@ async function waitAtMost(promise: Promise<void>, ms: number): Promise<void> {
   clearTimeout(timer);
 }
 
+/**
+ * Each kind's router methods (spec §5.3), which {@link routeKinds} installs on the prototype from the
+ * kinds' route tables rather than one hand-written forwarder per method.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging, @typescript-eslint/no-empty-object-type -- the members are installed below
+export interface WorkspaceService extends KindRouters {}
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- see the interface above
 export class WorkspaceService implements ProjectRouter {
   /** The open workspace, or `undefined` when the user is at the picker. */
   private current: OpenWorkspace | undefined;
@@ -3196,13 +3206,6 @@ export class WorkspaceService implements ProjectRouter {
   }
 
   /** @inheritdoc */
-  addInterface(
-    ...[projectId, input]: Parameters<ProjectRouter['addInterface']>
-  ): ReturnType<ProjectRouter['addInterface']> {
-    return this.hostFor(projectId).addInterface(input);
-  }
-
-  /** @inheritdoc */
   importProperties(
     ...[projectId, properties, disabled]: Parameters<ProjectRouter['importProperties']>
   ): ReturnType<ProjectRouter['importProperties']> {
@@ -3214,42 +3217,6 @@ export class WorkspaceService implements ProjectRouter {
     ...[projectId, scripts]: Parameters<ProjectRouter['writeImportedScripts']>
   ): ReturnType<ProjectRouter['writeImportedScripts']> {
     return this.hostFor(projectId).writeImportedScripts(scripts);
-  }
-
-  /** @inheritdoc */
-  importWsApi(
-    ...[projectId, input]: Parameters<ProjectRouter['importWsApi']>
-  ): ReturnType<ProjectRouter['importWsApi']> {
-    return this.hostFor(projectId).importWsApi(input);
-  }
-
-  /** @inheritdoc */
-  importGrpcApi(
-    ...[projectId, input]: Parameters<ProjectRouter['importGrpcApi']>
-  ): ReturnType<ProjectRouter['importGrpcApi']> {
-    return this.hostFor(projectId).importGrpcApi(input);
-  }
-
-  importLegacyProject(
-    ...[projectId, input]: Parameters<ProjectRouter['importLegacyProject']>
-  ): ReturnType<ProjectRouter['importLegacyProject']> {
-    return this.hostFor(projectId).importLegacyProject(input);
-  }
-
-  addApi(...[projectId, input]: Parameters<ProjectRouter['addApi']>): ReturnType<ProjectRouter['addApi']> {
-    return this.hostFor(projectId).addApi(input);
-  }
-
-  /** @inheritdoc */
-  importAsyncApi(
-    ...[projectId, input]: Parameters<ProjectRouter['importAsyncApi']>
-  ): ReturnType<ProjectRouter['importAsyncApi']> {
-    return this.hostFor(projectId).importAsyncApi(input);
-  }
-
-  /** @inheritdoc */
-  addGrpcApi(...[projectId, input]: Parameters<ProjectRouter['addGrpcApi']>): ReturnType<ProjectRouter['addGrpcApi']> {
-    return this.hostFor(projectId).addGrpcApi(input);
   }
 
   /** @inheritdoc */
@@ -3268,33 +3235,6 @@ export class WorkspaceService implements ProjectRouter {
   }
 
   /** @inheritdoc */
-  requestMeta(...args: Parameters<ProjectRouter['requestMeta']>): ReturnType<ProjectRouter['requestMeta']> {
-    return this.hostOfEntity(args[0]).requestMeta(...args);
-  }
-
-  /** @inheritdoc */
-  requestSource(...args: Parameters<ProjectRouter['requestSource']>): ReturnType<ProjectRouter['requestSource']> {
-    return this.hostOfEntity(args[0]).requestSource(...args);
-  }
-
-  /** @inheritdoc */
-  sendAttachmentsFor(
-    ...args: Parameters<ProjectRouter['sendAttachmentsFor']>
-  ): ReturnType<ProjectRouter['sendAttachmentsFor']> {
-    return this.hostOfEntity(args[0]).sendAttachmentsFor(...args);
-  }
-
-  /** @inheritdoc */
-  endpointFor(...args: Parameters<ProjectRouter['endpointFor']>): ReturnType<ProjectRouter['endpointFor']> {
-    return this.hostOfEntity(args[0]).endpointFor(...args);
-  }
-
-  /** @inheritdoc */
-  dumpFileFor(...args: Parameters<ProjectRouter['dumpFileFor']>): ReturnType<ProjectRouter['dumpFileFor']> {
-    return this.hostOfEntity(args[0]).dumpFileFor(...args);
-  }
-
-  /** @inheritdoc */
   tlsFor(...args: Parameters<ProjectRouter['tlsFor']>): ReturnType<ProjectRouter['tlsFor']> {
     return this.hostOfEntity(args[0]).tlsFor(...args);
   }
@@ -3305,127 +3245,8 @@ export class WorkspaceService implements ProjectRouter {
   }
 
   /** @inheritdoc */
-  restAuthOf(...args: Parameters<ProjectRouter['restAuthOf']>): ReturnType<ProjectRouter['restAuthOf']> {
-    return this.hostOfEntity(args[0]).restAuthOf(...args);
-  }
-
-  soapAuthOf(...args: Parameters<ProjectRouter['soapAuthOf']>): ReturnType<ProjectRouter['soapAuthOf']> {
-    return this.hostOfEntity(args[0]).soapAuthOf(...args);
-  }
-
-  /** @inheritdoc */
-  restMeta(...args: Parameters<ProjectRouter['restMeta']>): ReturnType<ProjectRouter['restMeta']> {
-    return this.hostOfEntity(args[0]).restMeta(...args);
-  }
-
-  /** @inheritdoc */
-  restContractFor(...args: Parameters<ProjectRouter['restContractFor']>): ReturnType<ProjectRouter['restContractFor']> {
-    return this.hostOfEntity(args[0]).restContractFor(...args);
-  }
-
-  restBodySchema(...args: Parameters<ProjectRouter['restBodySchema']>): ReturnType<ProjectRouter['restBodySchema']> {
-    return this.hostOfEntity(args[0]).restBodySchema(...args);
-  }
-
-  /** @inheritdoc */
   runContextFor(...args: Parameters<ProjectRouter['runContextFor']>): ReturnType<ProjectRouter['runContextFor']> {
     return this.hostOfEntity(args[0]).runContextFor(...args);
-  }
-
-  /** @inheritdoc */
-  defaultWsaActionFor(
-    ...args: Parameters<ProjectRouter['defaultWsaActionFor']>
-  ): ReturnType<ProjectRouter['defaultWsaActionFor']> {
-    return this.hostOfEntity(args[0]).defaultWsaActionFor(...args);
-  }
-
-  /** @inheritdoc */
-  grpcMeta(...args: Parameters<ProjectRouter['grpcMeta']>): ReturnType<ProjectRouter['grpcMeta']> {
-    return this.hostOfEntity(args[0]).grpcMeta(...args);
-  }
-
-  /** @inheritdoc */
-  grpcAuthOf(...args: Parameters<ProjectRouter['grpcAuthOf']>): ReturnType<ProjectRouter['grpcAuthOf']> {
-    return this.hostOfEntity(args[0]).grpcAuthOf(...args);
-  }
-
-  /** @inheritdoc */
-  grpcProtoSetFor(...args: Parameters<ProjectRouter['grpcProtoSetFor']>): ReturnType<ProjectRouter['grpcProtoSetFor']> {
-    return this.hostOfEntity(args[0]).grpcProtoSetFor(...args);
-  }
-
-  /** @inheritdoc */
-  grpcDefinition(...args: Parameters<ProjectRouter['grpcDefinition']>): ReturnType<ProjectRouter['grpcDefinition']> {
-    return this.hostOfEntity(args[0]).grpcDefinition(...args);
-  }
-
-  /** @inheritdoc */
-  grpcSample(...args: Parameters<ProjectRouter['grpcSample']>): ReturnType<ProjectRouter['grpcSample']> {
-    return this.hostOfEntity(args[0]).grpcSample(...args);
-  }
-
-  /** @inheritdoc */
-  grpcFields(...args: Parameters<ProjectRouter['grpcFields']>): ReturnType<ProjectRouter['grpcFields']> {
-    return this.hostOfEntity(args[0]).grpcFields(...args);
-  }
-
-  /** @inheritdoc */
-  grpcRefresh(...args: Parameters<ProjectRouter['grpcRefresh']>): ReturnType<ProjectRouter['grpcRefresh']> {
-    return this.hostOfEntity(args[0]).refreshGrpcDefinition(...args);
-  }
-
-  /** @inheritdoc */
-  wsContractFor(...args: Parameters<ProjectRouter['wsContractFor']>): ReturnType<ProjectRouter['wsContractFor']> {
-    return this.hostOfEntity(args[0]).wsContractFor(...args);
-  }
-
-  /** @inheritdoc */
-  asyncApiSource(...args: Parameters<ProjectRouter['asyncApiSource']>): ReturnType<ProjectRouter['asyncApiSource']> {
-    return this.hostOfEntity(args[0]).asyncApiSource(...args);
-  }
-
-  /** @inheritdoc */
-  asyncApiPlanUpdate(
-    ...args: Parameters<ProjectRouter['asyncApiPlanUpdate']>
-  ): ReturnType<ProjectRouter['asyncApiPlanUpdate']> {
-    return this.hostOfEntity(args[0]).planAsyncApiUpdate(...args);
-  }
-
-  /** @inheritdoc */
-  asyncApiApplyUpdate(
-    ...args: Parameters<ProjectRouter['asyncApiApplyUpdate']>
-  ): ReturnType<ProjectRouter['asyncApiApplyUpdate']> {
-    return this.hostOfEntity(args[0]).applyAsyncApiUpdate(...args);
-  }
-
-  /** @inheritdoc */
-  restSource(...args: Parameters<ProjectRouter['restSource']>): ReturnType<ProjectRouter['restSource']> {
-    return this.hostOfEntity(args[0]).restSource(...args);
-  }
-
-  /** @inheritdoc */
-  restPlanUpdate(...args: Parameters<ProjectRouter['restPlanUpdate']>): ReturnType<ProjectRouter['restPlanUpdate']> {
-    return this.hostOfEntity(args[0]).planRestUpdate(...args);
-  }
-
-  /** @inheritdoc */
-  restApplyUpdate(...args: Parameters<ProjectRouter['restApplyUpdate']>): ReturnType<ProjectRouter['restApplyUpdate']> {
-    return this.hostOfEntity(args[0]).applyRestUpdate(...args);
-  }
-
-  /** @inheritdoc */
-  webhookItems(...args: Parameters<ProjectRouter['webhookItems']>): ReturnType<ProjectRouter['webhookItems']> {
-    return this.hostOfEntity(args[0]).webhookItems(...args);
-  }
-
-  /** @inheritdoc */
-  importWebhooks(...args: Parameters<ProjectRouter['importWebhooks']>): ReturnType<ProjectRouter['importWebhooks']> {
-    return this.hostOfEntity(args[0]).importWebhooks(...args);
-  }
-
-  /** @inheritdoc */
-  wsMeta(...args: Parameters<ProjectRouter['wsMeta']>): ReturnType<ProjectRouter['wsMeta']> {
-    return this.hostOfEntity(args[0]).wsMeta(...args);
   }
 
   /**
@@ -3436,7 +3257,7 @@ export class WorkspaceService implements ProjectRouter {
    */
   async grpcDiscoveryTls(trustInvalid: boolean): Promise<TlsOptions | undefined> {
     for (const host of this.hosts()) {
-      const resolved = await host.grpcDiscoveryTls(trustInvalid);
+      const resolved = await host.kind('grpc').grpcDiscoveryTls(trustInvalid);
       if (resolved !== undefined) {
         return resolved;
       }
@@ -3485,98 +3306,6 @@ export class WorkspaceService implements ProjectRouter {
     });
   }
 
-  /** @inheritdoc */
-  hasOutgoingWss(...args: Parameters<ProjectRouter['hasOutgoingWss']>): ReturnType<ProjectRouter['hasOutgoingWss']> {
-    return this.hostOfEntity(args[0]).hasOutgoingWss(...args);
-  }
-
-  /** @inheritdoc */
-  wssPolicyInputs(...args: Parameters<ProjectRouter['wssPolicyInputs']>): ReturnType<ProjectRouter['wssPolicyInputs']> {
-    return this.hostOfEntity(args[0]).wssPolicyInputs(...args);
-  }
-
-  /** @inheritdoc */
-  validationTargetFor(
-    ...args: Parameters<ProjectRouter['validationTargetFor']>
-  ): ReturnType<ProjectRouter['validationTargetFor']> {
-    return this.hostOfEntity(args[0]).validationTargetFor(...args);
-  }
-
-  /** @inheritdoc */
-  insertWsaHeaders(
-    ...args: Parameters<ProjectRouter['insertWsaHeaders']>
-  ): ReturnType<ProjectRouter['insertWsaHeaders']> {
-    return this.hostOfEntity(args[0]).insertWsaHeaders(...args);
-  }
-
-  /** @inheritdoc */
-  removeWsaHeadersFrom(
-    ...args: Parameters<ProjectRouter['removeWsaHeadersFrom']>
-  ): ReturnType<ProjectRouter['removeWsaHeadersFrom']> {
-    return this.hostOfEntity(args[0]).removeWsaHeadersFrom(...args);
-  }
-
-  /** @inheritdoc */
-  previewOutgoingWss(
-    ...args: Parameters<ProjectRouter['previewOutgoingWss']>
-  ): ReturnType<ProjectRouter['previewOutgoingWss']> {
-    return this.hostOfEntity(args[0]).previewOutgoingWss(...args);
-  }
-
-  /** @inheritdoc */
-  issuedTokenTarget(
-    ...args: Parameters<ProjectRouter['issuedTokenTarget']>
-  ): ReturnType<ProjectRouter['issuedTokenTarget']> {
-    return this.hostFor(args[0]).issuedTokenTarget(...args);
-  }
-
-  /** @inheritdoc */
-  insertWssEntry(...args: Parameters<ProjectRouter['insertWssEntry']>): ReturnType<ProjectRouter['insertWssEntry']> {
-    return this.hostOfEntity(args[0]).insertWssEntry(...args);
-  }
-
-  /** @inheritdoc */
-  removeOutgoingWssFrom(
-    ...args: Parameters<ProjectRouter['removeOutgoingWssFrom']>
-  ): ReturnType<ProjectRouter['removeOutgoingWssFrom']> {
-    return this.hostOfEntity(args[0]).removeOutgoingWssFrom(...args);
-  }
-
-  /** @inheritdoc */
-  resolveAttachmentPath(
-    ...args: Parameters<ProjectRouter['resolveAttachmentPath']>
-  ): ReturnType<ProjectRouter['resolveAttachmentPath']> {
-    return this.hostOfEntity(args[0]).resolveAttachmentPath(...args);
-  }
-
-  /** @inheritdoc */
-  addAttachmentBytes(
-    ...args: Parameters<ProjectRouter['addAttachmentBytes']>
-  ): ReturnType<ProjectRouter['addAttachmentBytes']> {
-    return this.hostOfEntity(args[0]).addAttachmentBytes(...args);
-  }
-
-  /** @inheritdoc */
-  planDefinitionUpdate(
-    ...args: Parameters<ProjectRouter['planDefinitionUpdate']>
-  ): ReturnType<ProjectRouter['planDefinitionUpdate']> {
-    return this.hostOfEntity(args[0]).planDefinitionUpdate(...args);
-  }
-
-  /** @inheritdoc */
-  applyDefinitionUpdate(
-    ...args: Parameters<ProjectRouter['applyDefinitionUpdate']>
-  ): ReturnType<ProjectRouter['applyDefinitionUpdate']> {
-    return this.hostOfEntity(args[0]).applyDefinitionUpdate(...args);
-  }
-
-  /** @inheritdoc */
-  exportDefinitionTo(
-    ...args: Parameters<ProjectRouter['exportDefinitionTo']>
-  ): ReturnType<ProjectRouter['exportDefinitionTo']> {
-    return this.hostOfEntity(args[0]).exportDefinitionTo(...args);
-  }
-
   apiDefinitionDocuments(
     ...args: Parameters<ProjectRouter['apiDefinitionDocuments']>
   ): ReturnType<ProjectRouter['apiDefinitionDocuments']> {
@@ -3596,15 +3325,30 @@ export class WorkspaceService implements ProjectRouter {
   }
 
   /** @inheritdoc */
-  definitionDocs(...args: Parameters<ProjectRouter['definitionDocs']>): ReturnType<ProjectRouter['definitionDocs']> {
-    return this.hostOfEntity(args[0]).definitionDocs(...args);
-  }
-
-  /** @inheritdoc */
   inspectKeystore(...args: Parameters<ProjectRouter['inspectKeystore']>): ReturnType<ProjectRouter['inspectKeystore']> {
     return this.hostOfEntity(args[0]).inspectKeystore(...args);
   }
 }
+
+/**
+ * Installs each kind's router methods on `WorkspaceService`: each finds the host its route names (by
+ * the entity id the call takes first, or by a leading project id) and calls the kind's host method.
+ */
+function routeKinds(): void {
+  for (const kind of MAIN_KINDS) {
+    for (const [name, route] of Object.entries(kind.routes)) {
+      const forward = function (this: WorkspaceService, ...args: unknown[]): unknown {
+        const [id] = args as [string];
+        const host = route.by === 'entity' ? this.hostOfEntity(id) : this.hostFor(id);
+        const kindHost = host.kind(kind.kind) as unknown as Record<string, (...rest: unknown[]) => unknown>;
+        return kindHost[route.method]!.apply(kindHost, route.by === 'project' ? args.slice(1) : args);
+      };
+      Object.defineProperty(WorkspaceService.prototype, name, { value: forward, writable: true, configurable: true });
+    }
+  }
+}
+
+routeKinds();
 
 /**
  * Every project folder already known to some workspace on disk — both internal (copied into

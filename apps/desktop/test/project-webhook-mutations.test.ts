@@ -15,7 +15,7 @@ import {
   linkedWebhookFolder,
   setWebhookFolderTarget,
   updateWebhooks,
-} from '../src/main/project-webhook-mutations.js';
+} from '../src/main/kinds/rest/webhooks/mutations.js';
 import {
   addApi,
   addFolder,
@@ -27,7 +27,7 @@ import {
   removeRestRequest,
   updateFolder,
   updateRestRequest,
-} from '../src/main/project-rest-mutations.js';
+} from '../src/main/kinds/rest/mutations.js';
 
 const bare = () => createProject('P', { id: 'p1' });
 

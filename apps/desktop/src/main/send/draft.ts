@@ -26,9 +26,10 @@ import type {
   SoapSelected,
   WsaConfigPatch,
 } from '@wirebench/engine';
-import { withGrpcPatch } from '../project-grpc-mutations.js';
-import { toEngineAuthConfig, toEngineBody, toEngineRows, toEngineSigning } from '../project-rest-mutations.js';
-import { withWsPatch } from '../project-ws-mutations.js';
+import { withGrpcPatch } from '../kinds/grpc/mutations.js';
+import { toEngineBody, toEngineSigning } from '../kinds/rest/mutations.js';
+import { toEngineAuthConfig, toEngineRows } from '../project-api-mutations.js';
+import { withWsPatch } from '../kinds/ws/mutations.js';
 import type { HistoryNameFallback } from './record.js';
 import type {
   GrpcRequestPatchWire,

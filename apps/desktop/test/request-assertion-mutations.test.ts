@@ -21,9 +21,9 @@ import {
 import type { Project } from '@wirebench/engine';
 import { applyChange } from '../src/main/project-mutations.js';
 import type { MutationDeps } from '../src/main/project-mutations.js';
-import { findGrpcRequest } from '../src/main/project-grpc-mutations.js';
-import { findRestRequest } from '../src/main/project-rest-mutations.js';
-import { findWsRequest } from '../src/main/project-ws-mutations.js';
+import { findGrpcRequest } from '../src/main/kinds/grpc/mutations.js';
+import { findRestRequest } from '../src/main/kinds/rest/mutations.js';
+import { findWsRequest } from '../src/main/kinds/ws/mutations.js';
 import { findRequest } from '../src/main/project-wire.js';
 import type { RequestAssertionWire } from '../src/shared/wire-types.js';
 

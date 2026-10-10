@@ -109,7 +109,7 @@ describe('ProjectHost under a named environment', () => {
   });
 
   it('resolves a SOAP endpoint and send input under the named environment', async () => {
-    await host.addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
+    await host.kind('soap').addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
     await host.whenHydrated();
     const requestId = host.snapshot()?.requests[0]?.id as string;
     const slug = host.snapshot()?.interfaces[0]?.slug as string;
@@ -117,11 +117,11 @@ describe('ProjectHost under a named environment', () => {
     const test = await addEnvironment('test', { endpoints: { [slug]: 'http://test.example/soap' } });
     await host.mutate({ kind: 'set-active-environment', environmentId: dev });
 
-    expect(host.endpointFor(requestId)).toBe('http://dev.example/soap');
-    expect(host.endpointFor(requestId, test)).toBe('http://test.example/soap');
+    expect(host.kind('soap').endpointFor(requestId)).toBe('http://dev.example/soap');
+    expect(host.kind('soap').endpointFor(requestId, test)).toBe('http://test.example/soap');
     expect((await soapInput(requestId))?.endpoint).toBe('http://dev.example/soap');
     expect((await soapInput(requestId, test))?.endpoint).toBe('http://test.example/soap');
-    expect(host.endpointFor(requestId, 'no-such-env')).toBeUndefined();
+    expect(host.kind('soap').endpointFor(requestId, 'no-such-env')).toBeUndefined();
     expect(await soapInput(requestId, 'no-such-env')).toBeUndefined();
     expect(host.model()?.activeEnvironmentId).toBe(dev);
   });
@@ -200,17 +200,17 @@ describe('ProjectHost under a named workspace environment', () => {
   });
 
   it('resolves a SOAP endpoint under the named workspace environment', async () => {
-    await host.addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
+    await host.kind('soap').addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
     await host.whenHydrated();
     const requestId = host.snapshot()?.requests[0]?.id as string;
     const slug = host.snapshot()?.interfaces[0]?.slug as string;
     const ws = insideWorkspace(slug);
 
-    expect(host.endpointFor(requestId)).toBe('https://wdev.example');
-    expect(host.endpointFor(requestId, 'wtest')).toBe('https://wtest.example');
+    expect(host.kind('soap').endpointFor(requestId)).toBe('https://wdev.example');
+    expect(host.kind('soap').endpointFor(requestId, 'wtest')).toBe('https://wtest.example');
     expect((await soapInput(requestId, 'wtest'))?.endpoint).toBe('https://wtest.example');
     expect((await soapInput(requestId))?.endpoint).toBe('https://wdev.example');
-    expect(host.endpointFor(requestId, 'no-such-env')).toBeUndefined();
+    expect(host.kind('soap').endpointFor(requestId, 'no-such-env')).toBeUndefined();
     expect(ws.workspace().activeEnvironmentId).toBe('wdev');
   });
 });

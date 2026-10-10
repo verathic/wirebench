@@ -32,8 +32,8 @@ import {
   updateGrpcFolder,
   updateGrpcRequest,
   withGrpcPatch,
-} from '../src/main/project-grpc-mutations.js';
-import { addApi } from '../src/main/project-rest-mutations.js';
+} from '../src/main/kinds/grpc/mutations.js';
+import { addApi } from '../src/main/kinds/rest/mutations.js';
 import { applyChange } from '../src/main/project-mutations.js';
 
 /** A project with one gRPC API: a root request and a `Greeter` folder with two requests. */

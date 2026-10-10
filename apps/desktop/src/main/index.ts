@@ -826,7 +826,8 @@ void app.whenReady().then(() => {
   const scripts = new ScriptHost({
     modelOf: (entityId) =>
       workspaceService.projectId(entityId) === undefined ? undefined : workspaceService.hostOfEntity(entityId).model(),
-    openApiDocumentFor: async (apiId) => await workspaceService.hostOfEntity(apiId).openApiDocumentFor(apiId),
+    openApiDocumentFor: async (apiId) =>
+      await workspaceService.hostOfEntity(apiId).kind('rest').openApiDocumentFor(apiId),
     grpcProtoSetFor: async (apiId) => await workspaceService.grpcProtoSetFor(apiId),
     soapDefinitionFor: (interfaceId) => engineService.resultFor(interfaceId),
     onValuesChanged: (projectId) => {
