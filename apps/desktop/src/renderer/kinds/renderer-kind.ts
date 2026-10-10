@@ -4,10 +4,15 @@
  *
  * @internal Composed statically in `RENDERER_KINDS`; not yet a plugin API (ADR-0017).
  */
-import type { ComponentType } from 'react';
+import type { ComponentType, LazyExoticComponent } from 'react';
+import type { HistoryEntryWire, SearchMatchWire } from '../../shared/wire-types.js';
 import type { KindId } from '../../shared/kinds/kind-module.js';
 import type { ExplorerMenuGroup } from '../features/explorer/menu-items.js';
 import type { ExplorerNode, ExplorerNodeKind } from '../features/explorer/tree-nodes.js';
+import type { CompareSide } from '../features/history/history-actions.js';
+import type { RequestLookup } from '../features/console/log-row-actions.js';
+import type { LogEntry } from '../state/exchanges.js';
+import type { ProjectSnapshot } from '../state/project.js';
 import type { PendingNodeDeletion } from '../state/ui.js';
 import type { TabContribution } from './tab-contribution.js';
 
@@ -56,9 +61,59 @@ export interface KindExplorer {
   readonly deletions?: Partial<Record<PendingNodeDeletion['kind'], ExplorerDeletion>>;
 }
 
+/** The kind's saved requests, as History, Search and the HTTP Log reach them. */
+export interface KindRequests {
+  /** Opens (or focuses) the request's editor tab. */
+  open(requestId: string, fallbackTitle?: string): void;
+  /** Whether an open project still holds the request. */
+  exists(requestId: string, project: ProjectSnapshot): boolean;
+}
+
+/** What a History re-send answers: its IPC reply, with the error when it failed. */
+export type HistoryResendResult =
+  { readonly ok: true } | { readonly ok: false; readonly error: { readonly code: string; readonly message: string } };
+
+/** How History shows and replays an entry of this kind. A missing `kind` still means SOAP. */
+export interface KindHistory {
+  /** What says which kind of send this was: in a History row, or the entry tab's header. */
+  readonly Badge: ComponentType<{ readonly entry: HistoryEntryWire; readonly place: 'row' | 'header' }>;
+  /** Shown after the entry's name in its tab's header. */
+  readonly Chip?: ComponentType<{ readonly entry: HistoryEntryWire }>;
+  /** The entry tab's body, in place of the request and response side by side, when {@link hasBody}. */
+  readonly Body?: LazyExoticComponent<ComponentType<{ readonly entry: HistoryEntryWire }>>;
+  hasBody?(entry: HistoryEntryWire): boolean;
+  /** Whether History can re-send the entry, and how. */
+  canResend(entry: Pick<HistoryEntryWire, 'kind' | 'sse'>): boolean;
+  readonly resend?: (historyId: string) => Promise<HistoryResendResult>;
+  /** The request's latest response, for **Compare with current**. */
+  current?(requestId: string): CompareSide | undefined;
+}
+
+/** How Search shows a match of this kind. */
+export interface KindSearch {
+  /** The group heading's kind badge; none for SOAP, the kind a match has always been. */
+  readonly badge?: string;
+  /** Opens what the match points at; unset, the match's request opens. */
+  reveal?(match: SearchMatchWire): void;
+}
+
+/** How the HTTP Log treats a row of this kind. */
+export interface KindLog {
+  /** Why no row of this kind resends from the log. */
+  readonly noResend?: string;
+  /** Why this row cannot resend, once its request exists and it was sent. */
+  resendRefusal?(entry: LogEntry, requestId: string, lookup: RequestLookup): string | undefined;
+  /** Why a row of this kind has no response body to copy. */
+  readonly noBody?: string;
+}
+
 export interface RendererKind {
   readonly kind: KindId;
   /** Its editor tab kinds: the request editor and the container's tab. */
   readonly tabs: readonly TabContribution[];
   readonly explorer: KindExplorer;
+  readonly requests: KindRequests;
+  readonly history: KindHistory;
+  readonly search: KindSearch;
+  readonly log?: KindLog;
 }

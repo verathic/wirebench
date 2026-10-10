@@ -3,10 +3,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { showToast } from '../../components/toast.js';
 import { type LogEntry, useExchangesStore } from '../../state/exchanges.js';
 import { ipc } from '../../state/ipc-client.js';
-import { openGrpcRequestTab } from '../grpc-editor/grpc-actions.js';
-import { openWsRequestTab } from '../ws-editor/ws-actions.js';
-import { openRequestTab } from '../request-editor/request-actions.js';
-import { openRestRequestTab } from '../rest-editor/rest-actions.js';
+import { rendererKindOf } from '../../kinds/index.js';
 import { protocolOf, urlOf } from './log-filter.js';
 import {
   headersText,
@@ -68,8 +65,8 @@ export async function runRowAction(id: RowActionId, entry: LogEntry): Promise<vo
     case 'resend': {
       const requestId = requestIdOf(entry);
       const protocol = protocolOf(entry);
-      // `log.resend` does not cover WebSocket yet (Task 10 of #98); nothing to do here until it does.
-      if (requestId === undefined || protocol === 'websocket') {
+      // A kind whose rows never resend from the log (a WebSocket session) has nothing to do here.
+      if (requestId === undefined || rendererKindOf(protocol)?.log?.noResend !== undefined) {
         return;
       }
       const sendId = entry.kind === 'exchange' ? entry.exchange.sendId : undefined;
@@ -86,16 +83,7 @@ export async function runRowAction(id: RowActionId, entry: LogEntry): Promise<vo
       if (requestId === undefined) {
         return;
       }
-      const protocol = protocolOf(entry);
-      if (protocol === 'rest') {
-        openRestRequestTab(requestId);
-      } else if (protocol === 'grpc') {
-        openGrpcRequestTab(requestId);
-      } else if (protocol === 'websocket') {
-        openWsRequestTab(requestId);
-      } else {
-        openRequestTab(requestId);
-      }
+      rendererKindOf(protocolOf(entry))?.requests.open(requestId);
       return;
     }
   }

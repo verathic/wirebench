@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { RendererKind } from '../renderer-kind.js';
+import { soapRequests, soapHistory, soapSearch } from './activity.js';
 import { soapExplorer } from './explorer.js';
 
 // Monaco is by far the heaviest thing the renderer loads, so the request editor — the only
@@ -18,6 +19,9 @@ const InterfaceEditor = lazy(async () => {
 export const soapRenderer: RendererKind = {
   kind: 'soap',
   explorer: soapExplorer,
+  requests: soapRequests,
+  history: soapHistory,
+  search: soapSearch,
   tabs: [
     {
       kind: 'request',

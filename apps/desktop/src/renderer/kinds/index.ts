@@ -33,6 +33,18 @@ export function explorerRole(nodeKind: ExplorerNodeKind): ExplorerNodeRole | und
   return undefined;
 }
 
+/** The renderer half of one kind. */
+export function rendererKind(kind: KindId): RendererKind {
+  const found = RENDERER_KINDS.find((candidate) => candidate.kind === kind);
+  if (found === undefined) throw new Error(`unknown kind: ${kind}`);
+  return found;
+}
+
+/** The renderer half of a kind named by the wire or a record; `undefined` for one the desktop has no half of. */
+export function rendererKindOf(kind: string | undefined): RendererKind | undefined {
+  return RENDERER_KINDS.find((candidate) => candidate.kind === (kind ?? 'soap'));
+}
+
 /** The explorer half of one kind. */
 export function kindExplorer(kind: KindId): KindExplorer | undefined {
   return RENDERER_KINDS.find((candidate) => candidate.kind === kind)?.explorer;

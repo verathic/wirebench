@@ -3,7 +3,13 @@ import { EmptyState } from '../../components/empty-state.js';
 import type { SearchMatchWire, SearchScopesWire } from '../../../shared/wire-types.js';
 import { ipc } from '../../state/ipc-client.js';
 import { useProjectStore } from '../../state/project.js';
+import { rendererKindOf } from '../../kinds/index.js';
 import { revealSearchMatch } from './search-actions.js';
+
+/** A match group's kind badge; none for SOAP. */
+function searchBadge(protocol: string | undefined): string | undefined {
+  return rendererKindOf(protocol)?.search.badge;
+}
 
 const DEBOUNCE_MS = 200;
 
@@ -180,11 +186,9 @@ export function SearchView() {
             >
               {/* Which protocol the group's request belongs to: two requests may share a name, and
                   a click opens a different editor for each. */}
-              {(group[0]?.protocol === 'rest' ||
-                group[0]?.protocol === 'grpc' ||
-                group[0]?.protocol === 'websocket') && (
+              {searchBadge(group[0]?.protocol) !== undefined && (
                 <span data-testid="search-result-badge" className="rounded-full bg-surface-base px-1.5 normal-case">
-                  {group[0].protocol === 'rest' ? 'REST' : group[0].protocol === 'grpc' ? 'gRPC' : 'WS'}
+                  {searchBadge(group[0]?.protocol)}
                 </span>
               )}
               <span className="truncate">{heading}</span>

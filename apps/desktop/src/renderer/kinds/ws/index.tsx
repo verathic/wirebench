@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { RendererKind } from '../renderer-kind.js';
+import { wsRequests, wsHistory, wsSearch, wsLog } from './activity.js';
 import { wsExplorer } from './explorer.js';
 
 // Split out like the gRPC editor: its saved-message editor and frame viewer are Monaco.
@@ -17,6 +18,10 @@ const WsApiTab = lazy(async () => {
 export const wsRenderer: RendererKind = {
   kind: 'websocket',
   explorer: wsExplorer,
+  requests: wsRequests,
+  history: wsHistory,
+  search: wsSearch,
+  log: wsLog,
   tabs: [
     {
       kind: 'ws-request',
