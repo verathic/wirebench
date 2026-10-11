@@ -47,3 +47,5 @@ export type {
   PushMessage,
   StreamingSide,
 } from './exchange.js';
+export { DATA_FILE_LIMITS, dataFormatOf, parseDataFile } from './data-file.js';
+export type { DataFormat, DataTable } from './data-file.js';
