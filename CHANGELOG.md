@@ -8,6 +8,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The REST Headers tab lists the headers a send adds, before you send.** Under your own rows it
+  shows each generated header with its source: `User-Agent`, `Accept`, `Accept-Encoding` and
+  `Connection` from the preferences, the auth header, the body's `Content-Type`, the cookie jar's
+  `Cookie`, and the connection's `Host` and `Content-Length`. It is worked out the way the send works
+  it out, from the unsaved edits and the active environment. A checkbox leaves a header out through
+  the request's new `settings.omitHeaders`, which the CLI and runs honour too, as do the cURL export
+  and code generation. **Override** adds a typed header of the same name. Credentials and cookies stay
+  masked, and unread, unless Show secrets is on (#346).
 - **The Code panel writes a request as code.** Besides `curl`, a SOAP or REST request can be shown
   as JavaScript fetch, Node.js axios, Python requests, Go net/http, Java HttpClient, Java OkHttp,
   C# HttpClient, PHP cURL, Ruby Net::HTTP, PowerShell Invoke-RestMethod or HTTPie, or as the

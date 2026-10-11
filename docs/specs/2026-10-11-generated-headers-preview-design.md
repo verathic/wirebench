@@ -83,8 +83,8 @@ afterwards, in the HTTP Log.
 ## Not in scope
 
 - SOAP, gRPC and WebSocket previews.
-- A webhook item's signing headers (they need the signing secret); the preview notes that signing
-  headers are added at send.
+- A webhook item's signing headers (they need the signing secret and the final body); the user docs
+  say they are computed at send.
 - API- or folder-level `omitHeaders`.
 
 ## Testing
