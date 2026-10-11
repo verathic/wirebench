@@ -177,6 +177,14 @@ export function levelOwner(level: Pick<ScriptRunLevel, 'level' | 'name'>): strin
   }
 }
 
+/**
+ * The generated half of the types a level's script is checked against (#334): none of any one
+ * operation's, since a level runs for many. Empty for a protocol without scripts.
+ */
+export function levelScriptTypes(protocol: string, registry?: ProtocolRegistry): string {
+  return scriptingOf(protocol, registry)?.levelTypes() ?? '';
+}
+
 /** Every secret any level of a request's scripts lists, once each. */
 export function scriptSecretNames(request: ScriptedRequest): readonly string[] {
   return [...new Set(scriptLevels(request).flatMap((level) => level.scripts.secrets))];
@@ -204,11 +212,8 @@ export class RequestScripting {
     const checker = this.options.checker;
     if (checker === undefined) return Promise.resolve([]);
     const api = level.scripts.api;
-    // A level runs for many operations, so it is checked against none of them (#334).
     const generated =
-      level.level === 'request'
-        ? request.types.generated
-        : (scriptingOf(request.protocol, this.options.registry)?.levelTypes() ?? '');
+      level.level === 'request' ? request.types.generated : levelScriptTypes(request.protocol, this.options.registry);
     const declarations =
       api === 'postman'
         ? ''

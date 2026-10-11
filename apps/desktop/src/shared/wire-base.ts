@@ -288,6 +288,23 @@ export const scriptResultWireSchema = z.object({
   truncated: z.boolean(),
   /** A post-response script that failed: the response is kept, and this says why the script did not finish. */
   error: z.object({ code: z.string(), message: z.string() }).optional(),
+  /**
+   * Each script that ran, in order (#334): the API's or interface's, each folder's, then the
+   * request's own. Its tests, log and failure, which the flat fields above join together.
+   */
+  levels: z
+    .array(
+      z.object({
+        level: z.enum(['api', 'interface', 'folder', 'request']),
+        name: z.string(),
+        phase: z.enum(['pre', 'post']),
+        tests: z.array(z.object({ name: z.string(), passed: z.boolean(), message: z.string().optional() })),
+        log: z.array(z.string()),
+        truncated: z.boolean(),
+        error: z.object({ code: z.string(), message: z.string() }).optional(),
+      }),
+    )
+    .optional(),
 });
 export type ScriptResultWire = z.infer<typeof scriptResultWireSchema>;
 
@@ -674,6 +691,8 @@ export const restFolderWireSchema = z.object({
   source: z.object({ apiId: z.string() }).optional(),
   /** Webhook folder only. */
   signing: webhookSigningWireSchema.optional(),
+  /** The folder's scripts, run around every request inside it (#334). REST and gRPC folders only. */
+  scripts: requestScriptsWireSchema.optional(),
 });
 export type RestFolderWire = z.infer<typeof restFolderWireSchema>;
 

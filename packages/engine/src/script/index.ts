@@ -32,6 +32,7 @@ export {
   activeScripts,
   assertScriptsUsable,
   levelOwner,
+  levelScriptTypes,
   RequestScripting,
   scriptError,
   scriptLevels,

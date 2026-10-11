@@ -179,6 +179,7 @@ export function toInterfaceWire(iface: Interface, runtime: InterfaceRuntime | un
     hydration: runtime?.hydration ?? 'pending',
     // `EndpointAuth` only ever carries a `passwordRef`, never a password — safe on the wire.
     ...(iface.auth !== undefined ? { auth: toAuthConfigWire(iface.auth) } : {}),
+    ...scriptsField(iface.scripts),
   };
 }
 
@@ -229,7 +230,7 @@ function toAssertionWires(assertions: readonly Assertion[] | undefined): Request
   return (assertions ?? []).map((assertion) => structuredClone(assertion) as RequestAssertionWire);
 }
 
-/** `{ scripts }` for a wire object, or nothing when the request has none. */
+/** `{ scripts }` for a wire object, or nothing when the request, API, interface or folder has none. */
 function scriptsField(scripts: RequestScripts | undefined): { scripts?: RequestScriptsWire } {
   const wire = toRequestScriptsWire(scripts);
   return wire === undefined ? {} : { scripts: wire };
@@ -454,6 +455,7 @@ function toApiWire(api: RestApi): RestApiWire {
       ...(server.description !== undefined ? { description: server.description } : {}),
     })),
     ...(api.auth !== undefined ? { auth: toAuthConfigWire(api.auth) } : {}),
+    ...scriptsField(api.scripts),
     ...(api.definition !== undefined
       ? {
           definition: {
@@ -562,6 +564,7 @@ function toRestTreeWires(apis: readonly RestApi[]): {
         order: folder.order,
         ...(folder.description !== undefined ? { description: folder.description } : {}),
         ...(folder.auth !== undefined ? { auth: toAuthConfigWire(folder.auth) } : {}),
+        ...scriptsField(folder.scripts),
       });
       walk(api, folder, folder.id);
     }
@@ -638,6 +641,7 @@ function toGrpcApiWire(api: GrpcApi): GrpcApiWire {
     tls: api.tls,
     metadata: toKeyValueWires(api.metadata),
     ...(api.auth !== undefined ? { auth: toAuthConfigWire(api.auth) } : {}),
+    ...scriptsField(api.scripts),
     ...(api.definition !== undefined
       ? {
           definition: {
@@ -698,6 +702,7 @@ function toGrpcTreeWires(apis: readonly GrpcApi[]): {
         order: folder.order,
         ...(folder.description !== undefined ? { description: folder.description } : {}),
         ...(folder.auth !== undefined ? { auth: toAuthConfigWire(folder.auth) } : {}),
+        ...scriptsField(folder.scripts),
       });
       walk(api, folder, folder.id);
     }
