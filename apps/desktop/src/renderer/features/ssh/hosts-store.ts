@@ -34,7 +34,20 @@ export interface HostSession {
   state: 'connecting' | 'open' | 'closed';
 }
 
+/** What the SSH area's fixed first tab shows, picked from the area's menu. */
+export type SshHomeView = 'hosts' | 'keychain' | 'known-hosts';
+
 interface HostsState {
+  /** Stays across workspaces, like the filter: it is where the user was, not workspace data. */
+  homeView: SshHomeView;
+  setHomeView: (view: SshHomeView) => void;
+  /** The host picked on the Hosts tab: its card is highlighted and its details can show on the right. */
+  selectedHostId: string | undefined;
+  /** Whether the details slide-over is wanted; picking a host asks for it, Escape or its close icon put it away. */
+  detailsOpen: boolean;
+  /** Picks a host (or none) and opens its details. */
+  selectHost: (id: string | undefined) => void;
+  setDetailsOpen: (open: boolean) => void;
   file: HostsFileWire;
   resolved: readonly ResolvedHostWire[];
   problems: readonly SshProblemWire[];
@@ -95,10 +108,26 @@ const WORKSPACE_STATE = {
   trustPrompt: null,
   reconnectNonce: {},
   connectFailed: {},
+  selectedHostId: undefined,
 } satisfies Partial<HostsState>;
 
 export const useHostsStore = create<HostsState>()((set, get) => ({
   ...WORKSPACE_STATE,
+  homeView: 'hosts',
+  setHomeView: (homeView) => {
+    set({ homeView });
+  },
+  detailsOpen: false,
+  selectHost: (selectedHostId) => {
+    // Picking another host leaves the one being edited: its form lives in the details panel.
+    const { dialog } = get();
+    const leaving = dialog?.mode === 'edit-host' && dialog.id !== selectedHostId;
+    set({ selectedHostId, detailsOpen: selectedHostId !== undefined, ...(leaving ? { dialog: null } : {}) });
+  },
+  setDetailsOpen: (detailsOpen) => {
+    // Putting the panel away cancels an edit in it.
+    set({ detailsOpen, ...(!detailsOpen && get().dialog?.mode === 'edit-host' ? { dialog: null } : {}) });
+  },
   filter: '',
   selectedTags: [],
   reset: () => {
