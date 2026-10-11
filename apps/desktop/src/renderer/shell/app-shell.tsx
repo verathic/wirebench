@@ -65,6 +65,7 @@ import { IdentityDialog } from '../features/sync/identity-dialog.js';
 import { ActivityBar } from './activity-bar.js';
 import { subscribeToMenuCommands, syncAppMenu } from './app-menu.js';
 import { CodePanel } from './code-panel.js';
+import { slideOverWidthOf } from '../state/ui-state.js';
 import { HostDetails, useHostDetailsShown } from '../features/ssh/host-details.js';
 import { useHostsStore } from '../features/ssh/hosts-store.js';
 import { CommandPalette } from './command-palette.js';
@@ -125,6 +126,8 @@ export function AppShell() {
   const sidebar = useUiStore((state) => state.sidebar);
   const consoleState = useUiStore((state) => state.console);
   const slideOver = useUiStore((state) => state.slideOver);
+  // Each area keeps its own slide-over width.
+  const slideOverWidth = useUiStore(slideOverWidthOf);
   const theme = useUiStore((state) => state.theme);
   const sshEnabled = useUiStore((state) => state.enabledAreas.includes('ssh'));
   const editorLineNumbers = useUiStore((state) => state.editorLineNumbers);
@@ -482,7 +485,7 @@ export function AppShell() {
             <SlideOver
               label="Code"
               open={slideOver.open && !hostDetailsShown}
-              width={slideOver.width}
+              width={slideOverWidth}
               onWidthChange={setSlideOverWidth}
               onToggle={toggleCode}
               onClose={closeCode}
@@ -492,7 +495,7 @@ export function AppShell() {
             <SlideOver
               label="Host details"
               open={hostDetailsShown}
-              width={slideOver.width}
+              width={slideOverWidth}
               onWidthChange={setSlideOverWidth}
               onToggle={toggleHostDetails}
               onClose={closeHostDetails}
