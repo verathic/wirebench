@@ -129,8 +129,13 @@ export const useHostsStore = create<HostsState>()((set, get) => ({
   // Per machine, not per workspace: what a server runs does not change with the workspace open.
   osByHost: {},
   async refreshOs() {
-    const result = await ipc().ssh.hostOs(undefined);
-    if (result.ok) set({ osByHost: result.value.entries });
+    // Only labels: a read that fails keeps the ones shown rather than surfacing an error.
+    try {
+      const result = await ipc().ssh.hostOs(undefined);
+      if (result.ok) set({ osByHost: result.value.entries });
+    } catch {
+      // Nothing to do.
+    }
   },
   setGroupFilter: (groupFilter) => {
     set({ groupFilter });
