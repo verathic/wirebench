@@ -4,12 +4,19 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { launchApp, type LaunchedApp } from '../helpers/launch-app.js';
 import { createProject, createWorkspace } from '../helpers/project.js';
-import { chooseContextMenuItem, createApi, createRestRequest, saveRequest, setMethodAndUrl } from '../helpers/rest.js';
+import {
+  addHeader,
+  chooseContextMenuItem,
+  createApi,
+  createRestRequest,
+  saveRequest,
+  setMethodAndUrl,
+} from '../helpers/rest.js';
 import { startTestRestServer, type TestRestServer } from '../helpers/test-server.js';
 
 /**
  * The Runner (#336), from the explorer: Run… on an API opens its Runner tab, a CSV chosen through the
- * file dialog drives one iteration per row, each row's value reaches the request as `${#Data#user}`,
+ * file dialog drives one iteration per row, each row's value reaches the request as `${#Data#user}` in a header,
  * and the results come back grouped by iteration. The tab names the data file and never its folder.
  */
 let server: TestRestServer;
@@ -38,7 +45,9 @@ test('an API runs once per data row from its Runner tab', async () => {
   await createProject(page, 'Shop');
   await createApi(page, 'Shop API', server.url);
   await createRestRequest(page, 'Shop API', 'Echo');
-  await setMethodAndUrl(page, 'GET', '/echo?value=${#Data#user}');
+  await setMethodAndUrl(page, 'GET', '/echo');
+  // A header, not the query: the URL field reads a `#` there as the start of a fragment.
+  await addHeader(page, 'X-User', '${#Data#user}');
   await saveRequest(page);
 
   await chooseContextMenuItem(page, page.getByTestId('api-row').first(), 'Run…');
