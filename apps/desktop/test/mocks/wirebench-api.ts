@@ -113,6 +113,7 @@ export function stubWirebenchApi(overrides: ApiOverrides = {}): WirebenchApi {
       preflight: fail('request.preflight'),
       recreate: fail('request.recreate'),
       curl: fail('request.curl'),
+      code: fail('request.code'),
       importCurl: fail('request.importCurl'),
       sendGrpc: fail('request.sendGrpc'),
       grpcPush: fail('request.grpcPush'),

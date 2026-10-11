@@ -139,6 +139,7 @@
     "project.save",
     "project.snapshot",
     "request.cancel",
+    "request.code",
     "request.curl",
     "request.generate",
     "request.grpcHalfClose",
