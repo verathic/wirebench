@@ -5,7 +5,7 @@
  * move, double-click or Enter connects; clicking the picked card again hides its details. The ⋯
  * menu shows on hover, right-click has the same items.
  */
-import { useRef, type KeyboardEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { ChevronRight, Plus, Server } from 'lucide-react';
 import { Button } from '../../components/button.js';
 import type { GroupEntryWire, HostEntryWire, HostsFileWire, ResolvedHostWire } from '../../../shared/ssh-wire.js';
@@ -81,6 +81,16 @@ interface CardProps {
   readonly onSelect: () => void;
 }
 
+/**
+ * The card the last single click landed on, and where. That click opens the host's details, and the
+ * right panel narrowing the content can move the card out from under the pointer before the second
+ * click of a double-click: the second click connects the host the first one picked, wherever it lands.
+ */
+let lastPress: { readonly id: string; readonly x: number; readonly y: number; readonly at: number } | undefined;
+/** How far apart, in time and in pixels, the two clicks of a double-click may be. */
+const DOUBLE_CLICK_MS = 600;
+const DOUBLE_CLICK_PX = 6;
+
 function HostCard({ host, resolved, avatar, layout, selected, tabbable, onSelect }: CardProps) {
   const status = sessionStatus(useHostsStore((s) => s.sessions[host.id]));
   // Whether this card's details were already showing when the press began: a click on it then
@@ -131,15 +141,15 @@ function HostCard({ host, resolved, avatar, layout, selected, tabbable, onSelect
           pressedWhileShown.current = selected && useHostsStore.getState().detailsOpen;
         }}
         onClick={(e) => {
-          // The second click of a double-click belongs to connecting.
+          // The second click of a double-click belongs to connecting (see `lastPress`).
           if (e.detail > 1) return;
+          lastPress = { id: host.id, x: e.clientX, y: e.clientY, at: performance.now() };
           if (pressedWhileShown.current) useHostsStore.getState().setDetailsOpen(false);
           else onSelect();
         }}
         onFocus={(e) => {
           if (e.target === e.currentTarget) onSelect();
         }}
-        onDoubleClick={connect}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && e.target === e.currentTarget) connect();
         }}
@@ -219,6 +229,25 @@ export function HostCards({
   const selected = useHostsStore((s) => s.selectedHostId);
   const selectHost = useHostsStore((s) => s.selectHost);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Taken before anything under the pointer sees it: the second click may land on another card or on
+  // the details panel that the first click opened, and connecting is all it should do.
+  useEffect(() => {
+    const onClick = (e: MouseEvent): void => {
+      const first = lastPress;
+      if (e.detail !== 2 || first === undefined) return;
+      lastPress = undefined;
+      const near = Math.abs(e.clientX - first.x) <= DOUBLE_CLICK_PX && Math.abs(e.clientY - first.y) <= DOUBLE_CLICK_PX;
+      if (!near || performance.now() - first.at > DOUBLE_CLICK_MS) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openTerminalFor(first.id);
+    };
+    window.addEventListener('click', onClick, true);
+    return () => {
+      window.removeEventListener('click', onClick, true);
+    };
+  }, []);
 
   if (file.groups.length === 0 && file.hosts.length === 0) {
     return (
