@@ -153,7 +153,8 @@ describe('EditorArea — a WebSocket request tab', () => {
 
     render(<EditorArea />);
 
-    expect(await screen.findByTestId('ws-editor')).toBeTruthy();
+    // The editor is split out (Monaco) and loads with its variable help: give a loaded runner time.
+    expect(await screen.findByTestId('ws-editor', undefined, { timeout: 5000 })).toBeTruthy();
     expect(screen.getByRole('region', { name: 'Request Lobby' })).toBeTruthy();
   });
 });

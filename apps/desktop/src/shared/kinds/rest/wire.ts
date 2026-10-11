@@ -214,6 +214,8 @@ export const restApiWireSchema = z.object({
   baseUrl: z.string(),
   servers: z.array(z.object({ url: z.string(), description: z.string().optional() })),
   auth: authConfigWireSchema.optional(),
+  /** The API's scripts, run around every request in it (#334). */
+  scripts: requestScriptsWireSchema.optional(),
   definition: z
     .object({
       source: z.string(),
