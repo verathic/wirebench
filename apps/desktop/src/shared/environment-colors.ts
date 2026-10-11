@@ -12,3 +12,13 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 export function isEnvironmentColor(value: string): boolean {
   return HEX_COLOR.test(value) || (ENVIRONMENT_PALETTE as readonly string[]).includes(value);
 }
+
+/**
+ * The CSS colour an environment's `color` draws in: a palette name's theme token, a `#rrggbb` as
+ * written, nothing for no colour or one this build does not know.
+ */
+export function environmentColorCss(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  if (HEX_COLOR.test(value)) return value;
+  return (ENVIRONMENT_PALETTE as readonly string[]).includes(value) ? `var(--wb-env-${value})` : undefined;
+}
