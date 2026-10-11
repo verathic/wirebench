@@ -169,14 +169,9 @@ function HostCard({ host, resolved, avatar, layout, selected, tabbable, onSelect
             </span>
           )}
           {!grid && tags}
-          {!grid && actions}
+          {actions}
         </span>
-        {grid && (
-          <span className="flex min-h-6 items-end justify-between gap-2">
-            {tags || <span />}
-            {actions}
-          </span>
-        )}
+        {grid && tags}
       </li>
     </HostMenu>
   );
