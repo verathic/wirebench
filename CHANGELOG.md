@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **`wirebench run --data <file>` runs a selection or a sequence once per row of a CSV or JSON file.**
+  Each column is read as `${#Data#column}`, substituted literally, and scripts read the row with
+  `iteration.data.get()`. `--iterations` sets the count (`--data-overrun stop|wrap|repeat-last` when it
+  exceeds the rows), `--delay` waits between requests, and `--bail` stops every later iteration. Every
+  reporter names each request's iteration; a run without data reports as before (#336).
 - **The REST Headers tab lists the headers a send adds, before you send.** Under your own rows it
   shows each generated header with its source: `User-Agent`, `Accept`, `Accept-Encoding` and
   `Connection` from the preferences, the auth header, the body's `Content-Type`, the cookie jar's

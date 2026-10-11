@@ -89,6 +89,17 @@ define('props', Object.freeze({
   },
 }));
 
+define('iteration', Object.freeze({
+  index: input.iteration.index,
+  count: input.iteration.count,
+  data: Object.freeze({
+    get(column) {
+      const key = String(column);
+      return hasOwn(input.data, key) ? input.data[key] : undefined;
+    },
+  }),
+}));
+
 define('secrets', Object.freeze({
   get(name) {
     const key = String(name);
