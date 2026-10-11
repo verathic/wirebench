@@ -1524,3 +1524,113 @@ describe('api.importOpenCollection', () => {
     );
   });
 });
+
+const V3_WORKSPACE = resolve(dirname(fileURLToPath(import.meta.url)), '../../../fixtures/postman-v3/workspace');
+
+describe('api.importPostmanFolder', () => {
+  let dir = '';
+  beforeEach(async () => {
+    dir = await realpath(await mkdtemp(join(tmpdir(), 'wirebench-v3-ipc-')));
+    cpSync(V3_WORKSPACE, dir, { recursive: true });
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  type FolderResponse = {
+    projectId: string;
+    apiIds: string[];
+    counts: Record<string, number>;
+    variables?: { secretsStored: number; environments: { name: string }[] };
+    warnings: string[];
+    notes: string[];
+    reportText: string;
+  };
+
+  const setupPicked = (picked: string) => {
+    const picks = new DialogPicks();
+    picks.rememberRead(picked);
+    const fake = fakeVariablesPorts({});
+    const stubs = setup({ picks, variablesPorts: vi.fn().mockReturnValue(fake.ports) });
+    return { ...stubs, fake };
+  };
+
+  it("places every collection's APIs of a picked workspace folder, with its environments and properties", async () => {
+    const { addApi, deps, fake } = setupPicked(dir);
+    const response = await value<FolderResponse>('api.importPostmanFolder', {
+      target: { projectId: 'p1' },
+      path: dir,
+    });
+
+    expect(addApi).toHaveBeenCalledTimes(1);
+    expect(addApi.mock.calls[0]?.[1]).toMatchObject({
+      source: dir,
+      declaredVersion: 'postman-collection-v3',
+      cache: false,
+      documents: [],
+    });
+    expect(vi.mocked(deps.router.importGrpcApi).mock.calls[0]?.[1]).toMatchObject({ api: { name: 'Realtime (gRPC)' } });
+    expect(vi.mocked(deps.router.importWsApi).mock.calls[0]?.[1]).toMatchObject({
+      api: { name: 'Realtime (WebSocket)' },
+    });
+    expect(response.apiIds).toEqual(['api-1', 'grpc-1', 'ws-1']);
+    expect(response.counts).toEqual({ collections: 2, requests: 16, folders: 2, examples: 2 });
+    expect(fake.environments.map((environment) => environment.name)).toEqual(['Local']);
+    expect(response.variables?.secretsStored).toBe(1);
+    expect(fake.projectMerges[0]?.properties).toMatchObject({ adminUser: 'admin' });
+    expect(response.reportText).toContain('GraphQL requests have no Wirebench equivalent');
+  });
+
+  it("takes a picked .resources/definition.yaml as its collection's folder, under the given name", async () => {
+    const definition = join(dir, 'collections', 'Bookstore API', '.resources', 'definition.yaml');
+    const { addApi } = setupPicked(definition);
+    await value<FolderResponse>('api.importPostmanFolder', {
+      target: { projectId: 'p1' },
+      path: definition,
+      name: 'Books',
+    });
+    expect(addApi.mock.calls[0]?.[1]).toMatchObject({
+      api: { name: 'Books' },
+      source: join(dir, 'collections', 'Bookstore API'),
+    });
+  });
+
+  it('refuses a folder that was neither picked nor inside a project, before creating anything', async () => {
+    const { addApi, deps } = setupPicked(join(dir, 'elsewhere'));
+    const error = await failure('api.importPostmanFolder', { target: { newProjectName: 'X' }, path: dir });
+    expect(error.code).toBe('import-path-refused');
+    expect(deps.addProject).not.toHaveBeenCalled();
+    expect(addApi).not.toHaveBeenCalled();
+  });
+
+  it('refuses a request file alone, and takes back a project it created when placing fails', async () => {
+    const request = join(dir, 'collections', 'Bookstore API', 'Add book.request.yaml');
+    const first = setupPicked(request);
+    expect((await failure('api.importPostmanFolder', { target: { projectId: 'p1' }, path: request })).code).toBe(
+      'postman-v3-pick-folder',
+    );
+    expect(first.addApi).not.toHaveBeenCalled();
+
+    handlers.clear();
+    const { addApi, deps } = setupPicked(dir);
+    addApi.mockRejectedValueOnce(new WirebenchError('disk-full', 'disk full'));
+    await failure('api.importPostmanFolder', { target: { newProjectName: 'Fresh' }, path: dir });
+    expect(deps.removeProject).toHaveBeenCalledWith('p-new', { deleteFiles: true });
+  });
+
+  it('does not follow a linked folder inside the picked one', async () => {
+    const outside = await realpath(await mkdtemp(join(tmpdir(), 'wirebench-v3-out-')));
+    try {
+      await mkdir(join(outside, 'Leak'));
+      await writeFile(join(outside, 'Leak', 'leak.request.yaml'), '$kind: http-request\nurl: https://leak.example\n');
+      symlinkSync(join(outside, 'Leak'), join(dir, 'collections', 'Leak'));
+      const { addApi } = setupPicked(dir);
+      await value<FolderResponse>('api.importPostmanFolder', { target: { projectId: 'p1' }, path: dir });
+      expect(addApi.mock.calls.map((call) => (call[1] as { api: { name: string } }).api.name)).toEqual([
+        'Bookstore API',
+      ]);
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+});

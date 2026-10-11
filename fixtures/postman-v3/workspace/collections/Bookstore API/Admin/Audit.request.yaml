@@ -1,0 +1,13 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/audit'
+auth:
+  type: noauth
+scripts:
+  - type: beforeRequest
+    src: ./scripts/sign.js
+    language: text/javascript
+  - type: afterResponse
+    src: ../../../../outside.js
+    language: text/javascript
+order: 9000

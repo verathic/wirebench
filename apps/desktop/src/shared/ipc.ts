@@ -65,6 +65,8 @@ import {
   currentValuesStateWireSchema,
   dialogsOpenFileRequestSchema,
   dialogsOpenFileResponseSchema,
+  dialogsOpenFolderRequestSchema,
+  dialogsOpenFolderResponseSchema,
   dialogsSaveFileRequestSchema,
   dialogsSaveFileResponseSchema,
   engineProgressEventSchema,
@@ -278,6 +280,8 @@ import {
 import {
   apiImportOpenCollectionRequestSchema,
   apiImportOpenCollectionResponseSchema,
+  apiImportPostmanFolderRequestSchema,
+  apiImportPostmanFolderResponseSchema,
   exchangeLoggedEventSchema,
   exchangesGetResponseSchema,
   historyAppendedEventSchema,
@@ -524,6 +528,11 @@ export const channels = {
       apiImportOpenCollectionRequestSchema,
       apiImportOpenCollectionResponseSchema,
     ),
+    importPostmanFolder: defineChannel(
+      'api.importPostmanFolder',
+      apiImportPostmanFolderRequestSchema,
+      apiImportPostmanFolderResponseSchema,
+    ),
     cancelImport: defineChannel('api.cancelImport', apiCancelImportRequestSchema, apiCancelImportResponseSchema),
     definitionDocuments: defineChannel(
       'api.definitionDocuments',
@@ -676,6 +685,7 @@ export const channels = {
   },
   dialogs: {
     openFile: defineChannel('dialogs.openFile', dialogsOpenFileRequestSchema, dialogsOpenFileResponseSchema),
+    openFolder: defineChannel('dialogs.openFolder', dialogsOpenFolderRequestSchema, dialogsOpenFolderResponseSchema),
     saveFile: defineChannel('dialogs.saveFile', dialogsSaveFileRequestSchema, dialogsSaveFileResponseSchema),
   },
   preferences: {

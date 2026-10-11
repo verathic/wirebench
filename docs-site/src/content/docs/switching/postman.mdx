@@ -16,7 +16,8 @@ until someone has read them. The import summary lists each of these, so you know
 the first send.
 
 To run the import, see [Postman collections](/wirebench/docs/guides/importers/#postman-collections) in
-the importers guide. It takes Collection v2.0 and v2.1 JSON, from a file or pasted.
+the importers guide. It takes Collection v2.0 and v2.1 JSON, from a file or pasted, and Collection v3
+folders — see [Collection v3 folders](#collection-v3-folders) below.
 
 ![The import summary for a Postman collection: three requests in one folder, and five things to look at, from scripts to credentials](/wirebench/docs/images/switching/postman-summary.png)
 
@@ -38,6 +39,8 @@ the importers guide. It takes Collection v2.0 and v2.1 JSON, from a file or past
 | A `form-data` body | A multipart body. File fields keep the file path | |
 | A binary file body | A binary body pointing at the same path | |
 | A GraphQL body | A raw JSON body holding `query` and `variables`, with `Content-Type: application/json` | |
+| Saved responses | Request examples, with credential headers and values masked and cookies dropped; a body past 256 KB is cut | [Examples](/wirebench/docs/guides/rest-client/) |
+| `followRedirects` and `maxRedirects` request settings | The request's redirect settings | |
 
 ### Authentication
 
@@ -67,7 +70,7 @@ See [Authentication](/wirebench/docs/guides/auth/) for each scheme's fields.
 | OAuth 2.0 password or implicit grants | Auth set to none. The summary names the grant | Pick a supported grant on the **Auth** tab, or set the token as Bearer |
 | Other auth types (Digest, AWS Signature, Hawk, OAuth 1.0, Akamai, JWT…) | Auth set to none. The summary names the type | Set the request's auth by hand, or send the header yourself |
 | Items that are neither a folder nor a request | Skipped. The summary counts them | Nothing: there was no request to import |
-| Saved responses and examples | Not imported, and not reported | Send the request to get a live response |
+| A saved response without a status code | Skipped. The summary counts them | Nothing |
 | Collections by URL | Not supported | Download the file, or paste its JSON |
 
 <Aside type="caution" title="Credentials typed as headers">
@@ -75,6 +78,33 @@ A token written straight into a header, such as `Authorization: Bearer …`, is 
 the importer, so it arrives as plain text in the project files. Before you share the project, move it
 to the **Auth** tab, where it is stored as a secret.
 </Aside>
+
+## Collection v3 folders
+
+The v3 format keeps a collection as a folder of YAML files, one per request, usually under
+`postman/collections/` in a git repository. Pick it in **Import…** with **Folder…**, or pick its
+`.resources/definition.yaml` with **Browse…**; `wirebench import <folder>` takes the same paths. A
+workspace folder — one holding `collections/`, `environments/` and `globals/` — imports every
+collection in it, with its environments (never made active) and globals.
+
+Everything in the tables above applies: an HTTP request carries over exactly as a v2.1 request does.
+What differs:
+
+| In a v3 folder | In Wirebench |
+| --- | --- |
+| A folder's or the collection's `.resources/definition.yaml`: name, description, variables, auth, scripts | The folder's or API's, as above |
+| `order` on requests and folders | Their order in the explorer; a request without one comes last |
+| `*.example.yaml` under `.resources/<request>.resources/examples/` | Request examples |
+| gRPC requests: method path, metadata, message | A separate gRPC API named `<collection> (gRPC)`. It needs a definition: import the `.proto` or use server reflection |
+| WebSocket requests: URL, query, headers, handshake timeout, saved messages | A separate WebSocket API named `<collection> (WebSocket)` |
+| A script whose source is in a file the entry names | The script, read from that file when it lies inside the collection |
+| GraphQL, Socket.IO, MQTT, MCP and LLM requests | Not imported. The summary names each file |
+| Fields Wirebench does not read, such as `settings.strictSSL: false` or a field the format does not document | Left out. The summary names them per file |
+| Several auths on one definition | The first; the summary names the others |
+| A request file picked on its own | Refused: pick its collection folder |
+
+`wirebench import` has no secret store or workspace: it adds the APIs and the plain variables, and
+lists secret variables, environments and globals as not imported.
 
 ## After importing
 
