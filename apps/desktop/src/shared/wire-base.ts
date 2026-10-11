@@ -580,7 +580,8 @@ export type EnvironmentWire = z.infer<typeof environmentWireSchema>;
  * still loads and saves it; nothing in the desktop can change it.
  */
 export const unsupportedContainerWireSchema = z.object({
-  dir: z.enum(['interfaces', 'apis']),
+  /** A container folder (`interfaces`, `apis`), or a project-level folder of a kind that is off (`webhooks`, `wss`). */
+  dir: z.string(),
   slug: z.string(),
   kind: z.string(),
   reason: z.enum(['unknown-kind', 'feature-disabled']),

@@ -4,7 +4,7 @@
  */
 
 import type { Project, ProjectFiles } from '@wirebench/engine';
-import type { ProjectProblemWire } from '../shared/wire-base.js';
+import type { ProjectProblemWire, UnsupportedContainerWire } from '../shared/wire-base.js';
 import type { InterfaceRuntime } from './project-wire.js';
 import type { ProjectWatcher } from './project-watch.js';
 import type { ProjectHost } from './project-host.js';
@@ -24,6 +24,8 @@ export interface OpenProject {
    */
   baseline: ProjectFiles;
   readonly watcher: ProjectWatcher;
+  /** The project-level folders of kinds this run switched off, read at open; their files are never written. */
+  switchedOff?: readonly UnsupportedContainerWire[];
 }
 
 /** An error's message, or the thrown value as text. */

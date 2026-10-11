@@ -36,7 +36,9 @@ channel of a kind that is off, and tells the renderer the enabled kinds through 
 none of its commands. A container of a kind that is off, or of a kind the desktop does not know, is a placeholder: the
 engine loads it into `Project.unsupported` and saves it untouched (ADR-0017), and the desktop shows a dimmed row that
 says why and offers nothing else. A restored tab of a kind that is off opens a placeholder panel, and History and the
-HTTP Log offer no re-send or open for its entries.
+HTTP Log offer no re-send or open for its entries. What a kind keeps for the whole project goes with it: REST's
+webhook collection and SOAP's WS-Security configurations show as switched off and stay on disk untouched, and main
+refuses any change, folder change or host call through a kind that is off with `feature-disabled`.
 
 **`@internal`.** As with the protocol modules and the areas, the contract is composed statically in this repository.
 Nothing loads third-party code, and the interface may change in any release.

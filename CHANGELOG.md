@@ -15,7 +15,10 @@ All notable changes to this project are documented here. The format follows
   without a re-send (#184).
 - **`WIREBENCH_KINDS` switches a protocol off in the desktop** (`grpc=off,websocket=off`), as
   `WIREBENCH_AREAS` does an area: its channels and commands are not registered and its containers
-  load as placeholders. It is a developer switch (#184).
+  load as placeholders. What the kind keeps for the whole project goes with it: with REST off the
+  webhook collection, and with SOAP off the WS-Security configurations, show as switched off and
+  stay on disk untouched. A change through a kind that is off is refused (`feature-disabled`). It is
+  a developer switch (#184).
 
 ### Breaking
 

@@ -97,6 +97,8 @@ export interface ProjectWireContext {
   readonly runtime: ReadonlyMap<string, InterfaceRuntime>;
   /** What main has read from each AsyncAPI-imported API's cached document, keyed by API id. */
   readonly asyncApiInfo?: ReadonlyMap<string, AsyncApiDefinitionInfo>;
+  /** The project-level folders of kinds this run switched off, shown as placeholders. */
+  readonly switchedOff?: readonly UnsupportedContainerWire[];
 }
 
 /** The facts the Definition card shows that live in the cached document rather than the project. */
@@ -809,7 +811,7 @@ export function toProjectWire(project: Project, context: ProjectWireContext): Pr
   const webhookTree =
     webhooks !== undefined ? toWebhookTreeWires(webhooks, webhookCollectionId(project.id)) : undefined;
   const webhooksWire = toWebhookCollectionWire(project);
-  const unsupported = toUnsupportedWires(project);
+  const unsupported = [...toUnsupportedWires(project), ...(context.switchedOff ?? [])];
   return {
     id: project.id,
     name: project.name,

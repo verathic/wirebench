@@ -4,12 +4,14 @@
  * and the command palette offer nothing for a kind that is off.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { cleanup, render, screen } from '@testing-library/react';
 import { registerShellCommands } from '../../src/renderer/commands/register-shell-commands.js';
 import { rowActions, type RequestLookup } from '../../src/renderer/features/console/log-row-actions.js';
 import { explorerMenuItems } from '../../src/renderer/features/explorer/context-menu.js';
 import { buildExplorerTree } from '../../src/renderer/features/explorer/tree-nodes.js';
 import { canResendHistoryEntry } from '../../src/renderer/features/history/history-actions.js';
+import { WssSection } from '../../src/renderer/features/wss/wss-section.js';
 import { getCommand, resetCommands } from '../../src/renderer/lib/commands.js';
 import { EditorArea } from '../../src/renderer/shell/editor-area.js';
 import { useEditorsStore } from '../../src/renderer/state/editors.js';
@@ -132,5 +134,18 @@ describe('the commands of a kind that is off', () => {
     registerShellCommands(vi.fn());
     expect(getCommand('grpc.send')).toBeUndefined();
     expect(getCommand('rest.send')).toBeDefined();
+  });
+});
+
+describe('the WS-Security view with SOAP off', () => {
+  it('keeps the keystores and says why the configurations are not shown', () => {
+    installWirebenchApi();
+    useUiStore.getState().setEnabledKinds(['rest', 'grpc', 'websocket']);
+    render(
+      <TooltipPrimitive.Provider>
+        <WssSection />
+      </TooltipPrimitive.Provider>,
+    );
+    expect(screen.getByTestId('wss-configs-switched-off').textContent).toContain('SOAP is switched off');
   });
 });

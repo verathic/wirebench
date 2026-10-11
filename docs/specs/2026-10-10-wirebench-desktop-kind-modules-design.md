@@ -437,6 +437,16 @@ preview entry points in `exchange.ts`, which ask for their own kind's preview by
 session follower moved to `main/kinds/ws/session.ts`, and each kind's `keyMasks` send facet gives the
 API key names a send masks.
 
+_As built (after review):_ main refuses a change, a folder change in an API, or a routed host call
+through a kind that is off with `feature-disabled` (`details.feature`), as the engine refuses a
+feature; the enabled kinds reach `applyChange` from `index.ts` through `WorkspaceService` and the
+project host's hooks. A kind's project-level files go with it: REST's `webhooks/` and SOAP's `wss/`
+are neither loaded nor saved while it is off, so at open main asks the off module's
+`projectFiles.managed` what is on disk and adds one placeholder per folder (`dir` widened to any
+folder). The WS-Security view keeps the keystores, which every kind uses, and says SOAP is off in
+place of the configurations. REST reads no WS-Security configuration, so soap=off changes no REST
+send.
+
 ## 8. Errors
 
 - New: `unknown-change` (a `ProjectChange` no kind owns; a programming error that reaches the

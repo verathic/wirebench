@@ -100,6 +100,7 @@ import type { KindApiDefinitions, KindHostHooks, KindHosts } from './kinds/kind-
 import type { ApiDefinitionDocuments } from './kinds/kind-main.js';
 import { MAIN_KINDS } from './kinds/kind-main.js';
 import type { KindId } from '../shared/kinds/kind-module.js';
+import { switchedOffProjectFiles } from './kinds/enabled-kinds.js';
 
 /** How long an edit sits before autosave writes it out. */
 export const AUTOSAVE_DEBOUNCE_MS = 500;
@@ -485,6 +486,7 @@ export class ProjectHost {
       ...(this.open.lastSavedAt !== undefined ? { lastSavedAt: this.open.lastSavedAt } : {}),
       problems: this.open.problems,
       runtime: this.open.runtime,
+      ...(this.open.switchedOff !== undefined ? { switchedOff: this.open.switchedOff } : {}),
     });
   }
 
@@ -554,6 +556,8 @@ export class ProjectHost {
         }
       }
     }
+    const enabledKinds = this.hooks.enabledKinds;
+    const switchedOff = enabledKinds === undefined ? [] : await switchedOffProjectFiles(dir, enabledKinds);
     await this.closeInternal();
     this.adopt(
       project,
@@ -561,6 +565,9 @@ export class ProjectHost {
       problems.map((problem) => ({ code: problem.code, message: problem.message, file: problem.file })),
       disk,
     );
+    if (switchedOff.length > 0 && this.open !== undefined) {
+      this.open.switchedOff = switchedOff;
+    }
     this.restore = restore;
     if (restore?.status === 'restored') {
       this.markDirty();
