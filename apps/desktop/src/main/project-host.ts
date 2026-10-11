@@ -25,6 +25,7 @@ import type { KeystoreCertificates, ProjectCertificateSources } from './certific
 import {
   createProject,
   DEFAULT_PREFERENCES,
+  DynamicValues,
   enabledProperties,
   generateMock,
   IMPORTED_SCRIPTS_DIR,
@@ -425,7 +426,11 @@ export class ProjectHost {
   scopesFor(envId?: string): PropertyScopes {
     // A `${#System#…}` value these scopes expand is recorded like a resolved secret, as a send's are (#181):
     // a pushed WebSocket message and a sequence step's callback assertions expand against them.
-    return withSystemValuesReported(this.unreportedScopesFor(envId), recordSecretValue);
+    // A fresh `${#Dynamic#…}` memo each call: one push or check shares its values, the next does not.
+    return {
+      ...withSystemValuesReported(this.unreportedScopesFor(envId), recordSecretValue),
+      dynamic: new DynamicValues(),
+    };
   }
 
   private unreportedScopesFor(envId?: string): PropertyScopes {

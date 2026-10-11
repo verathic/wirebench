@@ -18,6 +18,7 @@ import {
   SOAP_ITEM,
   soapProject,
   startServer,
+  updateRestRequest,
   writeGolden,
 } from '../ops/helpers.js';
 import type { TestServer } from '../ops/helpers.js';
@@ -176,6 +177,33 @@ describe('the MCP server', () => {
 
     expect(sent.isError).toBe(false);
     expect(sent.json).toMatchObject({ outcome: 'failed', baseline: { status: 'differs' } });
+  });
+});
+
+describe('dynamic values over MCP send', () => {
+  it('sends one value per reference within a send, and a new one on the next', async () => {
+    const fixture = await restProject();
+    const pets = await startServer(() => ({ headers: { 'Content-Type': 'application/json' }, body: '[]' }));
+    closers.push(() => pets.close());
+    await addEnvironment(fixture.dir, 'local', { Pets: pets.url });
+    await updateRestRequest(fixture.dir, 'GET', '/pets', (request) => ({
+      ...request,
+      headers: [
+        ...request.headers,
+        { name: 'X-Request-Id', value: '${$guid}', enabled: true },
+        { name: 'X-Same-Id', value: '${#Dynamic#uuid}', enabled: true },
+      ],
+    }));
+    const item = await restItem(fixture.dir, 'GET', '/pets');
+    const client = await connect(fixture.base());
+
+    expect((await call(client, 'send', { item, environment: 'local' })).isError).toBe(false);
+    expect((await call(client, 'send', { item, environment: 'local' })).isError).toBe(false);
+
+    const [first, second] = pets.received.map((request) => request.headers);
+    expect(first?.['x-request-id']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4/);
+    expect(first?.['x-same-id']).toBe(first?.['x-request-id']);
+    expect(second?.['x-request-id']).not.toBe(first?.['x-request-id']);
   });
 });
 

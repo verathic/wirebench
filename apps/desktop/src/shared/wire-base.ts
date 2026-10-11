@@ -236,6 +236,7 @@ export const unresolvedRefWireSchema = z.object({
     'too-deep',
     'malformed',
     'name-from-response',
+    'bad-arguments',
     'secret-source-invalid',
     'secret-source-untrusted',
   ]),
