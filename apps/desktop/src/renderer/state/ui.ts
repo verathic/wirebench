@@ -150,7 +150,7 @@ export interface UiStore extends UiSnapshot {
   readonly secretSourcesDialog: SecretSourcesDialogTarget | null;
   /** The dialog that approves the workspace's shared secret sources on this machine. */
   readonly secretSourcesApproval: boolean;
-  /** Whether the Settings dialog is open, and which section it should land on. Transient. */
+  /** Whether the Settings page is open, and which section it should land on. Transient. */
   readonly preferences: { readonly open: boolean; readonly section: SettingsSectionRequest | undefined };
   /** Project id pending a "remove from workspace" confirmation, from a command or a menu. */
   readonly confirmRemoveProjectId: string | undefined;
