@@ -50,6 +50,7 @@ describe('renderer kinds (kind modules spec §6)', () => {
       mock: mockTabId,
       history: (id) => `history:${id}`,
       'catch-url': catchUrlTabId,
+      runner: (id) => `runner:${id}`,
     };
     expect(Object.keys(TAB_KINDS).sort()).toEqual(Object.keys(openers).sort());
     for (const [kind, opener] of Object.entries(openers)) {

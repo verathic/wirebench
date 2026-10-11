@@ -49,7 +49,7 @@ export type RunnerRequest = z.infer<typeof runnerRequestSchema>;
 
 export const runnerTargetRequestSchema = z.object({ targetId: z.string().min(1) });
 
-/** `runner.settings.get`: the target, its requests in run order, its settings and its data file. */
+/** `runner.state`: the target, its requests in run order, its settings and its data file. */
 export const runnerStateSchema = z.object({
   targetId: z.string(),
   kind: runnerTargetKindSchema,
