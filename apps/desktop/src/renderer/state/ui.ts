@@ -2,6 +2,7 @@ import type { Draft } from 'immer';
 import { AREAS } from '@shared/area-module.js';
 import { KINDS, type KindId } from '@shared/kinds/kind-module.js';
 import type { AreaId } from '@shared/area-module.js';
+import type { CodeLanguage, CodeSettings, CodeTarget } from '@shared/code-targets.js';
 import { produce } from 'immer';
 import { create } from 'zustand';
 import type {
@@ -224,6 +225,10 @@ export interface UiStore extends UiSnapshot {
   readonly setSlideOverWidth: (width: number) => void;
   /** Remembers the Code panel's POSIX/PowerShell choice. */
   readonly setCodeShell: (shell: CodeShell) => void;
+  /** Remembers the language the Code panel shows; `curl` keeps using the remembered shell. */
+  readonly setCodeLanguage: (language: CodeLanguage) => void;
+  /** Remembers (or, with `undefined`, forgets) one language's layout choices. */
+  readonly setCodeSettings: (target: CodeTarget, settings: CodeSettings | undefined) => void;
   readonly toggleTheme: () => void;
   readonly setTheme: (theme: ThemePreference) => void;
   readonly toggleEditorLineNumbers: () => void;
@@ -539,6 +544,20 @@ export const useUiStore = create<UiStore>((set, get) => {
     setCodeShell: (shell) =>
       update((draft) => {
         draft.slideOver.codeShell = shell;
+      }),
+
+    setCodeLanguage: (language) =>
+      update((draft) => {
+        draft.slideOver.codeLanguage = language;
+      }),
+
+    setCodeSettings: (target, settings) =>
+      update((draft) => {
+        if (settings === undefined) {
+          delete draft.slideOver.codeSettings[target];
+        } else {
+          draft.slideOver.codeSettings[target] = settings;
+        }
       }),
 
     toggleTheme: () =>
