@@ -3,13 +3,28 @@
  * (the secret names hosts sign in with) or the host keys trusted on this machine. Terminal
  * sessions open as tabs after it.
  */
-import { useEffect, useState } from 'react';
-import { KeyRound, Plus } from 'lucide-react';
-import { Button } from '../../components/button.js';
+import { useEffect, useRef, useState } from 'react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import {
+  ArrowUpDown,
+  Check,
+  ChevronDown,
+  Download,
+  FolderPlus,
+  KeyRound,
+  LayoutGrid,
+  List,
+  Plus,
+  Search,
+  Server,
+} from 'lucide-react';
+import { Button, SPLIT_HEAD_CLASS, SPLIT_TAIL_CLASS } from '../../components/button.js';
 import { ConfirmDialog } from '../../components/confirm-dialog.js';
 import type { ResolvedHostWire, SshKnownHostWire, SshSecretNameWire } from '../../../shared/ssh-wire.js';
+import { detectPlatform } from '../../lib/platform.js';
 import { ipc } from '../../state/ipc-client.js';
 import { HostCards } from './host-cards.js';
+import { useHostsPrefs, type HostsSort } from './hosts-prefs.js';
 import { useHostsStore } from './hosts-store.js';
 
 const INPUT_CLASS =
@@ -24,6 +39,16 @@ export function SshHome() {
   );
 }
 
+const SORT_LABELS: Readonly<Record<HostsSort, string>> = {
+  name: 'Name',
+  address: 'Address',
+  connected: 'Connected first',
+};
+
+const MENU_CONTENT_CLASS = 'z-50 min-w-44 rounded-md border border-hairline bg-surface-raised p-1 shadow-lg';
+const MENU_ITEM_CLASS =
+  'flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-fg-default outline-none data-[highlighted]:bg-accent-muted';
+
 function HostsPanel() {
   const resolved = useHostsStore((s) => s.resolved);
   const problems = useHostsStore((s) => s.problems);
@@ -33,46 +58,160 @@ function HostsPanel() {
   const toggleTag = useHostsStore((s) => s.toggleTag);
   const openDialog = useHostsStore((s) => s.openDialog);
   const setImportOpen = useHostsStore((s) => s.setImportOpen);
+  const [prefs, setPrefs] = useHostsPrefs();
+  const searchRef = useRef<HTMLInputElement>(null);
   const tags = [...new Set(resolved.flatMap((h) => h.tags))].sort();
+  const mac = detectPlatform() === 'mac';
+
+  // ⌘F (Ctrl+F elsewhere) goes to the search while this tab is in front.
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent): void => {
+      if ((mac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [mac]);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="mx-auto flex max-w-6xl flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="search"
-          aria-label="Filter hosts"
-          placeholder="Filter by name, address or tag"
-          className={`${INPUT_CLASS} max-w-sm min-w-48 flex-1`}
-          value={filter}
-          onChange={(e) => {
-            setFilter(e.target.value);
-          }}
-        />
-        <Button
-          variant="primary"
-          onClick={() => {
-            openDialog({ mode: 'new-host' });
-          }}
-        >
-          <Plus size={13} aria-hidden /> New host
-        </Button>
-        <Button
-          onClick={() => {
-            openDialog({ mode: 'new-group' });
-          }}
-        >
-          New group
-        </Button>
-        <Button
-          onClick={() => {
-            setImportOpen(true);
-          }}
-        >
-          Import…
-        </Button>
+        <h2 className="mr-2 flex items-baseline gap-2 text-lg font-medium text-fg-default">
+          Hosts <span className="text-sm font-normal text-fg-subtle">{resolved.length}</span>
+        </h2>
+        <label className="relative flex max-w-md min-w-48 flex-1 items-center">
+          <Search size={14} aria-hidden="true" className="pointer-events-none absolute left-2 text-fg-subtle" />
+          <input
+            ref={searchRef}
+            type="search"
+            aria-label="Filter hosts"
+            placeholder="Search hosts…"
+            className={`${INPUT_CLASS} pr-12 pl-7`}
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && filter !== '') {
+                e.stopPropagation();
+                setFilter('');
+              }
+            }}
+          />
+          <kbd className="pointer-events-none absolute right-2 rounded border border-hairline px-1 font-sans text-xs text-fg-subtle">
+            {mac ? '⌘F' : 'Ctrl+F'}
+          </kbd>
+        </label>
+        <div className="ml-auto flex items-center gap-2">
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <Button variant="ghost" aria-label={`Sort by ${SORT_LABELS[prefs.sort]}`}>
+                <ArrowUpDown size={13} aria-hidden="true" /> {SORT_LABELS[prefs.sort]}
+                <ChevronDown size={12} aria-hidden="true" />
+              </Button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content align="end" sideOffset={4} className={MENU_CONTENT_CLASS}>
+                <DropdownMenu.RadioGroup
+                  value={prefs.sort}
+                  onValueChange={(value) => {
+                    setPrefs({ sort: value as HostsSort });
+                  }}
+                >
+                  {(Object.keys(SORT_LABELS) as HostsSort[]).map((sort) => (
+                    <DropdownMenu.RadioItem key={sort} value={sort} className={MENU_ITEM_CLASS}>
+                      <span className="w-3">
+                        <DropdownMenu.ItemIndicator>
+                          <Check size={12} aria-hidden="true" />
+                        </DropdownMenu.ItemIndicator>
+                      </span>
+                      {SORT_LABELS[sort]}
+                    </DropdownMenu.RadioItem>
+                  ))}
+                </DropdownMenu.RadioGroup>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+          <div role="group" aria-label="Layout" className="flex rounded-md border border-hairline-strong">
+            {(
+              [
+                ['grid', 'Cards', LayoutGrid],
+                ['list', 'List', List],
+              ] as const
+            ).map(([layout, label, Icon]) => (
+              <button
+                key={layout}
+                type="button"
+                aria-label={label}
+                aria-pressed={prefs.layout === layout}
+                onClick={() => {
+                  setPrefs({ layout });
+                }}
+                className={`inline-flex h-row w-7 items-center justify-center first:rounded-l-md last:rounded-r-md ${
+                  prefs.layout === layout
+                    ? 'bg-accent-muted text-fg-default'
+                    : 'text-fg-subtle hover:bg-surface-hover hover:text-fg-default'
+                }`}
+              >
+                <Icon size={14} aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+          <div className="flex">
+            <Button
+              variant="primary"
+              className={SPLIT_HEAD_CLASS}
+              onClick={() => {
+                openDialog({ mode: 'new-host' });
+              }}
+            >
+              <Plus size={13} aria-hidden /> New host
+            </Button>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <Button variant="primary" aria-label="More ways to add" className={SPLIT_TAIL_CLASS}>
+                  <ChevronDown size={13} aria-hidden="true" />
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content align="end" sideOffset={4} className={MENU_CONTENT_CLASS}>
+                  <DropdownMenu.Item
+                    className={MENU_ITEM_CLASS}
+                    onSelect={() => {
+                      openDialog({ mode: 'new-host' });
+                    }}
+                  >
+                    <Server size={13} aria-hidden="true" /> New host
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    className={MENU_ITEM_CLASS}
+                    onSelect={() => {
+                      openDialog({ mode: 'new-group' });
+                    }}
+                  >
+                    <FolderPlus size={13} aria-hidden="true" /> New group
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    className={MENU_ITEM_CLASS}
+                    onSelect={() => {
+                      setImportOpen(true);
+                    }}
+                  >
+                    <Download size={13} aria-hidden="true" /> Import from SSH config…
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+          </div>
+        </div>
       </div>
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by tag">
+        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filter by tag">
           {tags.map((tag) => (
             <button
               key={tag}
@@ -81,10 +220,10 @@ function HostsPanel() {
               onClick={() => {
                 toggleTag(tag);
               }}
-              className={`rounded-full border border-hairline px-2 py-0.5 text-xs ${
+              className={`rounded-full border px-2 py-0.5 text-xs ${
                 selectedTags.includes(tag)
-                  ? 'bg-accent-muted text-fg-default'
-                  : 'text-fg-subtle hover:bg-surface-raised'
+                  ? 'border-accent bg-accent-muted text-fg-default'
+                  : 'border-hairline text-fg-subtle hover:bg-surface-raised'
               }`}
             >
               {tag}
@@ -105,7 +244,7 @@ function HostsPanel() {
           ))}
         </ul>
       )}
-      <HostCards />
+      <HostCards prefs={prefs} onPrefs={setPrefs} />
     </div>
   );
 }

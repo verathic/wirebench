@@ -16,6 +16,9 @@ import { openTerminalFor } from '../../src/renderer/features/ssh/connect.js';
 import { SshHome } from '../../src/renderer/features/ssh/ssh-home.js';
 import { useHostsStore } from '../../src/renderer/features/ssh/hosts-store.js';
 import { useEditorsStore } from '../../src/renderer/state/editors.js';
+import { useWorkspaceStore } from '../../src/renderer/state/workspace.js';
+import { DEFAULT_HOSTS_PREFS, readHostsPrefs, writeHostsPrefs } from '../../src/renderer/features/ssh/hosts-prefs.js';
+import type { WorkspaceWire } from '../../src/shared/wire-types.js';
 
 const defaults = {
   user: { value: undefined, from: 'default' },
@@ -277,5 +280,87 @@ describe('Hosts tab', () => {
     await userEvent.type(screen.getByLabelText('Address'), 'y');
     await userEvent.click(screen.getByRole('radio', { name: 'Password' }));
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+  });
+});
+
+describe('Hosts tab view', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useWorkspaceStore.setState({ workspace: { id: 'w1' } as WorkspaceWire });
+  });
+
+  it('folding a group hides its hosts and is remembered for the workspace', async () => {
+    render(<SshHome />);
+    await userEvent.click(screen.getByRole('button', { name: /^Production/ }));
+    expect(screen.queryByText('alpha')).toBeNull();
+    expect(readHostsPrefs('w1').collapsed).toEqual(['g']);
+    cleanup();
+    render(<SshHome />);
+    expect(screen.queryByText('alpha')).toBeNull();
+    expect(screen.getByRole('button', { name: /^Production/ }).getAttribute('aria-expanded')).toBe('false');
+  });
+  it('a search opens folded groups to show what matches', async () => {
+    writeHostsPrefs('w1', { ...DEFAULT_HOSTS_PREFS, collapsed: ['g'] });
+    render(<SshHome />);
+    expect(screen.queryByText('alpha')).toBeNull();
+    await userEvent.type(screen.getByLabelText('Filter hosts'), 'alp');
+    expect(screen.getByText('alpha')).toBeDefined();
+  });
+  it('sorts within a section and switches to the list layout', async () => {
+    useHostsStore.setState({
+      file: {
+        ...STATE.file,
+        groups: [],
+        hosts: [
+          { id: 'z', name: 'zed', address: '10.0.0.1', tags: [], ssh: {} },
+          { id: 'y', name: 'yak', address: '10.0.0.2', tags: [], ssh: {} },
+        ],
+      },
+      sessions: { z: { sessionId: 's', state: 'open' } },
+    });
+    render(<SshHome />);
+    const names = (): string[] => screen.getAllByTestId(/^host-row-/).map((el) => el.dataset['hostCard'] ?? '');
+    expect(names()).toEqual(['y', 'z']);
+    await userEvent.click(screen.getByRole('button', { name: /Sort by/ }));
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Connected first' }));
+    expect(names()).toEqual(['z', 'y']);
+    await userEvent.click(screen.getByRole('button', { name: 'List' }));
+    expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('true');
+    expect(readHostsPrefs('w1')).toMatchObject({ layout: 'list', sort: 'connected' });
+  });
+  it('arrow keys move the selection and Enter connects the selected host', async () => {
+    useEditorsStore.getState().reset();
+    render(<SshHome />);
+    const first = screen.getByTestId('host-row-b');
+    first.focus();
+    await userEvent.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(screen.getByTestId('host-row-a'));
+    await userEvent.keyboard('{Enter}');
+    expect(useEditorsStore.getState().activeId).toBe('ssh:a');
+  });
+  it('the ⋯ menu offers the same actions as right-click', async () => {
+    useEditorsStore.getState().reset();
+    render(<SshHome />);
+    await userEvent.click(screen.getByRole('button', { name: 'More actions for beta' }));
+    expect(await screen.findByRole('menuitem', { name: 'Duplicate' })).toBeDefined();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Connect' }));
+    expect(useEditorsStore.getState().activeId).toBe('ssh:b');
+  });
+  it('New host ▾ offers a group and the SSH config import', async () => {
+    render(<SshHome />);
+    await userEvent.click(screen.getByRole('button', { name: 'More ways to add' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Import from SSH config/ }));
+    expect(useHostsStore.getState().importOpen).toBe(true);
+  });
+  it('Mod+F focuses the search', () => {
+    render(<SshHome />);
+    fireEvent.keyDown(window, { key: 'f', ctrlKey: true, metaKey: true });
+    expect(document.activeElement).toBe(screen.getByLabelText('Filter hosts'));
+  });
+  it('with no hosts, offers the first one and the import', () => {
+    useHostsStore.setState({ file: { version: 1, groups: [], hosts: [] }, resolved: [] });
+    render(<SshHome />);
+    expect(screen.getByText('Add your first host')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Import from SSH config' })).toBeDefined();
   });
 });
