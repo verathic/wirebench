@@ -90,7 +90,8 @@ formats) stay unmapped and warned.
   description; choosing one inserts `${$name}`.
 - The body editors (XML, JSON, plain text) gain a completion triggered by typing `${$` that lists the
   generators.
-- The catalogue the renderer reads is a zod-free engine module exported as `@wirebench/engine/dynamic`.
+- The renderer reads the catalogue through the browser-safe `@wirebench/engine/rest` entry, which
+  re-exports it (the generators module holds no zod and no Node import).
 
 ## 7. Out of scope
 

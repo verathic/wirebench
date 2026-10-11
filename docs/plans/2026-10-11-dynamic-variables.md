@@ -11,6 +11,6 @@ Spec: `docs/specs/2026-10-11-dynamic-variables-design.md`. One commit per task, 
    value twice in one `expand`, across a REST send's URL and header, new value on the next send.
 3. **Importers.** `rewriteMustache` maps known names; `.http` argument forms. Tests: mapped names, an
    unmapped one still warned.
-4. **Desktop.** `@wirebench/engine/dynamic` export; Get Data… Dynamic section; `${$` editor completion.
+4. **Desktop.** Catalogue re-exported from `@wirebench/engine/rest`; Get Data… Dynamic section; `${$` editor completion.
    Tests: the completion items and the dialog's entries.
 5. **Docs.** `docs/cli.md` scopes section, CHANGELOG under [Unreleased].
