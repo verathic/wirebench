@@ -131,10 +131,13 @@ describe('mapCollectionV3: HTTP requests through the v2.1 mapping', () => {
     expect(JSON.stringify(rest)).not.toContain('hunter2');
   });
 
-  it('imports scripts switched off: collection, then folder, then request, read from a file when named', () => {
+  it('imports scripts switched off at their level, read from a file when named (#334)', () => {
+    // The collection's script goes on the API, not into each request.
+    expect(rest.scripts?.enabled).toBe(false);
+    expect(rest.scripts?.pre?.text).toContain("pm.request.headers.add({ key: 'X-Trace'");
     const add = requestNamed('Add book').scripts;
     expect(add?.enabled).toBe(false);
-    expect(add?.pre?.text).toContain("pm.request.headers.add({ key: 'X-Trace'");
+    expect(add?.pre?.text ?? '').not.toContain('X-Trace');
     expect(add?.post?.text).toContain('pm.test("created"');
     expect(requestNamed('Audit').scripts?.pre?.text).toContain("value: 'yes'");
     expect(warnings).toContain(
