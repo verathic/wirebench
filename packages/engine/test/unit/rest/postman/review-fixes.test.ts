@@ -186,7 +186,9 @@ describe('Postman importer review fixes', () => {
       auth: { type: 'bearer', bearer: [{ key: 'token', value: 'secret' }] },
       item: [{ name: 'R', event: [{ listen: 'test', script: { exec: ['2'] } }], request: '/x' }],
     });
-    expect(summary.warnings?.some((w) => /^Scripts on 1 request was imported switched off/.test(w))).toBe(true);
+    expect(summary.warnings?.some((w) => /^Scripts on the API and 1 request were imported switched off/.test(w))).toBe(
+      true,
+    );
     expect(summary.warnings?.some((w) => /re-enter/i.test(w))).toBe(true);
   });
 
