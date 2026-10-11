@@ -1129,6 +1129,8 @@ export { contractPorts, endpointsFromContract, endpointUrlFromContract } from '.
 export type { ContractPort } from './wsdl/contract-endpoints.js';
 export { expandSendInput } from './soap/expand.js';
 export type { ExpandOptions, ExpandResult, PropertyScopes, UnresolvedRef } from './project/properties.js';
+export { DYNAMIC_GENERATORS, DynamicValues, generateDynamic, isDynamicName } from './project/dynamic.js';
+export type { DynamicGeneratorInfo, DynamicResult } from './project/dynamic.js';
 export { effectiveAuth, isEndpointAuth } from './project/endpoints.js';
 export { toKeystoreDef, toKeystoreRef } from './project/keystores.js';
 export { toWssIncomingConfig, toWssIncomingRef, toWssOutgoingConfig, toWssOutgoingRef } from './wss/configs.js';
