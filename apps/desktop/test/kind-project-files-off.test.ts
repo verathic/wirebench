@@ -9,17 +9,13 @@ import { mkdtempSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { ProjectError, setDefaultRegistry } from '@wirebench/engine';
+import { describe, expect, it } from 'vitest';
+import { ProjectError } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
 import { kindRegistry } from '../src/main/kinds/enabled-kinds.js';
 import { ProjectHost } from '../src/main/project-host.js';
 import type { KindId } from '../src/shared/kinds/kind-module.js';
 import type { ProjectChange, ProjectWire } from '../src/shared/wire-types.js';
-
-afterEach(() => {
-  setDefaultRegistry(undefined);
-});
 
 /** Every file under `dir`, by path relative to it, with its bytes. */
 async function filesUnder(dir: string): Promise<Record<string, string>> {
@@ -42,8 +38,7 @@ async function changeEverythingElse(
   refused: ProjectChange,
 ): Promise<{ readonly opened: ProjectWire; readonly error: unknown }> {
   const enabledKinds = (['soap', 'rest', 'grpc', 'websocket'] as const).filter((kind) => kind !== off);
-  setDefaultRegistry(kindRegistry(enabledKinds));
-  const host = new ProjectHost(new EngineService(), { enabledKinds });
+  const host = new ProjectHost(new EngineService(), { enabledKinds, registry: kindRegistry(enabledKinds) });
   const opened = await host.openProject(dir);
   const error = await host.mutate(refused).then(
     () => undefined,

@@ -149,6 +149,8 @@ export class SnapshotStore {
     if (saved === undefined) {
       return undefined;
     }
+    // The built-in registry: a request of a kind that is off is not in the model, so this run's would
+    // find the same file.
     const location = requestFileLocation(saved.project, requestId);
     if (location === undefined) {
       return undefined;

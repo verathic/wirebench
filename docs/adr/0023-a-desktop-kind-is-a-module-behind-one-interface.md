@@ -31,8 +31,8 @@ The shell reads the lists and names no kind. A test pins it for the files that u
 (`editor-area.tsx`, `workspace-tabs.ts`, the explorer's view and tree builder, `exchange.ts`, `project-mutations.ts`).
 
 **A feature switch.** `WIREBENCH_KINDS` (`grpc=off,websocket=off`) is read in main at start-up, as `WIREBENCH_AREAS`
-is. Main builds the engine registry from it and makes it the process default (`setDefaultRegistry`), registers no
-channel of a kind that is off, and tells the renderer the enabled kinds through `app.kinds`; the renderer registers
+is. Main builds the engine registry from it once and passes it through each workspace to every project host, which
+hands it to every load, save and send; it registers no channel of a kind that is off, and tells the renderer the enabled kinds through `app.kinds`; the renderer registers
 none of its commands. A container of a kind that is off, or of a kind the desktop does not know, is a placeholder: the
 engine loads it into `Project.unsupported` and saves it untouched (ADR-0017), and the desktop shows a dimmed row that
 says why and offers nothing else. A restored tab of a kind that is off opens a placeholder panel, and History and the
@@ -48,8 +48,9 @@ Nothing loads third-party code, and the interface may change in any release.
 - A new kind is a shared module, a main folder and a renderer folder, plus its place in the three lists. The channel
   names are pinned by a test, so moving a kind's code cannot rename a channel.
 - `ProjectWire` keeps its per-kind fields: the renderer's stores read them by name, and the change stops at main.
-- The default registry is process-wide: every load and save in main uses the switches without each call site passing
-  them. A host that needs another registry still passes its own.
+- The registry is passed, never set: the engine keeps no process-wide state, so a test or another host in the same
+  process cannot pick up the desktop's switches. A copy or export keeps the built-in registry on purpose, so it carries
+  every kind the folder holds.
 - The switch is read from the environment only. Settings and team policy replace it in phase 4.
 - The typed preview entry points (`request.restPreview` and the like) still ask for their own kind by name.
 
@@ -57,7 +58,8 @@ Nothing loads third-party code, and the interface may change in any release.
 
 - **Keep the branches and add one per kind.** Rejected: it is what made a fifth kind an edit to every one of those
   files, and it gives no way to leave a kind out.
-- **Pass the registry through every load and save.** Rejected: about ten call sites in main would carry it for one
-  start-up decision. The engine's default registry is replaceable instead, and tagged `@internal`.
+- **A replaceable process-wide default registry in the engine.** Tried first and removed: it acted at a distance on
+  every call that passed none (importers, contract tools, mock recording), leaked between tests sharing a worker, and
+  worked only if set before the first load. The registry is passed explicitly instead.
 - **One module per kind holding all three halves.** Rejected: the renderer must not load main-only code, and the
   eager-import guard keeps zod out of its first load, so the halves stay apart.

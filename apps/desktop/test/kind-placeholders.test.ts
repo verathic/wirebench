@@ -8,16 +8,12 @@ import { mkdtempSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { createGrpcApi, createProject, setDefaultRegistry } from '@wirebench/engine';
+import { describe, expect, it } from 'vitest';
+import { createGrpcApi, createProject } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
 import { enabledKindsFromEnv, kindRegistry } from '../src/main/kinds/enabled-kinds.js';
 import { ProjectHost } from '../src/main/project-host.js';
 import { toProjectWire } from '../src/main/project-wire.js';
-
-afterEach(() => {
-  setDefaultRegistry(undefined);
-});
 
 function newHost(): ProjectHost {
   return new ProjectHost(new EngineService(), {});
@@ -52,7 +48,7 @@ describe('WIREBENCH_KINDS', () => {
 });
 
 describe('a project with a kind switched off', () => {
-  it('shows its containers as placeholders and never rewrites them (§7.4)', async () => {
+  it('shows its containers as placeholders and never rewrites them, with no global set (§7.4)', async () => {
     const dir = join(mkdtempSync(join(tmpdir(), 'wirebench-placeholders-')), 'Mixed');
     const seed = newHost();
     await seed.create({ dir, name: 'Mixed' });
@@ -62,8 +58,9 @@ describe('a project with a kind switched off', () => {
     const before = await filesUnder(grpcDir);
     expect(Object.keys(before).length).toBeGreaterThan(0);
 
-    setDefaultRegistry(kindRegistry(['soap', 'rest', 'websocket']));
-    const host = newHost();
+    // No global: the host is handed the run's registry, as the app's workspace hands it.
+    const enabledKinds = ['soap', 'rest', 'websocket'] as const;
+    const host = new ProjectHost(new EngineService(), { enabledKinds, registry: kindRegistry(enabledKinds) });
     const opened = await host.openProject(dir);
     expect(opened.grpcApis).toEqual([]);
     expect(opened.unsupported).toEqual([
@@ -85,6 +82,11 @@ describe('a project with a kind switched off', () => {
     await host.close();
 
     expect(await filesUnder(grpcDir)).toEqual(before);
+
+    // Nothing was set process-wide: a host given no registry opens the same folder with gRPC on.
+    const unswitched = newHost();
+    expect((await unswitched.openProject(dir)).grpcApis.map((api) => api.name)).toEqual(['Pets']);
+    await unswitched.close();
   });
 });
 

@@ -69,6 +69,7 @@ import {
   writeFileAtomic,
   wsApisOf,
 } from '@wirebench/engine';
+import type { ProtocolRegistry } from '@wirebench/engine';
 import type {
   CollectionExportFormat,
   CollectionExportResult,
@@ -271,6 +272,8 @@ export interface WorkspaceServiceDeps {
   readonly sweepJoining?: boolean;
   /** The kinds this run has on (`WIREBENCH_KINDS`), handed to each project host. Absent, all. */
   readonly enabledKinds?: readonly KindId[];
+  /** The engine registry for this run, handed to each project host for its loads, saves and sends. */
+  readonly registry?: ProtocolRegistry;
   /**
    * Whether another window holds `workspaceId` open. Opening, renaming or deleting it from this one is
    * refused (`workspace-open-elsewhere`), so one workspace's files have one writer. Omitted, never.
@@ -437,6 +440,8 @@ function assertSafeProjectId(id: string): void {
  */
 async function loadPickedProject(dir: string): Promise<Project> {
   try {
+    // The built-in registry, every kind on: a copy carries every kind the folder holds, whatever this
+    // run has switched off, and the copy's save below writes them all.
     const { project } = await loadProject(dir);
     assertSafeProjectId(project.id);
     return project;
@@ -1096,6 +1101,7 @@ export class WorkspaceService implements ProjectRouter {
         },
         newestRest: (projectId, requestId) => this.deps.history.newestFor?.(projectId, requestId),
         ...(this.deps.enabledKinds !== undefined ? { enabledKinds: this.deps.enabledKinds } : {}),
+        ...(this.deps.registry !== undefined ? { registry: this.deps.registry } : {}),
       },
       this.deps.fs,
       this.deps.globals,
@@ -2297,6 +2303,8 @@ export class WorkspaceService implements ProjectRouter {
     if (!(await isEmptyDir(dir))) {
       throw new WorkspaceError('export-target-not-empty', `"${dir}" is not empty.`, { details: { dir } });
     }
+    // An export writes into an empty folder: there is nothing on disk for a switched-off kind to keep
+    // untouched, so the built-in registry writes the model as it is.
     await saveProject(model, dir, this.fsOption());
     await copyProjectPayload(entry.dir, dir, model);
     return { dir };

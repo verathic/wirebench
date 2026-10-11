@@ -140,7 +140,8 @@ _Amended in 6.0 (#184 phase 3):_ the last two points no longer hold: `project/mo
 modules load their own project-level files (above). The desktop sends through the modules and is split into kind
 modules of its own ([ADR-0023](0023-a-desktop-kind-is-a-module-behind-one-interface.md)), so ADR-0007's `kind` branch
 is gone from its shell too, and `WIREBENCH_KINDS` switches a kind off in the desktop as well as the engine: the
-desktop makes its registry the engine's default (`setDefaultRegistry`).
+desktop builds one registry from it and passes it to every load, save and send. The engine keeps no process-wide
+registry; one a caller does not pass is the built-in one, every protocol on.
 
 ## Alternatives considered
 

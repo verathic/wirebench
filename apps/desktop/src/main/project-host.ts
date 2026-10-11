@@ -46,6 +46,7 @@ import {
   withCurrentValues,
   withSystemValuesReported,
 } from '@wirebench/engine';
+import type { ProtocolRegistry } from '@wirebench/engine';
 import type {
   CurrentValues,
   Endpoint,
@@ -135,6 +136,11 @@ export interface ProjectHostHooks {
   readonly newestRest?: (projectId: string, requestId: string) => HistoryEntryWire | undefined;
   /** The kinds this run has on (`WIREBENCH_KINDS`); a change through one that is off is refused. Absent, all. */
   readonly enabledKinds?: readonly KindId[];
+  /**
+   * The engine registry for this run (`WIREBENCH_KINDS`), passed to every load, save and send: a kind
+   * that is off loads as placeholders and its files are left alone. Absent, the built-in one, all on.
+   */
+  readonly registry?: ProtocolRegistry;
 }
 
 /** What {@link ProjectHost.openProject} did with an unsaved-changes record it was handed. */
@@ -345,6 +351,7 @@ export class ProjectHost {
         readonly workspace?: RunWorkspace;
         readonly globals: PropertyMap;
         readonly current?: CurrentValues;
+        readonly registry?: ProtocolRegistry;
       }
     | undefined {
     if (this.open === undefined || !this.knowsEnvironment(this.open.project, envId)) {
@@ -362,7 +369,13 @@ export class ProjectHost {
       ...(workspace !== undefined ? { workspace } : {}),
       globals: this.enabledGlobals(),
       ...(current !== undefined ? { current } : {}),
+      ...this.registryOption(),
     };
+  }
+
+  /** The run's registry as an engine option, or nothing for the built-in one. */
+  private registryOption(): { readonly registry?: ProtocolRegistry } {
+    return this.hooks.registry !== undefined ? { registry: this.hooks.registry } : {};
   }
 
   /**
@@ -539,9 +552,9 @@ export class ProjectHost {
    * and the outcome says why. {@link lastRestore} reports what happened.
    */
   async openProject(dir: string, options: { unsaved?: UnsavedProjectFiles } = {}): Promise<ProjectWire> {
-    const loaded = await loadProject(dir);
+    const loaded = await loadProject(dir, this.registryOption());
     let { project, problems } = loaded;
-    const disk = projectFiles(loaded.project);
+    const disk = projectFiles(loaded.project, this.registryOption());
     let restore: UnsavedRestoreOutcome | undefined;
     if (options.unsaved !== undefined) {
       const merge = mergeUnsaved(options.unsaved.baseline, disk, options.unsaved.unsaved);
@@ -549,7 +562,10 @@ export class ProjectHost {
         restore = { status: 'unchanged' };
       } else {
         try {
-          ({ project, problems } = await loadProject(dir, { fs: overlayFs(dir, merge.files, disk.keys()) }));
+          ({ project, problems } = await loadProject(dir, {
+            fs: overlayFs(dir, merge.files, disk.keys()),
+            ...this.registryOption(),
+          }));
           restore = { status: 'restored', conflicts: merge.conflicts, dropped: merge.dropped };
         } catch (error) {
           restore = { status: 'failed', message: errorMessage(error) };
@@ -591,7 +607,7 @@ export class ProjectHost {
     if (open === undefined || !open.dirty) {
       return undefined;
     }
-    return { baseline: open.baseline, unsaved: projectFiles(open.project) };
+    return { baseline: open.baseline, unsaved: projectFiles(open.project, this.registryOption()) };
   }
 
   /** Paths announced through {@link expectOnDisk}, kept until their TTL so a reload's new watcher honours them too. */
@@ -652,7 +668,7 @@ export class ProjectHost {
       problems,
       runtime: new Map(soapInterfacesOf(project).map((iface) => [iface.id, { hydration: 'pending' as const }])),
       lastWritten: undefined,
-      baseline: baseline ?? projectFiles(project),
+      baseline: baseline ?? projectFiles(project, this.registryOption()),
       watcher,
     };
     const now = Date.now();
@@ -723,7 +739,7 @@ export class ProjectHost {
     // with a newer one while the write is in flight, and bookkeeping below must describe the
     // model that was actually saved, not whatever happens to be open afterwards.
     const model = open.project;
-    const files = projectFiles(model, { writer: PROJECT_WRITER });
+    const files = projectFiles(model, { writer: PROJECT_WRITER, ...this.registryOption() });
     // Announce every path this write might touch (all it will write, plus anything it may remove)
     // before it starts, so the events of a save that has not finished — or of the autosave right
     // behind it — are never taken for an outside edit; `release` then keeps what was really written.
@@ -741,6 +757,7 @@ export class ProjectHost {
       result = await saveProject(model, open.dir, {
         ...(open.lastWritten !== undefined ? { previous: open.lastWritten } : {}),
         writer: PROJECT_WRITER,
+        ...this.registryOption(),
         ...(options.backups !== undefined ? { backups: options.backups } : {}),
         ...(this.fs !== undefined ? { fs: this.fs } : {}),
       });

@@ -11,7 +11,6 @@ import {
   WirebenchError,
   enabledProperties,
   overlayCurrent,
-  setDefaultRegistry,
   type ConnectOptions,
   type GetSecret,
 } from '@wirebench/engine';
@@ -490,12 +489,13 @@ const secretScans = scoped(scopes, (scope) => scope.secretScans);
 const enabledAreas = enabledAreasFromEnv();
 
 /**
- * The kinds `WIREBENCH_KINDS` leaves switched on (see `kinds/enabled-kinds.ts`). Every engine call
- * that is passed no registry uses this run's, so a project's containers of a kind that is off load
- * as placeholders and are saved untouched; set before anything loads a project.
+ * The kinds `WIREBENCH_KINDS` leaves switched on (see `kinds/enabled-kinds.ts`), and the engine
+ * registry built from them once. Each workspace hands the registry to its project hosts, which pass it
+ * to every load, save and send, so a project's containers of a kind that is off load as placeholders
+ * and are saved untouched.
  */
 const enabledKinds = enabledKindsFromEnv();
-setDefaultRegistry(kindRegistry(enabledKinds));
+const kindsRegistry = kindRegistry(enabledKinds);
 
 /** The calling window's `hosts.yaml` (each window has its own, for its own workspace; see `createWindowScope`). */
 const hostsService = scoped(scopes, (scope) => scope.hosts);
@@ -588,6 +588,7 @@ function createWindowScope(window: BrowserWindow, sweepJoining: boolean): Window
     state: workspaceState,
     sweepJoining,
     enabledKinds,
+    registry: kindsRegistry,
     // One workspace, one window (design D5): the window holding it is brought forward instead.
     heldElsewhere: (workspaceId) => {
       const holder = scopes

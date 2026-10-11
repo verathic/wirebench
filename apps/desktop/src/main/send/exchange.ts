@@ -524,6 +524,8 @@ function runContextOf(located: Located, host: SendHost): RunContext {
     overrides: located.overrides ?? {},
     ...(located.defaultWsaActionFor !== undefined ? { defaultWsaActionFor: located.defaultWsaActionFor } : {}),
     ...(located.loadedDefinitionFor !== undefined ? { loadedDefinitionFor: located.loadedDefinitionFor } : {}),
+    // The run's registry: a send selects and runs through the kinds this run has on.
+    ...(located.registry !== undefined ? { registry: located.registry } : {}),
     host,
   };
 }

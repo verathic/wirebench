@@ -1235,6 +1235,8 @@ export async function copyProjectIntoWorkspace(
   const projectDir = workspaceProjectDir(tree, slug);
   try {
     await mkdir(projectDir, { recursive: true });
+    // A new, empty folder: nothing of a switched-off kind is on disk there to keep, so the built-in
+    // registry writes the model as it is.
     await saveProject(copy, projectDir, deps.fsOption);
     await copyProjectPayload(source.dir, projectDir, copy);
     await keepLegacyActiveEnvironment(targetDir, workspace, legacy, deps.fsOption);

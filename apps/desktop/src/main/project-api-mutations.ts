@@ -34,6 +34,8 @@ export function takenApiSlugs(project: Project, exceptApiId?: string): Set<strin
             ]),
           ),
         };
+  // The built-in registry only says where each kind's containers live; a kind that is off holds none
+  // (its folders are placeholders, which are counted whatever the registry), so the run's would agree.
   return new Set([...takenContainerSlugs(others, 'apis'), ...takenContainerSlugs(others, 'interfaces')]);
 }
 

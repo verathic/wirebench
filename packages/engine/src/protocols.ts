@@ -61,23 +61,13 @@ let builtin: ProtocolRegistry | undefined;
 
 /**
  * The registry an entry point uses when its caller passes none: the built-in protocols with every
- * feature on. Created on first use and kept. Call it inside a function, never at module scope: the
+ * feature on, always: a host that switches protocols off passes its own registry to each call.
+ * Created on first use and kept. Call it inside a function, never at module scope: the
  * modules import core files that import this one.
  */
 export function defaultRegistry(): ProtocolRegistry {
   builtin ??= createBuiltinRegistry();
   return builtin;
-}
-
-/**
- * Replaces the registry {@link defaultRegistry} answers with, for a host that switches protocols off
- * for the whole process (the desktop's `WIREBENCH_KINDS`). `undefined` goes back to the built-in
- * registry with every feature on. Call it at start-up, before anything loads a project.
- *
- * @internal Exported for the engine's own hosts; not yet a plugin API (ADR-0017).
- */
-export function setDefaultRegistry(registry: ProtocolRegistry | undefined): void {
-  builtin = registry;
 }
 
 /** One saved request selected for a run, of any built-in protocol a run can send. */
