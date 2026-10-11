@@ -10,6 +10,8 @@
  * composition and percent-encoding untouched, and each target turns them into its own environment read.
  */
 
+import { SECRET_ENV_PREFIX } from '../../secrets/env-names.js';
+import { secretEnvName } from '../../secrets/secret-token.js';
 import type { CurlBody, CurlHeader } from '../curl.js';
 
 /** One header, in the order the user wrote it. */
@@ -102,4 +104,27 @@ export function splitEnv(text: string): TextPart[] {
 /** Whether `text` reads anything from the environment. */
 export function hasEnv(text: string): boolean {
   return splitEnv(text).some((part) => 'env' in part);
+}
+
+const SECRET_TOKEN = /\$\{secret:([A-Za-z_][A-Za-z0-9_]*)\}/g;
+
+/**
+ * `value` with every `${secret:name}` token in its strings replaced by a read of
+ * `WIREBENCH_SECRET_<NAME>`, the variable the CLI reads that secret from. Arrays and plain objects
+ * are walked; anything else (a function, a byte array) is kept as it is. Run it before the URL is
+ * composed: the token's own `${` would otherwise be percent-encoded.
+ */
+export function secretTokensToEnv<T>(value: T): T {
+  if (typeof value === 'string') {
+    return value.replace(SECRET_TOKEN, (_, name: string) =>
+      envMarker(`${SECRET_ENV_PREFIX}${secretEnvName(name)}`),
+    ) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item: unknown) => secretTokensToEnv(item)) as T;
+  }
+  if (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, secretTokensToEnv(item)])) as T;
+  }
+  return value;
 }

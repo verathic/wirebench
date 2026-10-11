@@ -51,5 +51,5 @@ export function generateCode(target: CodeTargetId, request: CodeRequest, options
   });
 }
 
-export { CODE_TARGETS, envMarker, splitEnv } from './model.js';
+export { CODE_TARGETS, envMarker, secretTokensToEnv, splitEnv } from './model.js';
 export type { CodeBody, CodeHeader, CodeOptions, CodeRequest, CodeTargetId, GeneratedCode, TextPart } from './model.js';
