@@ -18,6 +18,15 @@ All notable changes to this project are documented here. The format follows
   **Script** tab lists each script that ran under its level. The Postman importer puts a collection's
   and its folders' scripts on the API and folders instead of copying them into each request. Project
   format 9 (#334).
+- **Dynamic values.** `${$guid}` (or `${#Dynamic#guid}`) sends a fresh value with every request: UUIDs,
+  Unix and ISO timestamps with offsets (`${$isoTimestamp(+1d)}`), random numbers
+  (`${$randomInt(1,100)}`), and fake names, emails, addresses, phone numbers, companies, lorem text,
+  dates, IP and MAC addresses, URLs, colours, currencies, file names and MIME types. Each reference is
+  generated once per send, so a value used twice matches, and the HTTP Log and History show what was
+  sent. The desktop app, `wirebench run` and the MCP `send` resolve them alike. Imported `{{$guid}}`,
+  `{{$timestamp}}`, `{{$randomInt}}` and the other common names now map onto them; a name with no
+  generator keeps the import warning. Type `${$` in a body editor, or use **Get Data…**, to list them
+  (#333).
 
 - **The Code panel writes a request as code.** Besides `curl`, a SOAP or REST request can be shown
   as JavaScript fetch, Node.js axios, Python requests, Go net/http, Java HttpClient, Java OkHttp,

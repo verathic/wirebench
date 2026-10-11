@@ -23,6 +23,8 @@ export type { KeyValueEntry } from './model.js';
 // The `${secret:name}` name rule, so the renderer's secret review checks a name typed into it
 // exactly as main's move will — a request's headers, query and body are where those tokens land.
 export { SECRET_NAME_PATTERN } from '../secrets/secret-token.js';
+// The Dynamic scope's generators, which the body editors' `${$` completion lists (#333).
+export { DYNAMIC_GENERATORS, type DynamicGeneratorInfo } from '../project/dynamic.js';
 export {
   createSseParser,
   eventStreamDocument,
