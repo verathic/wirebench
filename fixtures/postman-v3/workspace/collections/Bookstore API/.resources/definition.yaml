@@ -1,0 +1,25 @@
+$kind: collection
+name: Bookstore API
+description: Books, authors and the admin area.
+variables:
+  - key: baseUrl
+    value: 'https://api.bookstore.example/v1'
+  - key: pageSize
+    value: '20'
+    description: How many books a page holds
+  - key: legacyFlag
+    value: 'on'
+    disabled: true
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
+scripts:
+  - type: http:beforeRequest
+    code: |-
+      pm.request.headers.add({ key: 'X-Trace', value: pm.variables.get('traceId') });
+    language: text/javascript
+  - type: grpc:beforeInvoke
+    code: console.log('grpc only');
+    language: text/javascript

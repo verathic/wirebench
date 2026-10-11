@@ -24,6 +24,7 @@ import {
   mockPatchSchema,
   mockResponsePatchSchema,
   mockWireSchema,
+  MAX_IMPORT_LOCATION_CHARS,
   projectAddInterfaceTargetSchema,
   projectProblemSchema,
   unsupportedContainerWireSchema,
@@ -860,6 +861,56 @@ export const apiImportOpenCollectionResponseSchema: z.ZodType<ApiImportOpenColle
   apiImportOpenCollectionResponseObject;
 export type ApiImportOpenCollectionResponseInSync = AssertTrue<
   TypesEqual<z.infer<typeof apiImportOpenCollectionResponseObject>, ApiImportOpenCollectionResponse>
+>;
+
+/**
+ * Request payload for `api.importPostmanFolder`: a folder (v3) collection, as a picked folder or a
+ * picked `.resources/definition.yaml`, which stands for the folder above it. A workspace folder
+ * imports every collection under its `collections/`, with its environments and globals. `name`
+ * names the API(s) of a folder holding one collection.
+ */
+export const apiImportPostmanFolderRequestSchema = z.object({
+  target: projectAddInterfaceTargetSchema,
+  path: z.string().min(1).max(MAX_IMPORT_LOCATION_CHARS),
+  name: z.string().max(200).optional(),
+});
+export type ApiImportPostmanFolderRequest = z.infer<typeof apiImportPostmanFolderRequestSchema>;
+
+const apiImportPostmanFolderResponseObject = z.object({
+  projectId: z.string(),
+  /** Absent when the folder held only environments, so no API was placed in the project. */
+  project: projectWireSchema.optional(),
+  /** Each collection's REST, gRPC and WebSocket API, in that order, each only when it had requests of its kind. */
+  apiIds: z.array(z.string()).readonly(),
+  counts: z.object({
+    collections: z.number(),
+    requests: z.number(),
+    folders: z.number(),
+    examples: z.number(),
+  }),
+  /** What became of the variables, environments and globals; absent when there were none. Never a value. */
+  variables: importVariablesSummarySchema.optional(),
+  warnings: z.array(z.string()).readonly(),
+  notes: z.array(z.string()).readonly(),
+  /** The import report as plain text, for the copy button; empty when there is nothing to say. */
+  reportText: z.string(),
+});
+/** Spelled out as an interface for the same reason as {@link ApiImportHarResponse}. */
+export interface ApiImportPostmanFolderResponse {
+  projectId: string;
+  project?: ProjectWire | undefined;
+  apiIds: readonly string[];
+  counts: { collections: number; requests: number; folders: number; examples: number };
+  variables?: ImportVariablesSummaryWire | undefined;
+  warnings: readonly string[];
+  notes: readonly string[];
+  reportText: string;
+}
+/** Response payload for `api.importPostmanFolder`. */
+export const apiImportPostmanFolderResponseSchema: z.ZodType<ApiImportPostmanFolderResponse> =
+  apiImportPostmanFolderResponseObject;
+export type ApiImportPostmanFolderResponseInSync = AssertTrue<
+  TypesEqual<z.infer<typeof apiImportPostmanFolderResponseObject>, ApiImportPostmanFolderResponse>
 >;
 
 export const apiImportProtoResponseSchema = z.object({

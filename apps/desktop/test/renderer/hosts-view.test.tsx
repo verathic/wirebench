@@ -495,3 +495,27 @@ describe('Editing in the details panel', () => {
     expect(await screen.findByTestId('host-dialog')).toBeDefined();
   });
 });
+
+describe('Clicking the picked card', () => {
+  beforeEach(() => {
+    useEditorsStore.getState().reset();
+    useEditorsStore.getState().showSet('ssh');
+  });
+
+  it('hides its details, and a further click shows them again', async () => {
+    render(<SshHome />);
+    const card = screen.getByTestId('host-row-b');
+    await userEvent.click(card);
+    expect(useHostsStore.getState()).toMatchObject({ selectedHostId: 'b', detailsOpen: true });
+    await userEvent.click(card);
+    expect(useHostsStore.getState()).toMatchObject({ selectedHostId: 'b', detailsOpen: false });
+    await userEvent.click(card);
+    expect(useHostsStore.getState().detailsOpen).toBe(true);
+  });
+  it('has no Connect button: a double-click connects', async () => {
+    render(<SshHome />);
+    expect(within(screen.getByTestId('host-row-b')).queryByRole('button', { name: 'Connect' })).toBeNull();
+    await userEvent.dblClick(screen.getByTestId('host-row-b'));
+    expect(useEditorsStore.getState().activeId).toBe('ssh:b');
+  });
+});

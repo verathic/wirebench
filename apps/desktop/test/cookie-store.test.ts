@@ -9,7 +9,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nodeFs, type Cookie } from '@wirebench/engine';
-import { COOKIES_DIR, CookieStore, type CookieJarState, type CookieStoreOptions } from '../src/main/cookie-store.js';
+import {
+  COOKIES_DIR,
+  CookieStore,
+  LEGACY_COOKIES_DIR,
+  type CookieJarState,
+  type CookieStoreOptions,
+} from '../src/main/cookie-store.js';
 import type { CryptoBackend } from '../src/main/secrets.js';
 
 const NOW = Date.parse('2026-10-03T12:00:00Z');
@@ -366,5 +372,76 @@ describe('CookieStore — hardening', () => {
     expect(existsSync(fileOf('w1'))).toBe(false);
     await s.flush();
     expect(existsSync(fileOf('w1'))).toBe(true);
+  });
+});
+
+describe('CookieStore — the old cookies/ folder', () => {
+  function legacyFileOf(id: string): string {
+    return join(dir, LEGACY_COOKIES_DIR, `${id}.json`);
+  }
+
+  async function saved(id: string): Promise<string> {
+    const s = store();
+    await s.switchTo(id);
+    s.host().remember('https://api.test/login', LOGIN);
+    await s.flush();
+    return readFileSync(fileOf(id), 'utf8');
+  }
+
+  it('loads and saves when userData holds a file named cookies, as Chromium does on a case-insensitive volume', async () => {
+    writeFileSync(join(dir, LEGACY_COOKIES_DIR), 'SQLite format 3');
+    const warn = vi.fn();
+    const first = store({ warn });
+    await first.switchTo('w1');
+    expect(first.state()).toEqual({ cookies: [], persisted: true });
+    first.host().remember('https://api.test/login', LOGIN);
+    await first.flush();
+    await first.deleteWorkspace('w2');
+
+    const second = store({ warn });
+    await second.switchTo('w1');
+    expect(names(second.state())).toEqual(['sid']);
+    expect(warn).not.toHaveBeenCalled();
+    expect(readFileSync(join(dir, LEGACY_COOKIES_DIR), 'utf8')).toBe('SQLite format 3');
+  });
+
+  it('moves a jar from the old folder the first time its workspace opens', async () => {
+    const text = await saved('w1');
+    mkdirSync(join(dir, LEGACY_COOKIES_DIR));
+    writeFileSync(legacyFileOf('w1'), text);
+    rmSync(join(dir, COOKIES_DIR), { recursive: true });
+
+    const s = store({ warn: vi.fn() });
+    await s.switchTo('w1');
+    expect(names(s.state())).toEqual(['sid']);
+    expect(readFileSync(fileOf('w1'), 'utf8')).toBe(text);
+    expect(existsSync(legacyFileOf('w1'))).toBe(false);
+  });
+
+  it('prefers the new file over a leftover in the old folder, and deletes both with the workspace', async () => {
+    const text = await saved('w1');
+    mkdirSync(join(dir, LEGACY_COOKIES_DIR));
+    writeFileSync(legacyFileOf('w1'), 'stale');
+
+    const warn = vi.fn();
+    const s = store({ warn });
+    await s.switchTo('w1');
+    expect(names(s.state())).toEqual(['sid']);
+    expect(readFileSync(fileOf('w1'), 'utf8')).toBe(text);
+    expect(warn).not.toHaveBeenCalled();
+
+    await s.deleteWorkspace('w1');
+    expect(existsSync(fileOf('w1'))).toBe(false);
+    expect(existsSync(legacyFileOf('w1'))).toBe(false);
+  });
+
+  it('starts empty without a warning or a set-aside when a path part is a file (ENOTDIR)', async () => {
+    writeFileSync(join(dir, COOKIES_DIR), 'not a folder');
+    const warn = vi.fn();
+    const s = store({ warn });
+    await s.switchTo('w1');
+    expect(s.state()).toEqual({ cookies: [], persisted: true });
+    expect(warn).not.toHaveBeenCalled();
+    expect(readdirSync(dir).sort()).toEqual([COOKIES_DIR]);
   });
 });

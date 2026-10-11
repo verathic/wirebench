@@ -1,0 +1,3 @@
+$kind: llm-request
+url: https://llm.example.com
+order: 7000
