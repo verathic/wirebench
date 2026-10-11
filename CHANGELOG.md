@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **`wirebench run --data <file>` runs a selection or a sequence once per row of a CSV or JSON file.**
+  Each column is read as `${#Data#column}`, substituted literally, and scripts read the row with
+  `iteration.data.get()`. `--iterations` sets the count (`--data-overrun stop|wrap|repeat-last` when it
+  exceeds the rows), `--delay` waits between requests, and `--bail` stops every later iteration. Every
+  reporter names each request's iteration; a run without data reports as before (#336).
+
 - **A container of a kind this build cannot open stays in the explorer.** It shows as a dimmed row,
   at its place among the project's containers, whose tooltip and only menu item say why: the kind
   is switched off, or this version of Wirebench does not know it. Its files are never rewritten, a
