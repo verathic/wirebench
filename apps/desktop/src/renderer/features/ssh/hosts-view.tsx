@@ -1,103 +1,84 @@
-import { useEffect } from 'react';
-import { Plus } from 'lucide-react';
-import { Button } from '../../components/button.js';
+import { useEffect, useState } from 'react';
+import { KeyRound, Server, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { useEditorsStore } from '../../state/editors.js';
+import { ipc } from '../../state/ipc-client.js';
 import { HostDialog } from './host-dialog.js';
-import { HostTree } from './host-tree.js';
-import { useHostsStore } from './hosts-store.js';
+import { useHostsStore, type SshHomeView } from './hosts-store.js';
 import { ImportDialog } from './import-dialog.js';
 
-const INPUT_CLASS =
-  'w-full rounded border border-hairline-strong bg-surface-base px-2 py-1 text-sm text-fg-default outline-none focus:ring-1 focus:ring-accent';
+const ENTRIES: readonly { readonly id: SshHomeView; readonly label: string; readonly icon: LucideIcon }[] = [
+  { id: 'hosts', label: 'Hosts', icon: Server },
+  { id: 'keychain', label: 'Keychain', icon: KeyRound },
+  { id: 'known-hosts', label: 'Known hosts', icon: ShieldCheck },
+];
 
-/** The Hosts sidebar view: filter, tag chips, problems from `hosts.yaml`, and the tree. */
+/**
+ * The SSH sidebar: a menu of what the area keeps. Picking an entry shows it in the area's fixed
+ * first tab (`ssh-home.tsx`), in front of any open terminal.
+ */
 export function HostsView() {
   const refresh = useHostsStore((s) => s.refresh);
   const resolved = useHostsStore((s) => s.resolved);
-  const problems = useHostsStore((s) => s.problems);
-  const filter = useHostsStore((s) => s.filter);
-  const setFilter = useHostsStore((s) => s.setFilter);
-  const selectedTags = useHostsStore((s) => s.selectedTags);
-  const toggleTag = useHostsStore((s) => s.toggleTag);
-  const openDialog = useHostsStore((s) => s.openDialog);
-  const setImportOpen = useHostsStore((s) => s.setImportOpen);
+  const homeView = useHostsStore((s) => s.homeView);
+  const setHomeView = useHostsStore((s) => s.setHomeView);
+  // Whether the fixed tab is the one in front: the entry only reads as current while it is.
+  const homeShown = useEditorsStore((s) => s.displayedSet === 'ssh' && s.activeId === undefined);
+  const [counts, setCounts] = useState<{ keychain?: number; knownHosts?: number }>({});
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  const tags = [...new Set(resolved.flatMap((h) => h.tags))].sort();
+  // Counted again whenever the menu is picked from, so a key trusted or a secret stored since shows.
+  useEffect(() => {
+    void (async () => {
+      const [names, known] = await Promise.all([ipc().ssh.secretNames(undefined), ipc().ssh.knownHosts(undefined)]);
+      setCounts({
+        ...(names.ok ? { keychain: names.value.names.length } : {}),
+        ...(known.ok ? { knownHosts: known.value.entries.length } : {}),
+      });
+    })();
+  }, [homeView, homeShown]);
+
+  const countOf = (id: SshHomeView): number | undefined =>
+    id === 'hosts' ? resolved.length : id === 'keychain' ? counts.keychain : counts.knownHosts;
+
+  const open = (id: SshHomeView): void => {
+    setHomeView(id);
+    const editors = useEditorsStore.getState();
+    editors.showSet('ssh');
+    editors.showStart();
+  };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-2">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="primary"
-          onClick={() => {
-            openDialog({ mode: 'new-host' });
-          }}
-        >
-          <Plus size={13} aria-hidden /> New host
-        </Button>
-        <Button
-          onClick={() => {
-            openDialog({ mode: 'new-group' });
-          }}
-        >
-          New group
-        </Button>
-        <Button
-          onClick={() => {
-            setImportOpen(true);
-          }}
-        >
-          Import…
-        </Button>
-      </div>
-      <input
-        type="search"
-        aria-label="Filter hosts"
-        placeholder="Filter by name, address or tag"
-        className={INPUT_CLASS}
-        value={filter}
-        onChange={(e) => {
-          setFilter(e.target.value);
-        }}
-      />
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by tag">
-          {tags.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              aria-pressed={selectedTags.includes(tag)}
-              onClick={() => {
-                toggleTag(tag);
-              }}
-              className={`rounded-full border border-hairline px-2 py-0.5 text-xs ${
-                selectedTags.includes(tag)
-                  ? 'bg-accent-muted text-fg-default'
-                  : 'text-fg-subtle hover:bg-surface-raised'
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-      )}
-      {problems.length > 0 && (
-        <ul role="alert" aria-label="Hosts problems" className="flex flex-col gap-1 text-sm">
-          {problems.map((p, i) => (
-            <li
-              key={`${p.code}-${String(i)}`}
-              className="rounded border border-status-danger px-2 py-1 text-fg-default"
-            >
-              <span className="font-mono text-xs text-status-danger">{p.code}</span> <span>{p.message}</span>
-              {p.path !== undefined && <span className="ml-1 font-mono text-xs text-fg-subtle">{p.path}</span>}
-            </li>
-          ))}
+    <div className="flex min-h-0 flex-1 flex-col overflow-auto p-2">
+      <nav aria-label="SSH">
+        <ul className="flex flex-col gap-0.5">
+          {ENTRIES.map(({ id, label, icon: Icon }) => {
+            const current = homeShown && homeView === id;
+            const count = countOf(id);
+            return (
+              <li key={id}>
+                <button
+                  type="button"
+                  data-testid={`ssh-nav-${id}`}
+                  aria-current={current ? 'page' : undefined}
+                  onClick={() => {
+                    open(id);
+                  }}
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
+                    current ? 'bg-accent-muted text-fg-default' : 'text-fg-muted hover:bg-surface-raised'
+                  }`}
+                >
+                  <Icon size={15} aria-hidden="true" className="shrink-0" />
+                  <span className="flex-1 text-left">{label}</span>
+                  {count !== undefined && <span className="text-xs text-fg-subtle">{count}</span>}
+                </button>
+              </li>
+            );
+          })}
         </ul>
-      )}
-      <HostTree />
+      </nav>
       <HostDialog />
       <ImportDialog />
     </div>

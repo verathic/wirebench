@@ -143,6 +143,18 @@ export type SshResizeRequest = z.infer<typeof sshResizeRequestSchema>;
 export type SshCloseRequest = z.infer<typeof sshCloseRequestSchema>;
 export type SshTrustRequest = z.infer<typeof sshTrustRequestSchema>;
 
+/** A host key the user trusted, as `ssh-known-hosts.json` keeps it: one per host and key type. */
+export const sshKnownHostSchema = z.object({
+  /** `address:port` */
+  host: z.string(),
+  keyType: z.string(),
+  fingerprint: z.string(),
+});
+export const sshKnownHostsResponseSchema = z.object({ entries: z.array(sshKnownHostSchema) });
+/** Forgets one trusted key: the next connection to that host asks again. */
+export const sshForgetHostKeyRequestSchema = z.strictObject({ host: z.string(), keyType: z.string() });
+export type SshKnownHostWire = z.infer<typeof sshKnownHostSchema>;
+
 /**
  * Importing hosts from an OpenSSH client config. The renderer never sends a path: `user-config` is
  * `~/.ssh/config` resolved in main, `pick` runs the native picker. Key rows travel by an opaque `ref`;

@@ -34,7 +34,13 @@ export interface HostSession {
   state: 'connecting' | 'open' | 'closed';
 }
 
+/** What the SSH area's fixed first tab shows, picked from the area's menu. */
+export type SshHomeView = 'hosts' | 'keychain' | 'known-hosts';
+
 interface HostsState {
+  /** Stays across workspaces, like the filter: it is where the user was, not workspace data. */
+  homeView: SshHomeView;
+  setHomeView: (view: SshHomeView) => void;
   file: HostsFileWire;
   resolved: readonly ResolvedHostWire[];
   problems: readonly SshProblemWire[];
@@ -99,6 +105,10 @@ const WORKSPACE_STATE = {
 
 export const useHostsStore = create<HostsState>()((set, get) => ({
   ...WORKSPACE_STATE,
+  homeView: 'hosts',
+  setHomeView: (homeView) => {
+    set({ homeView });
+  },
   filter: '',
   selectedTags: [],
   reset: () => {

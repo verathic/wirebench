@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -6,10 +6,14 @@ const listHosts = vi.fn();
 const saveHosts = vi.fn();
 const secretNames = vi.fn();
 const setSecret = vi.fn();
+const knownHosts = vi.fn();
+const forgetHostKey = vi.fn();
 vi.mock('../../src/renderer/state/ipc-client.js', () => ({
-  ipc: () => ({ ssh: { listHosts, saveHosts, secretNames, setSecret } }),
+  ipc: () => ({ ssh: { listHosts, saveHosts, secretNames, setSecret, knownHosts, forgetHostKey } }),
 }));
 import { HostsView } from '../../src/renderer/features/ssh/hosts-view.js';
+import { openTerminalFor } from '../../src/renderer/features/ssh/connect.js';
+import { SshHome } from '../../src/renderer/features/ssh/ssh-home.js';
 import { useHostsStore } from '../../src/renderer/features/ssh/hosts-store.js';
 import { useEditorsStore } from '../../src/renderer/state/editors.js';
 
@@ -68,13 +72,118 @@ beforeEach(() => {
     },
   });
   setSecret.mockResolvedValue({ ok: true, value: {} });
-  useHostsStore.setState({ ...STATE, filter: '', selectedTags: [], dialog: null, sessions: {} });
+  knownHosts.mockResolvedValue({
+    ok: true,
+    value: { entries: [{ host: '10.0.0.1:22', keyType: 'ssh-ed25519', fingerprint: 'SHA256:abc' }] },
+  });
+  forgetHostKey.mockResolvedValue({ ok: true, value: {} });
+  useHostsStore.setState({ ...STATE, filter: '', selectedTags: [], dialog: null, sessions: {}, homeView: 'hosts' });
 });
 afterEach(cleanup);
 
-describe('HostsView', () => {
-  it('renders groups, hosts, the needs-badge and the problem banner', () => {
+/** The sidebar menu and the fixed tab it drives, as the shell lays them out. */
+function SshArea() {
+  return (
+    <>
+      <HostsView />
+      <SshHome />
+    </>
+  );
+}
+
+describe('SSH menu', () => {
+  it('lists Hosts, Keychain and Known hosts with their counts', async () => {
     render(<HostsView />);
+    const nav = screen.getByRole('navigation', { name: 'SSH' });
+    expect(nav.textContent).toContain('Hosts2');
+    expect(await screen.findByText('Keychain')).toBeDefined();
+    await vi.waitFor(() => {
+      expect(screen.getByTestId('ssh-nav-keychain').textContent).toBe('Keychain2');
+      expect(screen.getByTestId('ssh-nav-known-hosts').textContent).toBe('Known hosts1');
+    });
+    // The sidebar no longer draws the hosts themselves.
+    expect(screen.queryByText('alpha')).toBeNull();
+  });
+  it('picking an entry brings the fixed tab of the SSH set to the front', async () => {
+    useEditorsStore.getState().reset();
+    openTerminalFor('b');
+    render(<SshArea />);
+    await userEvent.click(screen.getByTestId('ssh-nav-keychain'));
+    expect(useHostsStore.getState().homeView).toBe('keychain');
+    expect(useEditorsStore.getState().displayedSet).toBe('ssh');
+    expect(useEditorsStore.getState().activeId).toBeUndefined();
+    expect(screen.getByTestId('ssh-nav-keychain').getAttribute('aria-current')).toBe('page');
+    expect(await screen.findByText('DEPLOY_KEY')).toBeDefined();
+  });
+});
+
+describe('Keychain', () => {
+  it('lists each name with where its value lives and the hosts using it', async () => {
+    useHostsStore.setState({
+      homeView: 'keychain',
+      resolved: [
+        {
+          ...STATE.resolved[1]!,
+          ssh: { ...defaults, auth: { value: { kind: 'key', secret: 'DEPLOY_KEY' }, from: 'host' } },
+        },
+      ],
+    });
+    render(<SshHome />);
+    const row = await screen.findByTestId('secret-row-DEPLOY_KEY');
+    expect(row.textContent).toContain('Used by beta');
+    expect(row.textContent).toContain('on this machine');
+    expect(screen.getByTestId('secret-row-UNSET').textContent).toContain('no value');
+  });
+  it('Set value… stores the value write-only and reloads the names', async () => {
+    useHostsStore.setState({ homeView: 'keychain' });
+    render(<SshHome />);
+    const row = await screen.findByTestId('secret-row-UNSET');
+    await userEvent.click(within(row).getByRole('button', { name: 'Set value…' }));
+    expect(screen.getByLabelText<HTMLInputElement>('Secret name').readOnly).toBe(true);
+    await userEvent.type(screen.getByLabelText('Secret value'), 'pw');
+    await userEvent.click(screen.getByRole('button', { name: 'Store' }));
+    expect(setSecret).toHaveBeenCalledWith({ name: 'UNSET', value: 'pw' });
+    await vi.waitFor(() => {
+      expect(secretNames).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.queryByLabelText('Secret value')).toBeNull();
+  });
+  it('New secret takes a name and a value', async () => {
+    useHostsStore.setState({ homeView: 'keychain' });
+    render(<SshHome />);
+    await userEvent.click(screen.getByRole('button', { name: /New secret/ }));
+    await userEvent.type(screen.getByLabelText('Secret name'), 'FRESH');
+    await userEvent.type(screen.getByLabelText('Secret value'), 'v');
+    await userEvent.click(screen.getByRole('button', { name: 'Store' }));
+    expect(setSecret).toHaveBeenCalledWith({ name: 'FRESH', value: 'v' });
+  });
+});
+
+describe('Known hosts', () => {
+  it('lists trusted keys and forgets one after confirming', async () => {
+    useHostsStore.setState({ homeView: 'known-hosts' });
+    render(<SshHome />);
+    const row = await screen.findByTestId('known-host-10.0.0.1:22');
+    expect(row.textContent).toContain('ssh-ed25519 SHA256:abc');
+    await userEvent.click(within(row).getByRole('button', { name: 'Forget' }));
+    expect(forgetHostKey).not.toHaveBeenCalled();
+    await userEvent.click(await screen.findByRole('button', { name: 'Forget' }));
+    expect(forgetHostKey).toHaveBeenCalledWith({ host: '10.0.0.1:22', keyType: 'ssh-ed25519' });
+    await vi.waitFor(() => {
+      expect(knownHosts).toHaveBeenCalledTimes(2);
+    });
+  });
+  it('says so when nothing is trusted yet', async () => {
+    knownHosts.mockResolvedValue({ ok: true, value: { entries: [] } });
+    useHostsStore.setState({ homeView: 'known-hosts' });
+    render(<SshHome />);
+    expect(await screen.findByText(/No trusted host keys yet/)).toBeDefined();
+  });
+});
+
+describe('Hosts tab', () => {
+  it('renders groups, hosts, the needs-badge and the problem banner', () => {
+    render(<SshArea />);
     expect(screen.getByText('Production')).toBeDefined();
     expect(screen.getByText('alpha')).toBeDefined();
     expect(screen.getByText('beta')).toBeDefined();
@@ -82,14 +191,14 @@ describe('HostsView', () => {
     expect(screen.getByText('ssh-bad-yaml')).toBeDefined();
   });
   it('the filter narrows the tree', async () => {
-    render(<HostsView />);
+    render(<SshArea />);
     await userEvent.type(screen.getByLabelText('Filter hosts'), 'beta');
     expect(screen.queryByText('alpha')).toBeNull();
     expect(screen.queryByText('Production')).toBeNull();
     expect(screen.getByText('beta')).toBeDefined();
   });
   it('editing a host inside a group shows the inherited user with its group', async () => {
-    render(<HostsView />);
+    render(<SshArea />);
     fireEvent.contextMenu(screen.getByTestId('host-row-a'));
     await userEvent.click(await screen.findByText('Edit…'));
     expect(await screen.findByText('from Production')).toBeDefined();
@@ -97,7 +206,7 @@ describe('HostsView', () => {
   });
   it('double-clicking a host opens its terminal tab', async () => {
     useEditorsStore.getState().reset();
-    render(<HostsView />);
+    render(<SshArea />);
     await userEvent.dblClick(screen.getByTestId('host-row-b'));
     expect(useEditorsStore.getState().tabs).toEqual([
       { id: 'ssh:b', kind: 'ssh-terminal', title: 'beta', hostId: 'b' },
@@ -106,11 +215,11 @@ describe('HostsView', () => {
   });
   it('a connected host shows it in its row', () => {
     useHostsStore.setState({ sessions: { b: { sessionId: 's1', state: 'open' } } });
-    render(<HostsView />);
+    render(<SshArea />);
     expect(screen.getByLabelText('connected')).toBeDefined();
   });
   it('saving a new host sends the whole file', async () => {
-    render(<HostsView />);
+    render(<SshArea />);
     await userEvent.click(screen.getByRole('button', { name: /New host/ }));
     await userEvent.type(await screen.findByLabelText('Name'), 'gamma');
     await userEvent.type(screen.getByLabelText('Address'), 'gamma.example');
@@ -120,7 +229,7 @@ describe('HostsView', () => {
     expect(sent.file.hosts.map((h) => h.id)).toEqual(['b', 'gamma']);
   });
   it('duplicating twice makes two distinct copies', async () => {
-    render(<HostsView />);
+    render(<SshArea />);
     for (let i = 0; i < 2; i++) {
       fireEvent.contextMenu(screen.getByTestId('host-row-b'));
       await userEvent.click(await screen.findByText('Duplicate'));
@@ -132,12 +241,12 @@ describe('HostsView', () => {
   });
   it('a host missing from resolved still renders, degraded', () => {
     useHostsStore.setState({ resolved: STATE.resolved.filter((r) => r.id !== 'b') });
-    render(<HostsView />);
+    render(<SshArea />);
     expect(screen.getByText('beta')).toBeDefined();
     expect(screen.getByText('unresolved')).toBeDefined();
   });
   it('Move to… lists the top level and other groups and moves the host', async () => {
-    render(<HostsView />);
+    render(<SshArea />);
     fireEvent.contextMenu(screen.getByTestId('host-row-b'));
     await userEvent.click(await screen.findByText('Move to…'));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Production' }));
@@ -146,7 +255,7 @@ describe('HostsView', () => {
     expect(sent.file.groups[0]?.hosts.map((h) => h.id)).toEqual(['a', 'b']);
   });
   it('the auth picker lists names with a hint for unset ones and Set value stores write-only', async () => {
-    render(<HostsView />);
+    render(<SshArea />);
     await userEvent.click(screen.getByRole('button', { name: /New host/ }));
     await userEvent.click(await screen.findByRole('radio', { name: 'Password' }));
     expect(await screen.findByRole('option', { name: 'DEPLOY_KEY' })).toBeDefined();
@@ -154,12 +263,15 @@ describe('HostsView', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Set value…' }));
     await userEvent.type(screen.getByLabelText('Secret name'), 'NEW_ONE');
     await userEvent.type(screen.getByLabelText('Secret value'), 'pw');
+    const before = secretNames.mock.calls.length;
     await userEvent.click(screen.getByRole('button', { name: 'Store' }));
     expect(setSecret).toHaveBeenCalledWith({ name: 'NEW_ONE', value: 'pw' });
-    expect(secretNames).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => {
+      expect(secretNames.mock.calls.length).toBeGreaterThan(before);
+    });
   });
   it('Save stays disabled until a password secret is chosen', async () => {
-    render(<HostsView />);
+    render(<SshArea />);
     await userEvent.click(screen.getByRole('button', { name: /New host/ }));
     await userEvent.type(await screen.findByLabelText('Name'), 'x');
     await userEvent.type(screen.getByLabelText('Address'), 'y');

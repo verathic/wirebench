@@ -87,6 +87,15 @@ test('connect to a host, trust its key, type, see the echo, end the session', as
   await expect(page.getByTestId('editor-empty')).toBeVisible();
   await page.getByTestId('activity-hosts').click();
   await expect(connected).toBeVisible();
+
+  // The menu shows its pick in the area's fixed first tab, here the key just trusted; the session
+  // stays open behind it.
+  await page.getByTestId('ssh-nav-known-hosts').click();
+  await expect(page.getByTestId(`known-host-127.0.0.1:${String(fixture.port)}`)).toContainText(
+    fixture.hostKey.fingerprint,
+  );
+  await page.getByRole('tab', { name: /box/ }).click();
+  await expect(connected).toBeVisible();
   await terminal.click();
 
   // The echo returns the cursor to column 0 without a line feed, so `exit 0` overwrites the first line.

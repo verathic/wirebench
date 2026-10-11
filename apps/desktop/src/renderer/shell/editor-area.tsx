@@ -89,6 +89,11 @@ const InterfaceEditor = lazy(async () => {
 });
 
 // Split out so xterm loads only once a terminal is opened.
+const SshHome = lazy(async () => {
+  const module = await import('../features/ssh/ssh-home.js');
+  return { default: module.SshHome };
+});
+
 const TerminalTab = lazy(async () => {
   const module = await import('../features/ssh/terminal-tab.js');
   return { default: module.TerminalTab };
@@ -152,6 +157,9 @@ const MENU_ITEM_CLASS =
  * explorer adds a real tab from `state/editors.ts`; its body is the lazily-loaded request editor.
  */
 /** What an area's empty editor says, before anything of that area is open. */
+/** The tab a set keeps first, never closed or moved: what is shown while no other tab of it is. */
+const FIXED_TAB: Readonly<Partial<Record<TabSet, string>>> = { explorer: 'Start', ssh: 'Hosts' };
+
 const EMPTY_HINT: Readonly<Record<TabSet, string>> = {
   explorer: 'Select a request in the Explorer, or import a definition to get started.',
   environments: 'Select an environment to edit its variables.',
@@ -164,8 +172,10 @@ export function EditorArea() {
   // Only the set of the area in view is on the strip (`tab-sets.ts`); the rest wait their turn.
   const displayedSet = useEditorsStore((state) => state.displayedSet);
   const tabs = useMemo(() => tabsInSet(allTabs, displayedSet), [allTabs, displayedSet]);
-  // Explorer's set opens on the Start page; another area's set with nothing open shows its own hint.
-  const hasStart = displayedSet === 'explorer';
+  // Explorer's set opens on the Start page and SSH's on its fixed Hosts tab; another area's set
+  // with nothing open shows its own hint.
+  const fixedLabel = FIXED_TAB[displayedSet];
+  const hasStart = fixedLabel !== undefined;
   const dirtyRequests = useDraftsStore((state) => state.requests);
   const dirtyRestRequests = useDraftsStore((state) => state.restRequests);
   const dirtyGrpcRequests = useDraftsStore((state) => state.grpcRequests);
@@ -377,7 +387,7 @@ export function EditorArea() {
                 showingStart ? 'bg-surface-raised text-fg-default' : 'text-fg-subtle hover:bg-surface-raised'
               }`}
             >
-              Start
+              {fixedLabel}
             </button>
           )}
           {tabs.map((tab) => {
@@ -530,7 +540,7 @@ export function EditorArea() {
                       select(START_ID);
                     }}
                   >
-                    Start
+                    {fixedLabel}
                   </DropdownMenu.Item>
                 )}
                 {tabs.map((tab) => (
@@ -566,7 +576,11 @@ export function EditorArea() {
         aria-labelledby={tabId(selectedId)}
         className="min-h-0 flex-1 overflow-hidden"
       >
-        {showingStart ? (
+        {showingStart && displayedSet === 'ssh' ? (
+          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading hosts…</p>}>
+            <SshHome />
+          </Suspense>
+        ) : showingStart ? (
           <div
             data-testid="editor-empty"
             className="flex h-full items-center justify-center px-6 text-sm text-fg-subtle"
