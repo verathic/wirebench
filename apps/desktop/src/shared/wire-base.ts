@@ -319,6 +319,13 @@ export const dialogsOpenFileRequestSchema = z.object({
 });
 export const dialogsOpenFileResponseSchema = z.object({ path: z.string().optional() });
 
+/**
+ * Request/response for `dialogs.openFolder`: a native folder picker for a folder to import from,
+ * recorded as a read pick exactly as an opened file is.
+ */
+export const dialogsOpenFolderRequestSchema = z.object({ title: z.string().optional() });
+export const dialogsOpenFolderResponseSchema = z.object({ path: z.string().optional() });
+
 /** Request/response for `dialogs.saveFile`: a native Save-as picker returning the chosen path. */
 export const dialogsSaveFileRequestSchema = z.object({
   filters: z.array(dialogFilterSchema).optional(),

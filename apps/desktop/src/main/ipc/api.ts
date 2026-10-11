@@ -15,14 +15,18 @@ import {
   HTTP_ENV_FILE,
   HTTP_PRIVATE_ENV_FILE,
   HttpFileError,
+  collectionV3Root,
   importHar,
   importHttpFile,
   importOpenCollection,
   importPostmanCollection,
   importPostmanVariables,
   loadProtoSet,
+  mapCollectionV3,
   MAX_HTTP_FILE_BYTES,
   parseHttpEnvFiles,
+  readCollectionV3,
+  readCollectionV3Folder,
   readOpenCollectionFile,
   ReportBuilder,
   VariableSetBuilder,
@@ -685,6 +689,84 @@ export function registerApiChannels(deps: ApiChannelDeps): void {
           assertionsSkipped: mapped.counts.assertionsSkipped,
           scripts: scripts.written,
         },
+        ...(variables !== undefined ? { variables } : {}),
+        ...report,
+        reportText: formatImportReport(report),
+      };
+    };
+
+    if ('projectId' in request.target) {
+      return await placeIn(request.target.projectId);
+    }
+
+    const { projectId } = await deps.addProject(request.target.newProjectName);
+    try {
+      return await placeIn(projectId);
+    } catch (error) {
+      await deps.removeProject(projectId, { deleteFiles: true }).catch(() => undefined);
+      throw error;
+    }
+  });
+
+  /**
+   * A folder (v3) collection (spec 2026-10-11): each collection's REST, gRPC and WebSocket API in the
+   * chosen project, the collections' variables as its properties, a workspace folder's environments
+   * (never activated) and globals in the workspace. Secret values go to the secret store.
+   *
+   * The picked path — a folder from `dialogs.openFolder`, or a `.resources/definition.yaml` from
+   * Browse… — must pass {@link checkedImportSource}; the folder it stands for is then walked without
+   * following a link and without leaving it. Everything is read and mapped before a project is
+   * created, so a refusal changes nothing, and a project created for the import is taken back when
+   * anything after it fails.
+   */
+  registerHandler(channels.api.importPostmanFolder, async (request) => {
+    const checked = await checkedImportSource(deps.projectDirs(), deps.picks, { kind: 'file', path: request.path });
+    if (checked.kind !== 'file') throw new WirebenchError('invalid-argument', 'Expected a path');
+    const root = await collectionV3Root(checked.path);
+    const files = await readCollectionV3Folder(root);
+    const mapped = mapCollectionV3(readCollectionV3(files, basename(root)), {
+      ...(request.name !== undefined && request.name.trim() !== '' ? { name: request.name } : {}),
+    });
+
+    const placeIn = async (projectId: string) => {
+      let project: Awaited<ReturnType<typeof router.addApi>>['project'] | undefined;
+      const apiIds: string[] = [];
+      const placed = (added: Awaited<ReturnType<typeof router.addApi>>) => {
+        project = added.project;
+        apiIds.push(added.apiId);
+      };
+      for (const collection of mapped.collections) {
+        if (collection.rest !== undefined) {
+          placed(
+            await router.addApi(projectId, {
+              api: collection.rest,
+              documents: [],
+              source: root,
+              declaredVersion: 'postman-collection-v3',
+              cache: false,
+            }),
+          );
+        }
+        if (collection.grpc !== undefined) placed(await router.importGrpcApi(projectId, { api: collection.grpc }));
+        if (collection.websocket !== undefined)
+          placed(await router.importWsApi(projectId, { api: collection.websocket }));
+      }
+      const plan = mapped.variables;
+      const variables =
+        plan.environments.length > 0 || plan.globals !== undefined || plan.projectProperties !== undefined
+          ? await applyImportedVariables(plan, deps.variablesPorts(projectId))
+          : undefined;
+      // The apply result repeats the plan's own report; with nothing applied, the plan's report stands.
+      const variableReport = variables ?? plan.report;
+      const report = {
+        warnings: [...mapped.report.warnings, ...variableReport.warnings],
+        notes: [...mapped.report.notes, ...variableReport.notes],
+      };
+      return {
+        projectId,
+        ...(project !== undefined ? { project } : {}),
+        apiIds,
+        counts: mapped.counts,
         ...(variables !== undefined ? { variables } : {}),
         ...report,
         reportText: formatImportReport(report),
