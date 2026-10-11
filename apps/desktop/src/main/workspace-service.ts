@@ -111,7 +111,7 @@ import { isWorkspaceManagedDir, isWorkspaceManagedPath, ProjectWatcher, SELF_WRI
 import { ProjectHost } from './project-host.js';
 import { checkCertificates } from './certificate-expiry.js';
 import type { KindRouters } from './kinds/kind-main.js';
-import { KIND_ROUTES } from './kinds/kind-routes.js';
+import { KIND_ENTITY_IDS, KIND_ROUTES, type KindEntityIds } from './kinds/kind-routes.js';
 import { requireKindEnabled } from './project-mutations.js';
 import type { KindId } from '../shared/kinds/kind-module.js';
 import type { ProjectRouter } from './project-router.js';
@@ -3085,44 +3085,11 @@ export class WorkspaceService implements ProjectRouter {
         this.index.set(id, project.id);
       };
       add(project.id);
-      for (const iface of project.interfaces) {
-        add(iface.id);
-        // An endpoint can own an OAuth2 configuration, so `oauth2.*` channels address it by id.
-        for (const endpoint of iface.endpoints) {
-          add(endpoint.id);
-        }
-      }
-      for (const request of project.requests) {
-        add(request.id);
-      }
-      // The REST half: every channel addressed at an API, a folder or a REST request routes through
-      // this table too, so all three have to be in it — without them a REST send resolves no host
-      // and fails with `unknown-entity`.
-      for (const api of project.apis) {
-        add(api.id);
-      }
-      for (const folder of project.folders) {
-        add(folder.id);
-      }
-      for (const request of project.restRequests) {
-        add(request.id);
-      }
-      // The webhook collection's folders and items already ride the two lists above (as REST rows
-      // whose `apiId` is the collection's); the collection itself owns auth too, OAuth2 included.
-      if (project.webhooks !== undefined) {
-        add(project.webhooks.id);
-      }
-      for (const api of project.grpcApis) {
-        add(api.id);
-      }
-      for (const request of project.grpcRequests) {
-        add(request.id);
-      }
-      for (const api of project.wsApis) {
-        add(api.id);
-      }
-      for (const request of project.wsRequests) {
-        add(request.id);
+      // Each kind lists what its channels address, so a send of any kind resolves its host rather than
+      // failing with `unknown-entity`. A kind that is off is asked too: its calls then reach the
+      // `feature-disabled` refusal rather than `unknown-entity`.
+      for (const id of kindEntityIds(project)) {
+        add(id);
       }
       // `sequence.run` addresses a sequence by id, so it must route like any other entity.
       for (const sequence of project.sequences) {
@@ -3347,6 +3314,14 @@ export class WorkspaceService implements ProjectRouter {
  * Installs each kind's router methods on `WorkspaceService`: each finds the host its route names (by
  * the entity id the call takes first, or by a leading project id) and calls the kind's host method.
  */
+/** Every entity id `kinds` list in `project`, for the routing index; each kind's by default. */
+export function* kindEntityIds(
+  project: ProjectWire,
+  kinds: readonly KindEntityIds[] = Object.values(KIND_ENTITY_IDS),
+): Iterable<string> {
+  for (const ids of kinds) yield* ids(project);
+}
+
 function routeKinds(): void {
   for (const [kind, routes] of Object.entries(KIND_ROUTES) as [KindId, (typeof KIND_ROUTES)[KindId]][]) {
     for (const [name, route] of Object.entries(routes)) {

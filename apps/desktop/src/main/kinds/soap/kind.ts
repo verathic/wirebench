@@ -1,6 +1,6 @@
 import type { MainKind } from '../kind-main.js';
 import { SoapHost } from './host.js';
-import { soapRoutes } from './router.js';
+import { soapEntityIds, soapRoutes } from './router.js';
 import { soapSend } from './send.js';
 import { soapSearch } from './search.js';
 import { soapLog } from './log.js';
@@ -12,6 +12,7 @@ export const soapMain: MainKind<'soap'> = {
   kind: 'soap',
   createHost: (core) => new SoapHost(core),
   routes: soapRoutes,
+  entityIds: soapEntityIds,
   send: soapSend,
   search: soapSearch,
   log: soapLog,

@@ -1,7 +1,7 @@
 import { grpcApisOf } from '@wirebench/engine';
 import type { MainKind } from '../kind-main.js';
 import { GrpcHost } from './host.js';
-import { grpcRoutes } from './router.js';
+import { grpcEntityIds, grpcRoutes } from './router.js';
 import { grpcSend } from './send.js';
 import { grpcSearch } from './search.js';
 import { grpcLog } from './log.js';
@@ -20,6 +20,7 @@ export const grpcMain: MainKind<'grpc'> = {
   kind: 'grpc',
   createHost: (core) => new GrpcHost(core),
   routes: grpcRoutes,
+  entityIds: grpcEntityIds,
   send: grpcSend,
   search: grpcSearch,
   log: grpcLog,

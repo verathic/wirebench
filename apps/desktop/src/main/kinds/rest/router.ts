@@ -4,6 +4,7 @@
  * one list, so a method is declared here once.
  */
 
+import type { ProjectWire } from '../../../shared/wire-types.js';
 import type { KindRoute, KindRouter } from '../kind-main.js';
 import type { RestHost } from './host.js';
 
@@ -31,3 +32,16 @@ export const restRoutes = {
 } as const satisfies Readonly<Record<string, KindRoute<RestHost>>>;
 
 export type RestRouter = KindRouter<RestHost, typeof restRoutes>;
+
+/**
+ * The ids REST's channels address, for `WorkspaceService`'s routing index: APIs, their folders and
+ * requests, and the webhook collection, which owns auth too (OAuth2 included). The collection's
+ * folders and items are REST rows whose `apiId` is the collection's.
+ */
+export function* restEntityIds(project: ProjectWire): Iterable<string> {
+  const owners = new Set(project.apis.map((api) => api.id));
+  if (project.webhooks !== undefined) owners.add(project.webhooks.id);
+  yield* owners;
+  for (const folder of project.folders) if (owners.has(folder.apiId)) yield folder.id;
+  for (const request of project.restRequests) yield request.id;
+}

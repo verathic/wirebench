@@ -37,6 +37,7 @@ import type { GrpcRouter } from './grpc/router.js';
 import type { RestRouter } from './rest/router.js';
 import type { SoapRouter } from './soap/router.js';
 import type { WsRouter } from './ws/router.js';
+import type { KindEntityIds } from './kind-routes.js';
 import { grpcMain } from './grpc/kind.js';
 import { restMain } from './rest/kind.js';
 import { soapMain } from './soap/kind.js';
@@ -260,6 +261,8 @@ export interface MainKind<K extends KindId = KindId> {
   readonly send: KindSend<K>;
   readonly search?: KindSearch;
   readonly log?: KindLog;
+  /** The entity ids its channels address in a project snapshot, for the routing index. */
+  readonly entityIds: KindEntityIds;
   /** Registers its channels against the routed workspace. */
   registerChannels(deps: KindChannelDeps): void;
 }

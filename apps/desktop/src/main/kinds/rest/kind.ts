@@ -1,7 +1,7 @@
 import { restApisOf } from '@wirebench/engine';
 import type { MainKind } from '../kind-main.js';
 import { RestHost } from './host.js';
-import { restRoutes } from './router.js';
+import { restEntityIds, restRoutes } from './router.js';
 import { restSend } from './send.js';
 import { restSearch } from './search.js';
 import { restLog } from './log.js';
@@ -14,6 +14,7 @@ export const restMain: MainKind<'rest'> = {
   kind: 'rest',
   createHost: (core) => new RestHost(core),
   routes: restRoutes,
+  entityIds: restEntityIds,
   send: restSend,
   search: restSearch,
   log: restLog,

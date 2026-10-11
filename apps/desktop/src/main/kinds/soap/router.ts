@@ -4,6 +4,7 @@
  * one list, so a method is declared here once.
  */
 
+import type { ProjectWire } from '../../../shared/wire-types.js';
 import type { KindRoute, KindRouter } from '../kind-main.js';
 import type { SoapHost } from './host.js';
 
@@ -44,3 +45,16 @@ export const soapRoutes = {
 } as const satisfies Readonly<Record<string, KindRoute<SoapHost>>>;
 
 export type SoapRouter = KindRouter<SoapHost, typeof soapRoutes>;
+
+/**
+ * The ids SOAP's channels address, for `WorkspaceService`'s routing index: interfaces, their
+ * endpoints (an endpoint can own an OAuth2 configuration, so `oauth2.*` channels address it) and
+ * requests.
+ */
+export function* soapEntityIds(project: ProjectWire): Iterable<string> {
+  for (const iface of project.interfaces) {
+    yield iface.id;
+    for (const endpoint of iface.endpoints) yield endpoint.id;
+  }
+  for (const request of project.requests) yield request.id;
+}

@@ -4,6 +4,7 @@
  * one list, so a method is declared here once.
  */
 
+import type { ProjectWire } from '../../../shared/wire-types.js';
 import type { KindRoute, KindRouter } from '../kind-main.js';
 import type { WsHost } from './host.js';
 
@@ -23,3 +24,11 @@ export const wsRoutes = {
 } as const satisfies Readonly<Record<string, KindRoute<WsHost>>>;
 
 export type WsRouter = KindRouter<WsHost, typeof wsRoutes>;
+
+/** The ids WebSocket's channels address, for `WorkspaceService`'s routing index: APIs, their folders and requests. */
+export function* wsEntityIds(project: ProjectWire): Iterable<string> {
+  const owners = new Set(project.wsApis.map((api) => api.id));
+  yield* owners;
+  for (const folder of project.folders) if (owners.has(folder.apiId)) yield folder.id;
+  for (const request of project.wsRequests) yield request.id;
+}
