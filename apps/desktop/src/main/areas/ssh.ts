@@ -8,7 +8,7 @@ import type { SshService } from '../ssh-service.js';
 export function registerSshChannels(deps: {
   hosts: Pick<HostsService, 'list' | 'save'>;
   secrets: Pick<SshSecretsService, 'names' | 'set'>;
-  ssh: Pick<SshService, 'connect' | 'write' | 'resize' | 'close' | 'trust'>;
+  ssh: Pick<SshService, 'connect' | 'write' | 'resize' | 'close' | 'trust' | 'knownHosts' | 'forgetHostKey'>;
   importer: Pick<SshImportService, 'preview' | 'apply'>;
 }): void {
   registerHandler(channels.ssh.listHosts, () => deps.hosts.list());
@@ -34,6 +34,11 @@ export function registerSshChannels(deps: {
   });
   registerHandler(channels.ssh.trustHostKey, async (request, sender) => {
     await deps.ssh.trust(sender, request);
+    return {};
+  });
+  registerHandler(channels.ssh.knownHosts, async () => ({ entries: [...(await deps.ssh.knownHosts())] }));
+  registerHandler(channels.ssh.forgetHostKey, async (request) => {
+    await deps.ssh.forgetHostKey(request);
     return {};
   });
   // A preview belongs to the window that asked for it; only that window can apply it.

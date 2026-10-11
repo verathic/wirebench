@@ -453,6 +453,22 @@ export class SshService {
     return socket;
   }
 
+  /** The host keys trusted on this machine, for the Known hosts view. */
+  async knownHosts(): Promise<readonly KnownHostEntry[]> {
+    return this.readKnownHosts();
+  }
+
+  /**
+   * Forgets the trusted key for `host` and `keyType`: the next connection to that host shows the
+   * trust prompt again. Forgetting a key that is not there is a no-op, not an error.
+   */
+  async forgetHostKey(request: { readonly host: string; readonly keyType: string }): Promise<void> {
+    const known = await this.readKnownHosts();
+    const kept = known.filter((e) => !(e.host === request.host && e.keyType === request.keyType));
+    if (kept.length === known.length) return;
+    await writeFileAtomic(nodeFs, this.deps.knownHostsFile, serializeKnownHosts(kept));
+  }
+
   private async readKnownHosts(): Promise<readonly KnownHostEntry[]> {
     try {
       return parseKnownHosts(await readFile(this.deps.knownHostsFile, 'utf8'));
