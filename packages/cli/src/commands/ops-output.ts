@@ -17,7 +17,7 @@ function importText(result: ImportOutput): string {
   return lines(
     ...result.added.map(
       (item) =>
-        `added ${item.kind === 'soap' ? 'interface' : 'API'} ${item.name}: ${String(item.operations)} operations, ${String(item.requests)} requests`,
+        `added ${item.kind === 'soap' ? 'interface' : 'API'} ${item.name}: ${item.operations !== undefined ? `${String(item.operations)} operations, ` : ''}${String(item.requests)} requests`,
     ),
     ...result.problems.map(
       (problem) =>

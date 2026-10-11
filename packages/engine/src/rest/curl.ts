@@ -38,7 +38,7 @@ export interface RestToCurlOptions extends ToCurlOptions {
 }
 
 /** The body of an exported command, per kind. */
-function curlBody(body: RestBody): CurlBody {
+export function curlBody(body: RestBody): CurlBody {
   switch (body.kind) {
     case 'raw':
       return { kind: 'raw', text: body.text };

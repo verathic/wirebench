@@ -1,0 +1,7 @@
+$kind: http-request
+url: https://status.example.com/items
+method: POST
+body:
+  type: json
+  content: '{"n": {{$randomInt}}}'
+order: 1000

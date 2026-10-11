@@ -349,8 +349,27 @@ export { isSoapFault, parseFault } from './soap/fault.js';
 export type { FaultReason, SoapFault } from './soap/fault.js';
 export { recreateRequest } from './soap/recreate.js';
 export type { RecreateOptions, RecreateResult } from './soap/recreate.js';
-export { toCurl } from './http/curl.js';
+export { quoteForShell, toCurl } from './http/curl.js';
 export type { CurlBody, CurlCommand, CurlHeader, CurlPart, ToCurlOptions } from './http/curl.js';
+export {
+  CODE_TARGETS,
+  defaultIndent,
+  envMarker,
+  generateCode,
+  secretTokensToEnv,
+  splitEnv,
+} from './http/codegen/index.js';
+export { restCodeRequest } from './rest/codegen.js';
+export { soapCodeRequest } from './soap/codegen.js';
+export type {
+  CodeBody,
+  CodeHeader,
+  CodeOptions,
+  CodeRequest,
+  CodeTargetId,
+  GeneratedCode,
+  TextPart,
+} from './http/codegen/index.js';
 export { fromCurl, soapToCurl } from './soap/curl.js';
 export type { FromCurlResult } from './soap/curl.js';
 export { parseSoapResponse } from './soap/response-parser.js';
@@ -813,6 +832,7 @@ export {
   parsePostmanCollection,
   parsePostmanCollectionText,
   parsePostmanVariablesText,
+  postmanVariablesOf,
   translatePostmanVariables,
 } from './rest/postman/index.js';
 // HAR: reading browser captures (HAR 1.1 and 1.2).
@@ -864,6 +884,28 @@ export type {
   OcScript,
   OcVariable,
 } from './import/opencollection/index.js';
+// Folder (v3) collections: a tree of YAML files, read from a map of files or from a folder on disk.
+export {
+  MAPPED_V3_KINDS,
+  UNMAPPED_V3_KINDS,
+  V3_DOCUMENT_KINDS,
+  readCollectionV3,
+  v3Requests,
+} from './import/collection-v3/index.js';
+export { mapCollectionV3 } from './import/collection-v3/map.js';
+export type {
+  MapCollectionV3Options,
+  MappedCollectionV3,
+  MappedCollectionV3Entry,
+} from './import/collection-v3/map.js';
+export {
+  COLLECTION_V3_FOLDER_LIMITS,
+  collectionV3Root,
+  importCollectionV3Folder,
+  readCollectionV3Folder,
+} from './import/collection-v3/read-folder.js';
+export type { CollectionV3FolderLimits } from './import/collection-v3/read-folder.js';
+export type { V3Collection, V3File, V3Folder, V3Request, V3Script, V3Workspace } from './import/collection-v3/index.js';
 // Exporters: a project, an API or an interface as a Postman Collection v2.1 or an OpenCollection.
 export { COLLECTION_EXPORT_FORMATS, exportCollection } from './export/index.js';
 export type {

@@ -1,0 +1,10 @@
+$kind: collection
+description: Endpoints only an admin may call.
+order: 4000
+variables:
+  adminUser: admin
+auth:
+  type: basic
+  credentials:
+    username: '{{adminUser}}'
+    password: hunter2
