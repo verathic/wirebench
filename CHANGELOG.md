@@ -27,7 +27,12 @@ All notable changes to this project are documented here. The format follows
   `{{$timestamp}}`, `{{$randomInt}}` and the other common names now map onto them; a name with no
   generator keeps the import warning. Type `${$` in a body editor, or use **Get Data…**, to list them
   (#333).
-
+- **Variables in the editor.** Typing `${` in a request's URL, parameters, headers, auth fields or
+  body completes the names in scope, with each one's scope, and `${$` completes the dynamic values.
+  Hovering a reference shows its value (masked when it reads a secret) and scope, with a link to
+  edit it. A name that resolves to nothing is underlined where it is written. **Set as Variable…**
+  on text selected in a request or a response creates a variable in the scope you pick; in a
+  request, the selection becomes the reference (#340).
 - **The Code panel writes a request as code.** Besides `curl`, a SOAP or REST request can be shown
   as JavaScript fetch, Node.js axios, Python requests, Go net/http, Java HttpClient, Java OkHttp,
   C# HttpClient, PHP cURL, Ruby Net::HTTP, PowerShell Invoke-RestMethod or HTTPie, or as the
