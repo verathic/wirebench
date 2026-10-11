@@ -16,7 +16,24 @@ import type {
 } from './ui-state.js';
 import type { RequestImportCurlTarget } from '../../shared/kinds/rest/wire.js';
 import type { SettingsSectionRequest } from '../features/preferences/settings-model.js';
-import { DEFAULT_UI_STATE, readUi, writeUi } from './ui-state.js';
+import { DEFAULT_UI_STATE, readUi, sidebarSizeGroup, SSH_SIDEBAR_SIZE, writeUi } from './ui-state.js';
+
+/**
+ * Moves the sidebar to `view`. Crossing between the SSH area and the rest swaps the width in use with
+ * the one parked for the other group, so each comes back as the user last left it (collapsed or not).
+ */
+function moveSidebarTo(draft: Draft<UiSnapshot>, view: SidebarView): void {
+  const sidebar = draft.sidebar;
+  if (sidebarSizeGroup(view) !== sidebarSizeGroup(sidebar.view)) {
+    const current = sidebar.visible ? sidebar.size : sidebar.lastSize;
+    const next =
+      sidebar.parkedSize ?? (sidebarSizeGroup(view) === 'ssh' ? SSH_SIDEBAR_SIZE : DEFAULT_UI_STATE.sidebar.size);
+    sidebar.parkedSize = current;
+    sidebar.size = next;
+    sidebar.lastSize = next;
+  }
+  sidebar.view = view;
+}
 
 /** A selected node in the explorer tree, read by the request inspectors and explorer actions. */
 export interface Selection {
@@ -505,7 +522,7 @@ export const useUiStore = create<UiStore>((set, get) => {
           draft.sidebar.visible = false;
           return;
         }
-        draft.sidebar.view = view;
+        moveSidebarTo(draft, view);
         if (!draft.sidebar.visible) {
           draft.sidebar.visible = true;
           draft.sidebar.size = draft.sidebar.lastSize;
@@ -514,7 +531,7 @@ export const useUiStore = create<UiStore>((set, get) => {
     setSidebarView: (view) =>
       update((draft) => {
         if (!get().enabledAreas.includes(view)) return;
-        draft.sidebar.view = view;
+        moveSidebarTo(draft, view);
       }),
     showConsoleTab: (tab) =>
       update((draft) => {
