@@ -14,6 +14,13 @@ All notable changes to this project are documented here. The format follows
   nothing is underlined where it is written. **Set as Variable…** on text selected in a request or
   a response creates a variable in the scope you pick; in a request, the selection becomes the
   reference (#340).
+- **The Code panel writes a request as code.** Besides `curl`, a SOAP or REST request can be shown
+  as JavaScript fetch, Node.js axios, Python requests, Go net/http, Java HttpClient, Java OkHttp,
+  C# HttpClient, PHP cURL, Ruby Net::HTTP, PowerShell Invoke-RestMethod or HTTPie, or as the
+  `wirebench run` line that sends the saved request. Each snippet is built from the resolved send, so
+  it matches the wire. A credential is read from the `WIREBENCH_SECRET_*` variable the CLI reads,
+  never written out, unless Show secrets is on. Indent, redirects and timeout are set per language,
+  and the language picked last is remembered (#337).
 - **Postman Collection v3 folders import.** In **Import…**, pick a collection's folder with the new
   **Folder…** button, or its `.resources/definition.yaml`; a workspace folder (`collections/`,
   `environments/`, `globals/`) imports every collection with its environments and globals.

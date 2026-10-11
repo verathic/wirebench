@@ -1,5 +1,7 @@
 import { AREAS } from '@shared/area-module.js';
 import type { AreaId } from '@shared/area-module.js';
+import { CODE_TARGET_IDS, isCodeLanguage } from '@shared/code-targets.js';
+import type { CodeLanguage, CodeSettings, CodeTarget } from '@shared/code-targets.js';
 
 /** Which view the sidebar shows; mirrors the activity bar's icons. */
 export type SidebarView = AreaId;
@@ -93,6 +95,10 @@ export interface UiSnapshot {
     readonly width: number;
     /** The Code panel's POSIX/PowerShell choice; carried here since the panel now lives in the slide-over. */
     readonly codeShell: CodeShell;
+    /** The language the Code panel shows, picked last; `curl` uses {@link codeShell}. */
+    readonly codeLanguage: CodeLanguage;
+    /** Each language's own layout choices; a language with none takes the request's values. */
+    readonly codeSettings: Readonly<Partial<Record<CodeTarget, CodeSettings>>>;
   };
   readonly theme: ThemePreference;
   /** Whether request/response Monaco editors show line numbers. */
@@ -129,7 +135,7 @@ const PRIOR_UI_STORAGE_VERSION = 3;
 export const DEFAULT_UI_STATE: UiSnapshot = {
   sidebar: { visible: true, view: 'explorer', size: 20, lastSize: 20 },
   console: { visible: true, activeTab: 'http-log', size: 25, lastSize: 25 },
-  slideOver: { open: false, width: 420, codeShell: 'posix' },
+  slideOver: { open: false, width: 420, codeShell: 'posix', codeLanguage: 'curl', codeSettings: {} },
   theme: 'dark',
   editorLineNumbers: true,
   editorLayout: { orientation: 'side-by-side', mode: 'split' },
@@ -186,7 +192,30 @@ function mergeSlideOver(stored: unknown, legacyCodeShell: unknown): UiSnapshot['
     open: typeof open === 'boolean' ? open : DEFAULT_UI_STATE.slideOver.open,
     width: typeof width === 'number' ? width : DEFAULT_UI_STATE.slideOver.width,
     codeShell: codeShell === 'posix' || codeShell === 'powershell' ? codeShell : DEFAULT_UI_STATE.slideOver.codeShell,
+    codeLanguage: isCodeLanguage(record?.['codeLanguage'])
+      ? record['codeLanguage']
+      : DEFAULT_UI_STATE.slideOver.codeLanguage,
+    codeSettings: mergeCodeSettings(record?.['codeSettings']),
   };
+}
+
+/** The stored per-language settings, each field kept only when it is one the panel could have written. */
+function mergeCodeSettings(stored: unknown): UiSnapshot['slideOver']['codeSettings'] {
+  const record = asRecord(stored);
+  const out: Partial<Record<CodeTarget, CodeSettings>> = {};
+  for (const target of CODE_TARGET_IDS) {
+    const entry = asRecord(record?.[target]);
+    if (entry === undefined) continue;
+    const { indent, followRedirects, timeoutMs } = entry;
+    out[target] = {
+      ...(indent === 'tab' || (typeof indent === 'number' && Number.isInteger(indent) && indent >= 0 && indent <= 8)
+        ? { indent }
+        : {}),
+      ...(typeof followRedirects === 'boolean' ? { followRedirects } : {}),
+      ...(typeof timeoutMs === 'number' && Number.isInteger(timeoutMs) && timeoutMs >= 0 ? { timeoutMs } : {}),
+    };
+  }
+  return out;
 }
 
 /**

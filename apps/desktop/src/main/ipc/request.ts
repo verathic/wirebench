@@ -2,12 +2,21 @@ import {
   applySoapAuth,
   applyWsaHeaders,
   CURL_REDACTED,
+  envMarker,
+  envVariablesFor,
   fromCurl,
   fromRestCurl,
+  generateCode,
   grpcToCommand,
   isWirebenchError,
   ProjectError,
+  quoteForShell,
+  restCodeRequest,
   restToCurl,
+  runSelectorOf,
+  secretNeedsOfAuth,
+  secretTokensToEnv,
+  soapCodeRequest,
   soapToCurl,
   toWsSessionOptions,
   wsToCommand,
@@ -16,6 +25,8 @@ import { channels } from '../../shared/ipc.js';
 import type { EngineService } from '../engine-service.js';
 import type {
   AuthConfig,
+  CodeOptions,
+  CodeRequest,
   DesktopAuditEvent,
   OAuth2Auth,
   RestBody,
@@ -53,7 +64,12 @@ import type { PreflightResult } from '../expansion-preflight.js';
 import { toUnresolvedRefWire } from '../engine-wire.js';
 import { secretSourceContext, secretSourceRefCode } from '../expansion-preflight.js';
 import type { SecretSourcesSnapshot } from '../secret-sources-service.js';
-import type { HistoryEntryWire, RequestCurlRequest, LogEntryWire } from '../../shared/wire-types.js';
+import type {
+  HistoryEntryWire,
+  RequestCodeRequest,
+  RequestCurlRequest,
+  LogEntryWire,
+} from '../../shared/wire-types.js';
 import type {
   RestRequestPatchWire,
   RequestImportCurlRequest,
@@ -481,6 +497,184 @@ async function curl(
     command: comments.length === 0 ? command : `${comments.join('\n')}\n${command}`,
     ...(notes.length > 0 ? { notes } : {}),
   };
+}
+
+/**
+ * A credential's shape with each secret a read of the environment variable the CLI reads it from,
+ * for code generation with show-secrets off: the snippet runs once that variable is set, and the
+ * keychain is never touched. NTLM, Kerberos and OAuth2 have no arm; the caller notes them instead.
+ */
+function environmentAuth(auth: AuthConfig): SendAuth | undefined {
+  const need = secretNeedsOfAuth(auth)[0];
+  const variable = need === undefined ? undefined : envVariablesFor(need)[0];
+  const value = variable === undefined ? '' : envMarker(variable);
+  switch (auth.type) {
+    case 'basic':
+      return { type: 'basic', username: auth.username ?? '', password: value, preemptive: auth.preemptive ?? true };
+    case 'bearer':
+      return { type: 'bearer', token: value, ...(auth.scheme !== undefined ? { scheme: auth.scheme } : {}) };
+    case 'api-key':
+      return { type: 'api-key', name: auth.name, value, in: auth.in };
+    default:
+      return undefined;
+  }
+}
+
+/** The note for a credential code generation does not carry, by its type. */
+function uncarriedAuthNote(type: AuthConfig['type'], tokenIncluded: boolean): string | undefined {
+  switch (type) {
+    case 'ntlm':
+      return 'NTLM is not included: it needs a challenge round trip the snippet does not make.';
+    case 'kerberos':
+      return 'Kerberos is not included: the snippet does not ask the operating system for a ticket.';
+    case 'oauth2':
+      return tokenIncluded
+        ? undefined
+        : 'The OAuth2 access token is not included; the snippet carries no Authorization.';
+    default:
+      return undefined;
+  }
+}
+
+/** The settings a `request.code` call asked for, in the engine's terms. */
+function codeOptions(settings: RequestCodeRequest['settings']): CodeOptions {
+  return {
+    ...(settings?.indent !== undefined ? { indent: settings.indent } : {}),
+    ...(settings?.followRedirects !== undefined ? { followRedirects: settings.followRedirects } : {}),
+    ...(settings?.timeoutMs !== undefined ? { timeoutMs: settings.timeoutMs } : {}),
+  };
+}
+
+/**
+ * One REST or SOAP request as code in another language, built from the same resolved send the
+ * `curl` export uses, so every language agrees with the wire. With show-secrets off no secret is
+ * read: each credential is an environment read in the snippet, and a value the masker has recorded
+ * is masked wherever it sits.
+ */
+async function code(
+  deps: RequestChannelDeps,
+  sendDeps: SendThroughEngineDeps,
+  request: RequestCodeRequest,
+): Promise<RequestCurlResponse> {
+  const { target } = request;
+  if (target === 'wirebench-run') {
+    return runLine(deps, request.requestId);
+  }
+  const show = deps.showSecrets?.get() ?? false;
+  const rest = await previewRest(sendDeps, request.requestId, request.draft);
+  const built =
+    rest !== undefined ? await restCode(deps, rest, show) : await soapCode(deps, sendDeps, request.requestId, show);
+  const generated = generateCode(target, built.request, codeOptions(request.settings));
+  const notes = [...built.notes, ...generated.notes];
+  return { command: redactSecretText(generated.code, { show }), ...(notes.length > 0 ? { notes } : {}) };
+}
+
+/** A REST request as a {@link CodeRequest}, with what it does not carry. */
+async function restCode(
+  deps: RequestChannelDeps,
+  resolved: RestPreview,
+  show: boolean,
+): Promise<{ readonly request: CodeRequest; readonly notes: readonly string[] }> {
+  const { type } = resolved.auth;
+  const carried = type === 'basic' || type === 'bearer' || type === 'api-key';
+  const auth = !carried
+    ? undefined
+    : show
+      ? await resolveAuthConfig(resolved.auth, (ref) => deps.getSecret?.(ref) ?? Promise.resolve(undefined))
+      : environmentAuth(resolved.auth);
+  // The preview's own credentials are dropped: only the ones decided here may reach the snippet.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to omit it
+  const { auth: _preview, ...input } = resolved.input;
+  const notes: string[] = [];
+  // A `${secret:name}` token is an environment read in the snippet, so only the others are unresolved.
+  const unresolved = resolved.unresolved.filter((reference) => !isSecretTokenRef(reference));
+  if (unresolved.length > 0) {
+    notes.push(
+      `Unresolved propert${unresolved.length === 1 ? 'y' : 'ies'}: ${unresolved
+        .map((reference) => reference.expr)
+        .join(', ')}.`,
+    );
+  }
+  const uncarried = uncarriedAuthNote(type, false);
+  if (uncarried !== undefined) notes.push(uncarried);
+  return {
+    request: restCodeRequest(secretTokensToEnv({ ...input, ...(auth !== undefined ? { auth } : {}) })),
+    notes,
+  };
+}
+
+/** A SOAP request as a {@link CodeRequest}: its envelope with WS-Addressing baked in, its credentials applied. */
+async function soapCode(
+  deps: RequestChannelDeps,
+  sendDeps: SendThroughEngineDeps,
+  requestId: string,
+  show: boolean,
+): Promise<{ readonly request: CodeRequest; readonly notes: readonly string[] }> {
+  const soap = await soapPreviewOrUnknown(sendDeps, requestId);
+  const owner = soap.auth;
+  const accessToken = owner?.type === 'oauth2' && show ? cachedAccessToken(deps, owner) : undefined;
+  const auth =
+    owner === undefined || owner.type === 'kerberos' || owner.type === 'ntlm'
+      ? undefined
+      : show
+        ? await resolveSoapAuth(
+            owner,
+            (ref) => deps.getSecret?.(ref) ?? Promise.resolve(undefined),
+            accessToken !== undefined ? { accessToken } : {},
+          )
+        : environmentAuth(owner);
+  // Headers typed on the request are masked by name, as the `curl` export masks them.
+  const typed = withWsaHeaders({
+    ...soap.input,
+    headers: redactHeaders(soap.input.headers ?? {}, { show }),
+    envelopeXml: redactXml(soap.input.envelopeXml, { show }),
+  });
+  const applied =
+    auth === undefined || auth.type === 'basic' || auth.type === 'ntlm'
+      ? undefined
+      : applySoapAuth(typed.endpoint, typed.headers, auth);
+  const input = secretTokensToEnv(
+    applied === undefined ? typed : { ...typed, endpoint: applied.endpoint, headers: { ...applied.headers } },
+  );
+  const basic = auth?.type === 'basic' ? { username: auth.username, password: auth.password } : undefined;
+  const notes: string[] = [];
+  if (deps.project.hasOutgoingWss?.(requestId) === true) {
+    notes.push('WS-Security is not included in the snippet.');
+  }
+  const count = deps.project.sendAttachmentsFor?.(requestId)?.attachments.length ?? 0;
+  if (count > 0) {
+    notes.push(`${String(count)} attachment(s) are not included in the snippet.`);
+  }
+  const uncarried = owner === undefined ? undefined : uncarriedAuthNote(owner.type, accessToken !== undefined);
+  if (uncarried !== undefined) notes.push(uncarried);
+  const network = await networkNote(deps.project, requestId, input.endpoint);
+  if (network !== undefined) notes.push(network);
+  return { request: soapCodeRequest(input, basic), notes };
+}
+
+/**
+ * The `wirebench run` line that sends the saved request from a terminal: the project folder, the
+ * request's path in it, and the active environment. It runs what is saved, so unsaved edits are not in it.
+ */
+function runLine(deps: RequestChannelDeps, requestId: string): RequestCurlResponse {
+  const located = deps.project.runContextFor?.(requestId);
+  if (located === undefined) {
+    throw unknownRequest(requestId);
+  }
+  const selector = runSelectorOf(located.project, requestId, located.registry);
+  if (selector === undefined) {
+    return {
+      command: '# wirebench run cannot send this request (a streaming call, a webhook item, or an orphan).',
+    };
+  }
+  const environments: readonly { readonly id: string; readonly slug: string }[] =
+    located.workspace?.workspace.environments ?? located.project.environments;
+  const environment = environments.find((candidate) => candidate.id === located.environmentId);
+  const words = ['wirebench run', quoteForShell(located.projectDir, 'posix'), quoteForShell(selector, 'posix')];
+  if (environment !== undefined) {
+    words.push('--env', quoteForShell(environment.slug, 'posix'));
+  }
+  return { command: words.join(' '), notes: ['Runs the request as saved; unsaved edits are not included.'] };
 }
 
 /**
@@ -1013,6 +1207,7 @@ export function registerRequestChannels(service: EngineService, deps: RequestCha
   );
 
   registerHandler(channels.request.curl, (request) => curl(service, deps, sendDeps, request));
+  registerHandler(channels.request.code, (request) => code(deps, sendDeps, request));
 
   registerHandler(channels.request.variables, (request) => variablesFor(deps, request.requestId));
 

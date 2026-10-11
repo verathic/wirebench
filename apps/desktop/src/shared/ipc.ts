@@ -297,6 +297,7 @@ import {
   projectMutateResponseSchema,
   projectSnapshotResponseSchema,
   requestCurlRequestSchema,
+  requestCodeRequestSchema,
   requestPreflightResponseSchema,
   workspaceRestoredResponseSchema,
   workspaceStashDraftsRequestSchema,
@@ -386,6 +387,7 @@ export const channels = {
      * hover and unresolved marks (#340). A value reaching a secret comes back masked, without it.
      */
     variables: defineChannel('request.variables', requestVariablesRequestSchema, requestVariablesResponseSchema),
+    code: defineChannel('request.code', requestCodeRequestSchema, requestCurlResponseSchema),
     ...soapChannels.request,
     ...restChannels.request,
     ...grpcChannels.request,
