@@ -1,0 +1,20 @@
+$kind: collection
+name: Realtime
+variables:
+  grpcHost: grpc.example.com:443
+  wsUrl: wss://ws.example.com
+auth:
+  - id: 0f3b5a8e-1111-4c1e-9a2b-000000000001
+    type: apikey
+    name: Partner key
+    credentials:
+      key: X-Api-Key
+      value: '{{partnerKey}}'
+      in: header
+  - id: 0f3b5a8e-1111-4c1e-9a2b-000000000002
+    type: bearer
+    name: User token
+    credentials:
+      token: '{{userToken}}'
+    rules:
+      - kind: http

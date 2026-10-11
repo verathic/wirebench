@@ -1,0 +1,13 @@
+$kind: websocket-request
+name: Chat
+description: ""
+url: "{{wsUrl}}/chat?room=general"
+headers:
+  Authorization: Bearer {{userToken}}
+queryParams:
+  room: general
+settings:
+  handshakeTimeout: 5000
+  retryCount: 2
+messages: .resources/Chat.resources/messages
+order: 2000

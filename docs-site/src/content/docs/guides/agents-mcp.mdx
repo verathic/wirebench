@@ -68,7 +68,7 @@ request that is not a real `initialize` closes nobody's session. All clients sha
 | `query` | Runs XPath on XML or JSONPath on JSON. | none |
 | `history_list` | Lists recent sends, the app's and the agent's. | none |
 | `history_diff` | Diffs two responses semantically, ignoring the paths you name. | none |
-| `import` | Adds a WSDL or OpenAPI document to the project. | `--allow-write` |
+| `import` | Adds a WSDL or OpenAPI document, or a Postman Collection v3 folder, to the project. | `--allow-write` |
 
 Every tool is always listed. One whose flag is off answers with an error that names the flag, so the
 agent can tell you what to allow. `-e local,staging` limits the environments `send` may use, and with

@@ -15,6 +15,7 @@ smaller one.
 | WSDL (SOAP) | Import dialog | URL, file or pasted XML |
 | OpenAPI / Swagger | Import dialog | URL, file or pasted YAML/JSON |
 | Postman Collection | Import dialog | File or pasted JSON |
+| Postman Collection v3 (folder) | Import dialog | A folder (**Folder…**), its `.resources/definition.yaml`, or a workspace folder |
 | Postman environment or globals | Import dialog | File or pasted JSON |
 | HAR (recorded traffic) | Import dialog | File or pasted JSON |
 | .http file | Import dialog | File or pasted text |
@@ -36,7 +37,7 @@ smaller one.
    **Server**, asks a running server to describe itself instead of reading a document.
 
 3. Leave **Format** on **Auto-detect**, or pick one explicitly: **OpenAPI / Swagger**, **Postman
-   Collection**, **Postman environment**, **Postman globals**, **HAR (recorded traffic)**, **.http file**, **HTTP client
+   Collection**, **Postman Collection v3 (folder)**, **Postman environment**, **Postman globals**, **HAR (recorded traffic)**, **.http file**, **HTTP client
    environment file**, **OpenCollection**, **WSDL (SOAP)**, **Protocol Buffers (gRPC)**, or **Legacy SOAP project**. With
    auto-detect, a badge shows what was recognized, for example "WSDL / SOAP" or "OpenAPI 3.1.0".
 
@@ -144,6 +145,29 @@ See [From Postman collections](/wirebench/docs/switching/postman/) for every map
 <Aside type="note">
 Postman import by URL is not supported. Download the collection file, or paste its JSON, instead.
 </Aside>
+
+## Postman collection folders (v3)
+
+The v3 format is a folder of YAML files, one per request. A folder is read as one collection; a
+workspace folder holding `collections/` imports every collection in it, with the `environments/` and
+`globals/` beside it.
+
+<Steps>
+
+1. Open **Import…** and choose the **File** tab.
+
+2. Choose **Folder…** and pick the collection's folder, or the workspace folder. **Browse…** to the
+   collection's `.resources/definition.yaml` works too.
+
+3. Choose the target project and **Import**.
+
+</Steps>
+
+Each collection becomes a REST API for its HTTP requests, and a gRPC and a WebSocket API when it has
+requests of those kinds. The summary counts the collections, APIs, requests, folders and examples,
+and lists what did not come across per file. The folder is read without following links and without
+leaving it, up to 5000 files and 50 MB. See [Collection v3 folders](/wirebench/docs/switching/postman/#collection-v3-folders)
+for every mapping. From the command line, `wirebench import <folder>` adds the same APIs.
 
 ## Postman environments and globals
 

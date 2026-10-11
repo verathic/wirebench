@@ -1,0 +1,24 @@
+$kind: http-request
+description: >-
+  Adds a book. The new id is saved for the next request.
+url: "{{baseUrl}}/books"
+method: POST
+headers:
+  Content-Type: application/json
+  X-Request-Id: '{{$guid}}'
+body:
+  type: json
+  content: |-
+    {
+      "title": "Example Book",
+      "author": "Jane Doe"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("created", function () {
+        pm.expect(pm.response.code).to.eql(201);
+      });
+      pm.environment.set("bookId", pm.response.json().id);
+    language: text/javascript
+order: 3000

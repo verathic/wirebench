@@ -47,8 +47,8 @@ export const GROUP_FOLDERS = Object.freeze({
  *
  * Two kinds, told apart by `until`: the three files that are what they are (`protocols.ts`,
  * `index.ts`, `project-files.ts`); and the attachments cache and the environments, which hold SOAP
- * types until the phase of #184 that splits them. Format detection and the `.http` and
- * OpenCollection importers, which turn one file or collection into several protocols' APIs, wait
+ * types until the phase of #184 that splits them. Format detection and the `.http`, OpenCollection
+ * and folder (v3) collection importers, which turn one file or collection into several protocols' APIs, wait
  * for phase 7, which decides import's API. Each importer keeps its protocol imports in its `map.ts`;
  * the collection exporters, which read every protocol's APIs, keep theirs in `export/tree.ts`.
  *
@@ -77,6 +77,11 @@ export const CORE_EXCEPTIONS = Object.freeze([
   { from: 'import/opencollection/map.ts', to: 'rest/url.ts', until: 'phase 7' },
   { from: 'import/opencollection/map.ts', to: 'grpc/model.ts', until: 'phase 7' },
   { from: 'import/opencollection/map.ts', to: 'ws/model.ts', until: 'phase 7' },
+  { from: 'import/collection-v3/map.ts', to: 'rest/model.ts', until: 'phase 7' },
+  { from: 'import/collection-v3/map.ts', to: 'rest/url.ts', until: 'phase 7' },
+  { from: 'import/collection-v3/map.ts', to: 'rest/postman/', until: 'phase 7' },
+  { from: 'import/collection-v3/map.ts', to: 'grpc/model.ts', until: 'phase 7' },
+  { from: 'import/collection-v3/map.ts', to: 'ws/model.ts', until: 'phase 7' },
   { from: 'export/tree.ts', to: 'rest/model.ts', until: 'phase 7' },
   { from: 'export/tree.ts', to: 'rest/url.ts', until: 'phase 7' },
   { from: 'export/tree.ts', to: 'soap/model.ts', until: 'phase 7' },
