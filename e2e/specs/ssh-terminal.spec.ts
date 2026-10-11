@@ -63,6 +63,11 @@ test('connect to a host, trust its key, type, see the echo, end the session', as
   // Picking the card shows its details on the right; Escape puts them away.
   await page.getByTestId('host-row-box').click();
   await expect(page.getByTestId('host-details')).toContainText(`ssh -p ${String(fixture.port)} tester@127.0.0.1`);
+  // Edit opens the host's form in the same panel; Cancel returns to the details.
+  await page.getByTestId('host-details').getByRole('button', { name: 'Edit' }).click();
+  await expect(page.getByTestId('host-edit').getByLabel('Name', { exact: true })).toHaveValue('box');
+  await page.getByTestId('host-edit').getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByTestId('host-details')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('host-details')).toBeHidden();
 

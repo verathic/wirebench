@@ -10,7 +10,8 @@ import { Button } from '../../components/button.js';
 import type { ResolvedHostWire, SshKnownHostWire, SshSecretNameWire } from '../../../shared/ssh-wire.js';
 import { useEditorsStore } from '../../state/editors.js';
 import { ipc } from '../../state/ipc-client.js';
-import { openTerminalFor } from './connect.js';
+import { editHost, openTerminalFor } from './connect.js';
+import { HostForm } from './host-dialog.js';
 import { HostActionsButton } from './host-menus.js';
 import { findHost, flattenGroups, useHostsStore } from './hosts-store.js';
 import { sessionStatus } from './session-status.js';
@@ -77,7 +78,7 @@ export function HostDetails() {
   const selectedHostId = useHostsStore((s) => s.selectedHostId);
   const file = useHostsStore((s) => s.file);
   const resolved = useHostsStore((s) => s.resolved);
-  const openDialog = useHostsStore((s) => s.openDialog);
+  const dialog = useHostsStore((s) => s.dialog);
   const session = useHostsStore((s) => (selectedHostId === undefined ? undefined : s.sessions[selectedHostId]));
   const [knownHosts, setKnownHosts] = useState<readonly SshKnownHostWire[]>([]);
   const [secrets, setSecrets] = useState<readonly SshSecretNameWire[]>([]);
@@ -93,6 +94,13 @@ export function HostDetails() {
 
   const entry = selectedHostId === undefined ? undefined : findHost(file, selectedHostId);
   if (entry === undefined) return null;
+  if (dialog?.mode === 'edit-host' && dialog.id === entry.id) {
+    return (
+      <div data-testid="host-edit" className="px-1 py-3">
+        <HostForm key={entry.id} file={file} dialog={dialog} embedded />
+      </div>
+    );
+  }
   const host = resolved.find((h) => h.id === entry.id);
   const groups = flattenGroups(file);
   const groupName = (id: string): string => groups.find(({ group }) => group.id === id)?.group.name ?? id;
@@ -102,7 +110,7 @@ export function HostDetails() {
   const path = host?.path.map(groupName).join(' / ');
 
   const edit = (): void => {
-    openDialog({ mode: 'edit-host', id: entry.id });
+    editHost(entry.id);
   };
 
   const header = (

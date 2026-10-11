@@ -1,5 +1,5 @@
 import { catalogEntry } from '@shared/command-catalog.js';
-import { openTerminalFor } from '../features/ssh/connect.js';
+import { editHost, openTerminalFor } from '../features/ssh/connect.js';
 import { useHostsStore } from '../features/ssh/hosts-store.js';
 import { registerCommand } from '../lib/commands.js';
 import type { PaletteMode } from '../shell/command-palette.js';
@@ -36,7 +36,7 @@ export function registerSshCommands(openPalette: (mode?: PaletteMode) => void): 
     run: (_context, arg) => {
       if (typeof arg !== 'string') return;
       revealHosts();
-      useHostsStore.getState().openDialog({ mode: 'edit-host', id: arg });
+      editHost(arg);
     },
   });
   registerCommand({

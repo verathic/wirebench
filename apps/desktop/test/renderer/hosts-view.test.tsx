@@ -81,7 +81,17 @@ beforeEach(() => {
     value: { entries: [{ host: '10.0.0.1:22', keyType: 'ssh-ed25519', fingerprint: 'SHA256:abc' }] },
   });
   forgetHostKey.mockResolvedValue({ ok: true, value: {} });
-  useHostsStore.setState({ ...STATE, filter: '', selectedTags: [], dialog: null, sessions: {}, homeView: 'hosts' });
+  useHostsStore.setState({
+    ...STATE,
+    filter: '',
+    selectedTags: [],
+    dialog: null,
+    sessions: {},
+    homeView: 'hosts',
+    selectedHostId: undefined,
+    detailsOpen: false,
+    importOpen: false,
+  });
 });
 afterEach(cleanup);
 
@@ -91,6 +101,7 @@ function SshArea() {
     <>
       <HostsView />
       <SshHome />
+      <HostDetails />
     </>
   );
 }
@@ -435,5 +446,52 @@ describe('Host details', () => {
       ssh: { ...defaults, port: { value: 2222, from: 'host' as const } },
     };
     expect(sshCommandOf(host, 'ops@bastion')).toBe('ssh -p 2222 -J ops@bastion beta.example');
+  });
+});
+
+describe('Editing in the details panel', () => {
+  beforeEach(() => {
+    useEditorsStore.getState().reset();
+    useHostsStore.setState({ selectedHostId: undefined, detailsOpen: false, dialog: null });
+  });
+
+  it('Edit opens the form in the panel, not a dialog, and Save returns to the details', async () => {
+    render(<SshArea />);
+    fireEvent.contextMenu(screen.getByTestId('host-row-b'));
+    await userEvent.click(await screen.findByText('Edit…'));
+    await vi.waitFor(() => {
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
+    expect(screen.getByTestId('host-edit')).toBeDefined();
+    expect(screen.queryByTestId('host-dialog')).toBeNull();
+    expect(useEditorsStore.getState().displayedSet).toBe('ssh');
+    const name = screen.getByLabelText<HTMLInputElement>('Name');
+    await userEvent.clear(name);
+    await userEvent.type(name, 'beta two');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    const sent = saveHosts.mock.calls[0]?.[0] as { file: typeof STATE.file };
+    expect(sent.file.hosts[0]?.name).toBe('beta two');
+    expect(screen.queryByTestId('host-edit')).toBeNull();
+    expect(screen.getByTestId('host-details')).toBeDefined();
+  });
+  it('picking another host or putting the panel away leaves the edit', async () => {
+    render(<SshArea />);
+    fireEvent.contextMenu(screen.getByTestId('host-row-b'));
+    await userEvent.click(await screen.findByText('Edit…'));
+    await vi.waitFor(() => {
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
+    await userEvent.click(screen.getByTestId('host-row-a'));
+    expect(useHostsStore.getState().dialog).toBeNull();
+    expect(screen.queryByTestId('host-edit')).toBeNull();
+    fireEvent.contextMenu(screen.getByTestId('host-row-a'));
+    await userEvent.click(await screen.findByText('Edit…'));
+    useHostsStore.getState().setDetailsOpen(false);
+    expect(useHostsStore.getState().dialog).toBeNull();
+  });
+  it('New host still opens the dialog', async () => {
+    render(<SshArea />);
+    await userEvent.click(screen.getByRole('button', { name: /^New host/ }));
+    expect(await screen.findByTestId('host-dialog')).toBeDefined();
   });
 });

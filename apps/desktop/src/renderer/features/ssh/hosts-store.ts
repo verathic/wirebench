@@ -119,10 +119,14 @@ export const useHostsStore = create<HostsState>()((set, get) => ({
   },
   detailsOpen: false,
   selectHost: (selectedHostId) => {
-    set({ selectedHostId, detailsOpen: selectedHostId !== undefined });
+    // Picking another host leaves the one being edited: its form lives in the details panel.
+    const { dialog } = get();
+    const leaving = dialog?.mode === 'edit-host' && dialog.id !== selectedHostId;
+    set({ selectedHostId, detailsOpen: selectedHostId !== undefined, ...(leaving ? { dialog: null } : {}) });
   },
   setDetailsOpen: (detailsOpen) => {
-    set({ detailsOpen });
+    // Putting the panel away cancels an edit in it.
+    set({ detailsOpen, ...(!detailsOpen && get().dialog?.mode === 'edit-host' ? { dialog: null } : {}) });
   },
   filter: '',
   selectedTags: [],

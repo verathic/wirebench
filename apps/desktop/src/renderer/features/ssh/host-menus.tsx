@@ -9,7 +9,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { MoreHorizontal } from 'lucide-react';
 import type { ComponentType, CSSProperties, ReactElement, ReactNode } from 'react';
 import type { GroupEntryWire, HostEntryWire } from '../../../shared/ssh-wire.js';
-import { openTerminalFor } from './connect.js';
+import { editHost, openTerminalFor } from './connect.js';
 import {
   ancestorsOf,
   findHost,
@@ -46,7 +46,7 @@ const DROPDOWN_KIT: MenuKit = DropdownMenu;
 
 /** Connect, Edit, Duplicate, Move to…, Copy address and Delete for `host`. */
 function HostItems({ host, kit: M }: { readonly host: HostEntryWire; readonly kit: MenuKit }) {
-  const { file, save, openDialog } = useHostsStore();
+  const { file, save } = useHostsStore();
   const parent = ancestorsOf(file, 'host', host.id).at(-1);
   const targets = flattenGroups(file).filter(({ group }) => group.id !== parent?.id);
   const duplicate = (): void => {
@@ -69,7 +69,7 @@ function HostItems({ host, kit: M }: { readonly host: HostEntryWire; readonly ki
       <M.Item
         className={ITEM_CLASS}
         onSelect={() => {
-          openDialog({ mode: 'edit-host', id: host.id });
+          editHost(host.id);
         }}
       >
         Edit…
