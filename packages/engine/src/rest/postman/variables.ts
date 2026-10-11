@@ -38,15 +38,27 @@ export function parsePostmanVariablesText(text: string): ImportedVariables {
       'This is a bulk data export. Export each environment on its own and import them one by one.',
     );
   }
-  const scope = isPostmanVariables(root);
-  if (scope === undefined || !isRecord(root)) {
+  return postmanVariablesOf(root);
+}
+
+/**
+ * An environment or globals export already parsed — JSON, or the YAML a folder collection keeps in
+ * `environments/` and `globals/` — as the variable plan. `scope` says which it is when the document
+ * does not: a folder's `globals/` files carry no scope of their own.
+ *
+ * @throws PostmanError `postman-not-variables` when `root` has no `values` list
+ */
+export function postmanVariablesOf(root: unknown, scope?: 'environment' | 'globals'): ImportedVariables {
+  const detected = isPostmanVariables(root);
+  if (!isRecord(root) || !Array.isArray(root['values']) || (scope === undefined && detected === undefined)) {
     throw new PostmanError('postman-not-variables', 'This is not a Postman environment or globals export');
   }
+  const kind = scope ?? detected ?? 'environment';
 
   const report = new ReportBuilder();
   const dynamic = new Set<string>();
   const rawName = typeof root['name'] === 'string' ? root['name'].trim() : '';
-  const name = rawName !== '' ? rawName : scope === 'globals' ? 'Globals' : 'Imported environment';
+  const name = rawName !== '' ? rawName : kind === 'globals' ? 'Globals' : 'Imported environment';
   const set = new VariableSetBuilder(name, report);
 
   for (const raw of root['values'] as unknown[]) {
@@ -80,7 +92,7 @@ export function parsePostmanVariablesText(text: string): ImportedVariables {
   }
   const built = set.build();
   warnCredentialLookingNames(report, [built]);
-  return scope === 'globals'
+  return kind === 'globals'
     ? { environments: [], globals: built, report: report.build() }
     : { environments: [built], report: report.build() };
 }

@@ -7,6 +7,7 @@
  */
 
 import { PostmanError } from '../../errors.js';
+import { MAX_EXAMPLE_BODY_CHARS, maskRecordedResponse } from '../../import/examples.js';
 import { ReportBuilder } from '../../import/report.js';
 import type { ImportedVariableSet } from '../../import/variables.js';
 import { VariableSetBuilder, warnCredentialLookingNames } from '../../import/variables.js';
@@ -21,6 +22,7 @@ import type {
   RestBody,
   RestFolder,
   RestRequestDef,
+  RestResponseExample,
   RestServer,
 } from '../model.js';
 import { createApi, createFolder, createRestRequest, entry, NO_BODY } from '../model.js';
@@ -35,6 +37,7 @@ import type {
   PostmanItem,
   PostmanQueryParam,
   PostmanRequest,
+  PostmanResponse,
   PostmanUrl,
   PostmanVariable,
 } from './model.js';
@@ -194,7 +197,14 @@ export function apiFromPostmanCollection(
           const calls = unsupportedCalls([...parts.pre, ...parts.post].map((part) => part.text).join('\n'));
           if (calls.length > 0) unsupported.set([...trail, item.name].join(' / '), new Set(calls));
         }
-        requests.push(scripts !== undefined ? { ...mappedRequest, scripts } : mappedRequest);
+        const examples = mapExamples(item.response ?? [], item.responsesDropped ?? 0, item.name, newId, warnings);
+        const behaviour = item.protocolProfileBehavior;
+        requests.push({
+          ...mappedRequest,
+          ...(behaviour !== undefined ? { settings: { ...mappedRequest.settings, ...behaviour } } : {}),
+          ...(scripts !== undefined ? { scripts } : {}),
+          ...(examples.length > 0 ? { examples } : {}),
+        });
       }
     }
 
@@ -362,6 +372,67 @@ function mapRequest(
   });
 }
 
+/** A content type for a saved body that names none in its headers, by the language it was shown as. */
+const PREVIEW_TYPES: Readonly<Record<string, string>> = {
+  json: 'application/json',
+  xml: 'application/xml',
+  html: 'text/html',
+  text: 'text/plain',
+  javascript: 'application/javascript',
+};
+
+/**
+ * A request's saved responses as examples: each with a status code, masked as every importer masks
+ * a recorded response, its body cut at {@link MAX_EXAMPLE_BODY_CHARS}.
+ */
+function mapExamples(
+  responses: readonly PostmanResponse[],
+  dropped: number,
+  label: string,
+  newId: IdGenerator,
+  warnings: string[],
+): RestResponseExample[] {
+  const out: RestResponseExample[] = [];
+  let skipped = dropped;
+  let masked = false;
+  for (const response of responses) {
+    const status = response.code;
+    if (status === undefined) {
+      skipped += 1;
+      continue;
+    }
+    const recorded = response.header.map((h) => ({ name: h.key, value: h.value }));
+    const contentType =
+      recorded.find((h) => h.name.toLowerCase() === 'content-type')?.value ??
+      (response.previewLanguage !== undefined && Object.hasOwn(PREVIEW_TYPES, response.previewLanguage.toLowerCase())
+        ? PREVIEW_TYPES[response.previewLanguage.toLowerCase()]
+        : undefined);
+    const kept = maskRecordedResponse(recorded, response.body, contentType);
+    masked ||= kept.masked;
+    let body = kept.body;
+    if (body !== undefined && body.length > MAX_EXAMPLE_BODY_CHARS) {
+      body = body.slice(0, MAX_EXAMPLE_BODY_CHARS);
+      warnings.push(`${label}: a ${String(status)} example body was larger than 256 KB and was cut`);
+    }
+    out.push({
+      id: newId(),
+      name: response.name !== undefined && response.name !== '' ? response.name : String(status),
+      status,
+      statusText: response.status ?? '',
+      headers: kept.headers,
+      ...(contentType !== undefined ? { contentType } : {}),
+      ...(body !== undefined ? { body } : {}),
+    });
+  }
+  if (masked) warnings.push(`${label}: credentials in a saved response were masked in its example`);
+  if (skipped > 0) {
+    warnings.push(
+      `${label}: ${String(skipped)} saved ${skipped === 1 ? 'response' : 'responses'} without a status code ${skipped === 1 ? 'was' : 'were'} skipped`,
+    );
+  }
+  return out;
+}
+
 function mapBody(body: PostmanBody | undefined, headers: readonly PostmanHeader[]): RestBody {
   if (body === undefined) {
     return NO_BODY;
@@ -457,7 +528,8 @@ const SECRET_KEYS: Readonly<Record<string, readonly string[]>> = {
   ntlm: ['password'],
 };
 
-function hasCredentials(auth: PostmanAuth | undefined): boolean {
+/** Whether `auth` carries a secret the import does not copy. */
+export function hasCredentials(auth: PostmanAuth | undefined): boolean {
   const type = auth?.type?.toLowerCase();
   if (auth === undefined || type === undefined) return false;
   const keys = SECRET_KEYS[type];
@@ -481,7 +553,11 @@ function asText(value: unknown): string | undefined {
   return undefined;
 }
 
-function mapPostmanAuth(
+/**
+ * A v2.1 auth as Wirebench's: `inherit` for a request with none, `none` (and a warning) for a type
+ * Wirebench does not take. Secrets are never copied.
+ */
+export function mapPostmanAuth(
   auth: PostmanAuth | undefined,
   isRequest: boolean,
   warnings?: string[],

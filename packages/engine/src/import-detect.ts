@@ -6,6 +6,7 @@
  */
 
 import { parse as parseYamlDocument } from 'yaml';
+import { V3_DOCUMENT_KINDS } from './import/collection-v3/model.js';
 import { isOpenCollection } from './import/opencollection/parse.js';
 import { isHar } from './rest/har/parse.js';
 import { isPostmanCollection, isPostmanVariables } from './rest/postman/parse.js';
@@ -15,6 +16,7 @@ export type ImportFormatKind =
   | 'openapi'
   | 'asyncapi'
   | 'postman'
+  | 'postman-v3'
   | 'postman-environment'
   | 'postman-globals'
   | 'har'
@@ -85,6 +87,15 @@ const HTTP_ENV_FORMAT: DetectedImportFormat = {
   label: 'HTTP client environment file',
   confidence: 'definite',
 };
+
+const POSTMAN_V3_FORMAT: DetectedImportFormat = {
+  kind: 'postman-v3',
+  label: 'Postman Collection v3 (folder)',
+  confidence: 'definite',
+};
+/** The file names only a folder (v3) collection uses: its definitions and request files. */
+const POSTMAN_V3_DEFINITION = /(?:^|[\\/])\.resources[\\/]definition\.ya?ml$/;
+const POSTMAN_V3_REQUEST = /\.request\.ya?ml$/;
 
 const WSDL_NS_REGEX = /xmlns(?::[a-zA-Z0-9_-]+)?=["']http:\/\/(?:schemas\.xmlsoap\.org\/wsdl|www\.w3\.org\/ns\/wsdl)/i;
 
@@ -213,6 +224,11 @@ function detectFromText(text: string): DetectedImportFormat | undefined {
       };
     }
 
+    // A file of a folder (v3) collection: a definition, request, example or message, by its `$kind`
+    if (typeof parsed['$kind'] === 'string' && V3_DOCUMENT_KINDS.has(parsed['$kind'])) {
+      return POSTMAN_V3_FORMAT;
+    }
+
     if (isOpenCollection(parsed)) {
       return {
         kind: 'opencollection',
@@ -330,6 +346,9 @@ export function detectImportFormat(input: ImportDetectInput): DetectedImportForm
     }
     if (target.includes('asyncapi')) {
       return { kind: 'asyncapi', label: 'AsyncAPI', confidence: 'probable' };
+    }
+    if (POSTMAN_V3_DEFINITION.test(target) || POSTMAN_V3_REQUEST.test(target)) {
+      return { ...POSTMAN_V3_FORMAT, confidence: 'probable' };
     }
     if (/(^|[\\/])opencollection\.ya?ml$/.test(target)) {
       return { kind: 'opencollection', label: 'OpenCollection', confidence: 'probable' };

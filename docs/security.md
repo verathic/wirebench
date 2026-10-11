@@ -614,9 +614,10 @@ client's requests to a real system, and it writes what came back into files a te
 Responses' cookies are kept in a jar per workspace (#44,
 `docs/specs/2026-10-03-wirebench-cookie-jar-and-current-values-design.md`):
 
-- **At rest.** Cookies with an expiry are written to `cookies/<workspace id>.json` in the app's data
-  folder, encrypted with the OS keychain (`safeStorage`); without it nothing is written. Session cookies
-  never reach disk. The jar never reaches the project folder, a shared workspace's git tree or the server.
+- **At rest.** Cookies with an expiry are written to `cookie-jars/<workspace id>.json` in the app's data
+  folder (earlier builds used `cookies/`, which on a case-insensitive volume is the runtime's own
+  `Cookies` database; a jar still there is moved over when its workspace opens), encrypted with the
+  OS keychain (`safeStorage`); without it nothing is written. Session cookies never reach disk. The jar never reaches the project folder, a shared workspace's git tree or the server.
   A file from a newer version is left untouched and the jar runs in memory; a corrupt file is set aside
   as `.corrupt`. Tests: `apps/desktop/test/cookie-store.test.ts`.
 - **Opt-in sending.** Jar cookies go out only from REST requests with *Send cookies* on (off by

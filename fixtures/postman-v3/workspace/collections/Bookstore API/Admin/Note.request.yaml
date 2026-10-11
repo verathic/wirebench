@@ -1,0 +1,7 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/note'
+body:
+  type: text
+  content: "first line\r\nsecond line"
+order: 4000

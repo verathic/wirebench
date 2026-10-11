@@ -2,7 +2,8 @@
  * The hosts of `hosts.yaml` as cards (or rows), one foldable section per group (subgroups follow
  * their parent, named by their whole path), hosts outside any group first. A filter or tag narrows
  * the cards to what matches, opening folded sections and dropping empty ones. Click selects, arrows
- * move, double-click or Enter connects; Connect and ⋯ show on hover, right-click has the rest.
+ * move, double-click or Enter connects; clicking the picked card again hides its details. The ⋯
+ * menu shows on hover, right-click has the same items.
  */
 import { useRef, type KeyboardEvent } from 'react';
 import { ChevronRight, Plus, Server } from 'lucide-react';
@@ -82,6 +83,9 @@ interface CardProps {
 
 function HostCard({ host, resolved, avatar, layout, selected, tabbable, onSelect }: CardProps) {
   const status = sessionStatus(useHostsStore((s) => s.sessions[host.id]));
+  // Whether this card's details were already showing when the press began: a click on it then
+  // hides them, rather than the focus the press brings picking it again.
+  const pressedWhileShown = useRef(false);
   const connect = (): void => {
     openTerminalFor(host.id);
   };
@@ -99,19 +103,6 @@ function HostCard({ host, resolved, avatar, layout, selected, tabbable, onSelect
         selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
       }`}
     >
-      <Button
-        tabIndex={-1}
-        className="h-6 px-2 text-xs"
-        onClick={(e) => {
-          e.stopPropagation();
-          connect();
-        }}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-        }}
-      >
-        Connect
-      </Button>
       <HostActionsButton host={host} />
     </span>
   );
@@ -136,7 +127,15 @@ function HostCard({ host, resolved, avatar, layout, selected, tabbable, onSelect
         className={`group flex min-w-0 cursor-default border bg-surface-raised hover:border-hairline-strong hover:bg-surface-hover focus-visible:outline-none ${
           selected ? 'border-accent ring-1 ring-accent' : 'border-hairline'
         } ${grid ? 'flex-col gap-2 rounded-lg p-3' : 'items-center gap-3 rounded-md px-3 py-1.5'}`}
-        onClick={onSelect}
+        onMouseDown={() => {
+          pressedWhileShown.current = selected && useHostsStore.getState().detailsOpen;
+        }}
+        onClick={(e) => {
+          // The second click of a double-click belongs to connecting.
+          if (e.detail > 1) return;
+          if (pressedWhileShown.current) useHostsStore.getState().setDetailsOpen(false);
+          else onSelect();
+        }}
         onFocus={(e) => {
           if (e.target === e.currentTarget) onSelect();
         }}

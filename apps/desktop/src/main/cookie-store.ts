@@ -3,19 +3,26 @@
  * workspace's backing every desktop send.
  *
  * Only cookies with an expiry are saved, encrypted as one blob through the OS keychain
- * (`safeStorage`, the backend `secrets.ts` uses), to `<userData>/cookies/<workspaceId>.json`.
+ * (`safeStorage`, the backend `secrets.ts` uses), to `<userData>/cookie-jars/<workspaceId>.json`.
  * Session cookies never reach disk. With no secure storage nothing does: cookies are never written
  * in plain text. Writes are atomic and debounced, and are flushed on a workspace switch and on quit.
  * A file from a newer build is left alone, and an unreadable one is set aside as `.corrupt`.
+ *
+ * Earlier builds used `<userData>/cookies/`. Chromium keeps its own `Cookies` database in `userData`,
+ * and on a case-insensitive volume (the macOS default) the two names are one file, so that folder
+ * never worked there. Where it really is a folder, a workspace's file is moved over the first time
+ * the workspace opens.
  */
-import { readFile, rename, rm } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { CookieJar, nodeFs, writeFileAtomic } from '@wirebench/engine';
 import type { CookieJarHost, CookieKey, StoredCookie } from '@wirebench/engine';
 import type { CryptoBackend } from './secrets.js';
 
 /** The folder under `userData` the cookie files live in. */
-export const COOKIES_DIR = 'cookies';
+export const COOKIES_DIR = 'cookie-jars';
+/** Where earlier builds kept them; it clashes with Chromium's `Cookies` on case-insensitive volumes. */
+export const LEGACY_COOKIES_DIR = 'cookies';
 /** The cookie file format this build writes and reads. */
 export const COOKIE_FILE_VERSION = 1;
 const DEFAULT_DEBOUNCE_MS = 1000;
@@ -32,7 +39,7 @@ export interface CookieJarState {
 }
 
 export interface CookieStoreOptions {
-  /** Electron's `userData`: the files go under `cookies/`. */
+  /** Electron's `userData`: the files go under `cookie-jars/`. */
   readonly userDataDir: string;
   readonly crypto: CryptoBackend;
   /** Called with the open workspace's jar after every change to it. */
@@ -59,8 +66,10 @@ function sessionOnly(): Entry {
   return { jar: new CookieJar(), persistable: false, saved: '[]', writing: Promise.resolve() };
 }
 
+/** No file there. ENOTDIR counts: a path part is a file, as when `cookies` resolves to Chromium's `Cookies`. */
 function isMissing(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'ENOENT';
+  const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+  return code === 'ENOENT' || code === 'ENOTDIR';
 }
 
 function isStoredCookie(value: unknown): value is StoredCookie {
@@ -226,6 +235,11 @@ export class CookieStore {
     }
     if (SAFE_ID.test(workspaceId)) {
       await rm(this.fileOf(workspaceId), { force: true });
+      await rm(this.legacyFileOf(workspaceId), { force: true }).catch((error: unknown) => {
+        if (!isMissing(error)) {
+          throw error;
+        }
+      });
     }
   }
 
@@ -249,6 +263,47 @@ export class CookieStore {
 
   private fileOf(workspaceId: string): string {
     return join(this.dir, `${workspaceId}.json`);
+  }
+
+  private legacyFileOf(workspaceId: string): string {
+    return join(this.options.userDataDir, LEGACY_COOKIES_DIR, `${workspaceId}.json`);
+  }
+
+  /**
+   * Moves `id`'s file from the old folder when it is there. False when there is none to move, which
+   * includes the old folder being Chromium's `Cookies` file.
+   */
+  private async migrate(id: string): Promise<boolean> {
+    const legacy = this.legacyFileOf(id);
+    try {
+      await access(legacy);
+    } catch {
+      return false;
+    }
+    try {
+      await mkdir(this.dir, { recursive: true });
+      await rename(legacy, this.fileOf(id));
+      return true;
+    } catch (error) {
+      if (!isMissing(error)) {
+        this.warn(
+          `The cookies of workspace ${id} could not be moved to ${COOKIES_DIR}/: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      return false;
+    }
+  }
+
+  /** The file's text, or undefined when there is none (moving one over from the old folder first). */
+  private async readFileOf(id: string): Promise<string | undefined> {
+    try {
+      return await readFile(this.fileOf(id), 'utf8');
+    } catch (error) {
+      if (!isMissing(error)) {
+        throw error;
+      }
+    }
+    return (await this.migrate(id)) ? await readFile(this.fileOf(id), 'utf8') : undefined;
   }
 
   private warn(message: string): void {
@@ -323,13 +378,14 @@ export class CookieStore {
       // The file may be perfectly good; without the keychain it can only be left alone, unread.
       return sessionOnly();
     }
-    let text: string;
+    let text: string | undefined;
     try {
-      text = await readFile(this.fileOf(id), 'utf8');
-    } catch (error) {
-      return isMissing(error)
-        ? { jar: new CookieJar(), persistable: true, saved: '[]', writing: Promise.resolve() }
-        : await this.setAside(id);
+      text = await this.readFileOf(id);
+    } catch {
+      return await this.setAside(id);
+    }
+    if (text === undefined) {
+      return { jar: new CookieJar(), persistable: true, saved: '[]', writing: Promise.resolve() };
     }
     let file: unknown;
     try {

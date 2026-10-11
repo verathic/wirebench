@@ -75,6 +75,7 @@ export type ImportDialogFormat =
   | 'http-file'
   | 'http-env'
   | 'opencollection'
+  | 'postman-v3'
   | 'wsdl'
   | 'proto'
   | 'legacy-soap-project';

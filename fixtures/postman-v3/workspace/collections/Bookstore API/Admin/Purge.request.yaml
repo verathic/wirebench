@@ -1,0 +1,11 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/cache'
+body:
+  type: none
+auth:
+  type: digest
+  credentials:
+    - key: username
+      value: admin
+order: 8000

@@ -1,0 +1,5 @@
+$kind: http-request
+name: Health
+url: https://status.example.com/health
+method: GET
+order: 2000
