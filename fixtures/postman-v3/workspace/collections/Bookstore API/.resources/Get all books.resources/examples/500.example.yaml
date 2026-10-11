@@ -1,0 +1,14 @@
+$kind: http-example
+request:
+  url: ""
+  method: GET
+response:
+  statusCode: 500
+  statusText: "500"
+  headers:
+    content-type: text/plain
+    authorization: Bearer leaked
+  body:
+    type: text
+    content: boom
+order: 2000

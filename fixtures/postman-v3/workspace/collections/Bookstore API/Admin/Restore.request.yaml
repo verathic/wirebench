@@ -1,0 +1,10 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/restore'
+headers:
+  - key: Content-Type
+    value: application/gzip
+body:
+  type: file
+  src: ./backups/books.tar.gz
+order: 7000

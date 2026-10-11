@@ -1,0 +1,7 @@
+$kind: http-request
+url: '{{baseUrl}}/ping'
+settings:
+  followRedirects: false
+  strictSSL: true
+x-owner: platform-team
+order: 1773310459833
