@@ -14,6 +14,12 @@ All notable changes to this project are documented here. The format follows
   exceeds the rows), `--delay` waits between requests, and `--bail` stops every later iteration. Every
   reporter names each request's iteration; a run without data reports as before (#336).
 
+- **The Runner: Run… on a folder, an API, a project or a sequence.** A Runner tab sets the iterations,
+  a delay between requests, the order (reorder, leave out), a CSV or JSON data file, what happens past
+  the last row, and stop on first failure. Results fill in per request, grouped by iteration, and the
+  last 20 runs of each target are kept with the app, outside the project. The data file's path never
+  leaves the main process (#336).
+
 - **A container of a kind this build cannot open stays in the explorer.** It shows as a dimmed row,
   at its place among the project's containers, whose tooltip and only menu item say why: the kind
   is switched off, or this version of Wirebench does not know it. Its files are never rewritten, a
