@@ -79,7 +79,7 @@ describe('saveProject', () => {
       "description: Round-trip fixture
       disabled:
         - tier
-      formatVersion: 8
+      formatVersion: 9
       id: ID0001
       name: Demo Project
       properties:
@@ -439,11 +439,11 @@ describe('loadProject', () => {
     const dir = await tempProjectDir();
     await saveProject(sampleProject(), dir);
     const text = (await readBytes(dir, 'wirebench.yaml')).toString('utf8');
-    await writeFile(join(dir, 'wirebench.yaml'), text.replace('formatVersion: 8', 'formatVersion: 9'));
+    await writeFile(join(dir, 'wirebench.yaml'), text.replace('formatVersion: 9', 'formatVersion: 10'));
 
     const error = (await loadProject(dir).catch((e: unknown) => e)) as ProjectError;
     expect(error.code).toBe('project-format-too-new');
-    expect(error.details).toMatchObject({ formatVersion: 9, supported: 8 });
+    expect(error.details).toMatchObject({ formatVersion: 10, supported: 9 });
 
     await rm(dir, { recursive: true, force: true });
   });
@@ -452,7 +452,7 @@ describe('loadProject', () => {
     const dir = await tempProjectDir();
     await saveProject(sampleProject(), dir);
     const text = (await readBytes(dir, 'wirebench.yaml')).toString('utf8');
-    await writeFile(join(dir, 'wirebench.yaml'), text.replace('formatVersion: 8', 'formatVersion: "1"'));
+    await writeFile(join(dir, 'wirebench.yaml'), text.replace('formatVersion: 9', 'formatVersion: "1"'));
 
     const error = (await loadProject(dir).catch((e: unknown) => e)) as ProjectError;
     expect(error.code).toBe('project-file-invalid');

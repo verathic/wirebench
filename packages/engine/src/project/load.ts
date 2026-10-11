@@ -67,6 +67,11 @@ export interface ProjectProblem {
     | 'script-file-missing'
     /** A script file over the size limit; kept as it is, and the request refuses to send (#63). */
     | 'script-too-large'
+    /**
+     * A request slugged `folder` with scripts, in a folder with scripts: the files are the folder's,
+     * so the request's scripts load as missing and it refuses to send until it is renamed (#334).
+     */
+    | 'script-file-clash'
     /** A container whose kind has no enabled module; it is a placeholder and is left as it is (spec §6). */
     | 'container-unsupported';
   readonly message: string;
