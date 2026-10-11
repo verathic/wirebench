@@ -1,0 +1,18 @@
+$kind: grpc-request
+name: Say hello
+url: 'grpcs://{{grpcHost}}'
+methodPath: /helloworld.Greeter/SayHello
+methodDescriptor: '{"requestStream":false,"responseStream":true}'
+message:
+  content: |-
+    { "name": "{{userName}}" }
+metadata:
+  - key: x-tenant
+    value: acme
+settings:
+  includeDefaultFields: true
+scripts:
+  - type: beforeInvoke
+    code: console.log('invoke');
+    language: text/javascript
+order: 1000

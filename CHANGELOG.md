@@ -13,7 +13,16 @@ All notable changes to this project are documented here. The format follows
   `iteration.data.get()`. `--iterations` sets the count (`--data-overrun stop|wrap|repeat-last` when it
   exceeds the rows), `--delay` waits between requests, and `--bail` stops every later iteration. Every
   reporter names each request's iteration; a run without data reports as before (#336).
-
+- **Postman Collection v3 folders import.** In **Import…**, pick a collection's folder with the new
+  **Folder…** button, or its `.resources/definition.yaml`; a workspace folder (`collections/`,
+  `environments/`, `globals/`) imports every collection with its environments and globals.
+  `wirebench import <folder>` and the MCP `import` tool take the same paths, adding the APIs and plain
+  variables and reporting secrets and environments. HTTP requests map as a v2.1 collection's do;
+  gRPC and WebSocket requests become their own APIs. GraphQL, Socket.IO, MQTT, MCP and LLM requests,
+  and every field Wirebench does not read, are listed in the report. The folder is read without
+  following links or leaving it (#349).
+- **A Postman collection's saved responses import as request examples**, masked as recorded
+  responses are, and its `followRedirects` / `maxRedirects` settings carry over (#349).
 - **A container of a kind this build cannot open stays in the explorer.** It shows as a dimmed row,
   at its place among the project's containers, whose tooltip and only menu item say why: the kind
   is switched off, or this version of Wirebench does not know it. Its files are never rewritten, a

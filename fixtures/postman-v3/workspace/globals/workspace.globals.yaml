@@ -1,0 +1,6 @@
+name: Globals
+values:
+  - key: traceId
+    value: '{{$guid}}'
+    type: default
+    enabled: true

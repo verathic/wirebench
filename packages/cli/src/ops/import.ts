@@ -3,11 +3,12 @@
  * places one (R4): a unique slug, the definition cached under the new folder, the endpoints the
  * WSDL's ports name, and a `Request 1` per operation; or the mapped API with its documents cached.
  */
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   apiDefinitionDir,
+  containersOf,
   contractPorts,
   createHttpFetchDocument,
   createInterface,
@@ -18,6 +19,7 @@ import {
   endpointsFromContract,
   generateId,
   generateSoapRequest,
+  importCollectionV3Folder,
   importOpenApi,
   importWsdl,
   nextApiOrder,
@@ -28,6 +30,7 @@ import {
   takenContainerSlugs,
   uniqueSlug,
   writeApiDefinitionCache,
+  withContainersOf,
   writeDefinitionCache,
 } from '@wirebench/engine';
 import type {
@@ -48,10 +51,11 @@ import { openProject } from './project.js';
 import { redactUrlsInText } from './redact.js';
 
 export interface ImportedItem {
-  readonly kind: 'soap' | 'rest';
+  readonly kind: 'soap' | 'rest' | 'grpc' | 'websocket';
   readonly name: string;
   readonly slug: string;
-  readonly operations: number;
+  /** The definition's operations; absent for a collection, which has requests only. */
+  readonly operations?: number;
   readonly requests: number;
 }
 
@@ -62,7 +66,7 @@ export interface ImportProblemView {
 }
 
 export interface ImportOutput {
-  readonly format: 'wsdl' | 'openapi';
+  readonly format: 'wsdl' | 'openapi' | 'postman-v3';
   readonly added: readonly ImportedItem[];
   /** What the importer reported it could not map. */
   readonly problems: readonly ImportProblemView[];
@@ -79,7 +83,12 @@ export interface ReadSource {
 }
 
 const input = z.object({
-  source: z.string().min(1).describe('A WSDL or OpenAPI file (an absolute path is safest) or an http(s) URL'),
+  source: z
+    .string()
+    .min(1)
+    .describe(
+      'A WSDL or OpenAPI file (an absolute path is safest), an http(s) URL, or a folder collection (v3): its folder, its .resources/definition.yaml, or a workspace folder holding collections/',
+    ),
   name: z
     .string()
     .min(1)
@@ -288,13 +297,114 @@ async function addOpenApi(
   };
 }
 
+/** A collection's `.resources/definition.yaml`, which stands for the collection's folder. */
+const COLLECTION_DEFINITION = /(?:^|[\\/])\.resources[\\/]definition\.ya?ml$/i;
+
+/** Whether `source` names a folder collection: a folder, or a collection's definition file. */
+async function isCollectionFolder(source: string): Promise<boolean> {
+  if (/^https?:\/\//i.test(source)) return false;
+  if (COLLECTION_DEFINITION.test(source)) return true;
+  try {
+    return (await stat(resolve(source))).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** Requests in a container of any kind, its folders' included. */
+function requestCount(container: {
+  readonly folders: readonly unknown[];
+  readonly requests: readonly unknown[];
+}): number {
+  return (
+    container.requests.length +
+    container.folders.reduce<number>(
+      (sum, folder) =>
+        sum + requestCount(folder as { readonly folders: readonly unknown[]; readonly requests: readonly unknown[] }),
+      0,
+    )
+  );
+}
+
+/**
+ * A folder (v3) collection: each collection's REST, gRPC and WebSocket APIs under free slugs, and
+ * its plain variables as project properties a name the project already has keeps its value. The
+ * command line has no secret store and no workspace, so secret variables, environments and globals
+ * are reported, not imported.
+ */
+async function addCollectionV3(
+  context: OpsContext,
+  project: Project,
+  path: string,
+  name: string | undefined,
+): Promise<ImportOutput> {
+  const mapped = await importCollectionV3Folder(path, {
+    firstOrder: nextApiOrder(project),
+    ...(name !== undefined ? { name } : {}),
+  });
+  const taken = new Set([...takenContainerSlugs(project, 'apis'), ...takenContainerSlugs(project, 'interfaces')]);
+  const added: ImportedItem[] = [];
+  let next = project;
+  for (const collection of mapped.collections) {
+    for (const api of [collection.rest, collection.grpc, collection.websocket]) {
+      if (api === undefined) continue;
+      const slug = uniqueSlug(api.name, taken);
+      taken.add(slug);
+      next = withContainersOf(next, api.kind, [...containersOf(next, api.kind), { ...api, slug }]);
+      added.push({ kind: api.kind, name: api.name, slug, requests: requestCount(api) });
+    }
+  }
+  // A Map, then fromEntries: a variable named like an Object.prototype member stays an own entry.
+  const properties = new Map(Object.entries(next.properties));
+  const disabled = new Set(next.disabledProperties);
+  const secrets: string[] = [];
+  const kept: string[] = [];
+  for (const variable of mapped.variables.projectProperties?.variables ?? []) {
+    if (variable.secret) secrets.push(variable.name);
+    else if (properties.has(variable.name)) kept.push(variable.name);
+    else {
+      properties.set(variable.name, variable.value);
+      if (!variable.enabled) disabled.add(variable.name);
+    }
+  }
+  next = { ...next, properties: Object.fromEntries(properties), disabledProperties: [...disabled] };
+  await saveProject(next, context.projectDir);
+
+  const problems: ImportProblemView[] = [];
+  if (kept.length > 0) {
+    problems.push({
+      code: 'property-kept',
+      message: `The project already has ${kept.join(', ')}; its values were kept.`,
+    });
+  }
+  if (secrets.length > 0) {
+    problems.push({
+      code: 'secret-not-imported',
+      message: `Secret variables are not imported from the command line: ${secrets.join(', ')}. Set them in the desktop or a secret source.`,
+    });
+  }
+  const environments = mapped.variables.environments.length + (mapped.variables.globals !== undefined ? 1 : 0);
+  if (environments > 0) {
+    problems.push({
+      code: 'environments-not-imported',
+      message: `${String(environments)} environment and globals file(s) were not imported: the command line has no workspace. Import the folder in the desktop to bring them across.`,
+    });
+  }
+  problems.push(
+    ...mapped.report.warnings.map((message) => ({ code: 'import-warning', message: redactUrlsInText(message) })),
+    ...mapped.report.notes.map((message) => ({ code: 'import-note', message: redactUrlsInText(message) })),
+  );
+  return { format: 'postman-v3', added, problems };
+}
+
 export const importOp = defineOp({
   name: 'import',
   title: 'Import a definition',
   description:
     'Imports a WSDL or OpenAPI definition (a file path or an http(s) URL) into the project as a new SOAP ' +
-    'interface or REST API, with its definition cached and one sample request per operation. Writes the ' +
-    'project folder. Needs the server started with --allow-write.',
+    'interface or REST API, with its definition cached and one sample request per operation; or a folder ' +
+    'collection (v3) as its REST, gRPC and WebSocket APIs with its plain variables as project properties. ' +
+    'Writes the project folder. Needs the server started with --allow-write.',
   input,
   async run(value, context): Promise<ImportOutput> {
     if (!context.gates.write) {
@@ -304,6 +414,9 @@ export const importOp = defineOp({
       );
     }
     const { project } = await openProject(context);
+    if (await isCollectionFolder(value.source)) {
+      return addCollectionV3(context, project, resolve(value.source), value.name);
+    }
     const fetchDocument = fetcherFor(context.env);
     const read = await readSource(value.source, fetchDocument);
     const detected = detectImportFormat({ text: read.text, filename: read.filename, url: read.url });
@@ -315,7 +428,9 @@ export const importOp = defineOp({
     }
     throw new OpsError(
       'unsupported-format',
-      `${value.source} reads as ${detected.label}; import takes a WSDL or an OpenAPI document`,
+      detected.kind === 'postman-v3'
+        ? `${value.source} is one file of a folder collection; import its folder or its .resources/definition.yaml`
+        : `${value.source} reads as ${detected.label}; import takes a WSDL or an OpenAPI document, or a folder collection`,
       { format: detected.kind },
     );
   },

@@ -27,6 +27,7 @@ import type {
   ApiImportHttpFileResponse,
   ApiImportOpenApiResponse,
   ApiImportOpenCollectionResponse,
+  ApiImportPostmanFolderResponse,
 } from '../../../shared/wire-types.js';
 import type {
   GrpcReflectionVersionWire,
@@ -162,7 +163,8 @@ export type UnifiedImportResult =
   | { readonly kind: 'variables'; readonly summary: ImportVariablesSummaryWire; readonly reportText: string }
   | { readonly kind: 'har'; readonly value: ApiImportHarResponse; readonly responses: HarResponses }
   | { readonly kind: 'http-file'; readonly value: ApiImportHttpFileResponse }
-  | { readonly kind: 'opencollection'; readonly value: ApiImportOpenCollectionResponse };
+  | { readonly kind: 'opencollection'; readonly value: ApiImportOpenCollectionResponse }
+  | { readonly kind: 'postman-v3'; readonly value: ApiImportPostmanFolderResponse };
 
 /**
  * Formats that land in the workspace, not in a project: a Postman environment or a `.http` client
@@ -189,6 +191,7 @@ const FILE_FIRST = new Set<ImportDialogFormat | ImportFormatKind>([
   'http-file',
   'http-env',
   'opencollection',
+  'postman-v3',
   'legacy-soap-project',
 ]);
 
@@ -202,7 +205,18 @@ const NO_URL = new Set<ImportDialogFormat | ImportFormatKind>([
   'har',
   'http-file',
   'opencollection',
+  'postman-v3',
 ]);
+
+/** The definition file of a folder (v3) collection, which stands for the folder above `.resources`. */
+const V3_DEFINITION_FILE = /[\\/]\.resources[\\/]definition\.ya?ml$/i;
+
+/** What a picked folder is read as: a folder (v3) collection, the one format kept as a folder. */
+const FOLDER_FORMAT: DetectedImportFormat = {
+  kind: 'postman-v3',
+  label: 'Postman Collection v3 (folder)',
+  confidence: 'definite',
+};
 
 /** The root document of an OpenCollection saved as a folder, which names nothing: the folder does. */
 const OC_ROOT_FILE = /(^|[\\/])opencollection\.ya?ml$/i;
@@ -222,6 +236,8 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
   const [format, setFormat] = useState<ImportDialogFormat>(initialFmt);
   const [url, setUrl] = useState('');
   const [filePath, setFilePath] = useState('');
+  // Whether `filePath` is a folder picked with Folder…: a folder is read as a folder (v3) collection.
+  const [folderPicked, setFolderPicked] = useState(false);
   const [dropped, setDropped] = useState<{ name: string; text: string } | undefined>(undefined);
   const [pasted, setPasted] = useState('');
   const [name, setName] = useState('');
@@ -334,8 +350,9 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
     const currentFilename =
       tab === 'file' ? (dropped?.name ?? (filePath.length > 0 ? filePath : undefined)) : undefined;
     const currentUrl = tab === 'url' && url.length > 0 ? url : undefined;
+    if (tab === 'file' && folderPicked && dropped === undefined && filePath.length > 0) return FOLDER_FORMAT;
     return detectImportFormat({ text: currentText, filename: currentFilename, url: currentUrl });
-  }, [tab, pasted, dropped, filePath, url]);
+  }, [tab, pasted, dropped, filePath, url, folderPicked]);
 
   const effectiveFormat: ImportFormatKind = format !== 'auto' ? format : detected.kind;
 
@@ -531,32 +548,34 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
               ? [{ name: 'HTTP client environment file', extensions: ['json'] }]
               : effectiveFormat === 'opencollection'
                 ? [{ name: 'OpenCollection', extensions: ['yml', 'yaml'] }]
-                : WORKSPACE_ONLY.has(effectiveFormat)
-                  ? [{ name: 'Postman export', extensions: ['json'] }]
-                  : effectiveFormat === 'har'
-                    ? [{ name: 'HAR', extensions: ['har', 'json'] }]
-                    : effectiveFormat === 'proto'
-                      ? [
-                          { name: 'Protocol Buffers', extensions: ['proto'] },
-                          { name: 'All Files', extensions: ['*'] },
-                        ]
-                      : effectiveFormat === 'openapi'
+                : effectiveFormat === 'postman-v3'
+                  ? [{ name: 'Collection definition (.resources/definition.yaml)', extensions: ['yaml', 'yml'] }]
+                  : WORKSPACE_ONLY.has(effectiveFormat)
+                    ? [{ name: 'Postman export', extensions: ['json'] }]
+                    : effectiveFormat === 'har'
+                      ? [{ name: 'HAR', extensions: ['har', 'json'] }]
+                      : effectiveFormat === 'proto'
                         ? [
-                            { name: 'OpenAPI Specification', extensions: ['json', 'yaml', 'yml'] },
+                            { name: 'Protocol Buffers', extensions: ['proto'] },
                             { name: 'All Files', extensions: ['*'] },
                           ]
-                        : effectiveFormat === 'asyncapi'
+                        : effectiveFormat === 'openapi'
                           ? [
-                              { name: 'AsyncAPI Document', extensions: ['json', 'yaml', 'yml'] },
+                              { name: 'OpenAPI Specification', extensions: ['json', 'yaml', 'yml'] },
                               { name: 'All Files', extensions: ['*'] },
                             ]
-                          : [
-                              {
-                                name: 'API Definitions (*.json, *.yaml, *.yml, *.wsdl, *.xml)',
-                                extensions: ['json', 'yaml', 'yml', 'wsdl', 'xml'],
-                              },
-                              { name: 'All Files', extensions: ['*'] },
-                            ];
+                          : effectiveFormat === 'asyncapi'
+                            ? [
+                                { name: 'AsyncAPI Document', extensions: ['json', 'yaml', 'yml'] },
+                                { name: 'All Files', extensions: ['*'] },
+                              ]
+                            : [
+                                {
+                                  name: 'API Definitions (*.json, *.yaml, *.yml, *.wsdl, *.xml)',
+                                  extensions: ['json', 'yaml', 'yml', 'wsdl', 'xml'],
+                                },
+                                { name: 'All Files', extensions: ['*'] },
+                              ];
     const title =
       effectiveFormat === 'legacy-soap-project'
         ? 'Import Legacy SOAP Project'
@@ -574,16 +593,29 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
                     ? 'Import HTTP Client Environments'
                     : effectiveFormat === 'opencollection'
                       ? 'Import OpenCollection'
-                      : effectiveFormat === 'proto'
-                        ? 'Import .proto'
-                        : effectiveFormat === 'openapi'
-                          ? 'Import OpenAPI Specification'
-                          : effectiveFormat === 'asyncapi'
-                            ? 'Import AsyncAPI Document'
-                            : 'Import Definition';
+                      : effectiveFormat === 'postman-v3'
+                        ? 'Import Collection Definition'
+                        : effectiveFormat === 'proto'
+                          ? 'Import .proto'
+                          : effectiveFormat === 'openapi'
+                            ? 'Import OpenAPI Specification'
+                            : effectiveFormat === 'asyncapi'
+                              ? 'Import AsyncAPI Document'
+                              : 'Import Definition';
     const res = await ipc().dialogs.openFile({ title, filters });
     if (res.ok && res.value.path !== undefined) {
       setDropped(undefined);
+      setFolderPicked(false);
+      setFilePath(res.value.path);
+    }
+  }
+
+  /** Folder…: a folder (v3) collection, or a workspace folder holding `collections/`. */
+  async function browseForFolder(): Promise<void> {
+    const res = await ipc().dialogs.openFolder({ title: 'Import Collection Folder' });
+    if (res.ok && res.value.path !== undefined) {
+      setDropped(undefined);
+      setFolderPicked(true);
       setFilePath(res.value.path);
     }
   }
@@ -597,6 +629,7 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
     setImportError(undefined);
     try {
       const text = await file.text();
+      setFolderPicked(false);
       setDropped({ name: file.name, text });
       setFilePath(file.name);
     } catch {
@@ -628,7 +661,10 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
             ? 'Imported traffic'
             : format === 'http-file' || effectiveFormat === 'http-file'
               ? 'Imported requests'
-              : format === 'opencollection' || effectiveFormat === 'opencollection'
+              : format === 'opencollection' ||
+                  effectiveFormat === 'opencollection' ||
+                  format === 'postman-v3' ||
+                  effectiveFormat === 'postman-v3'
                 ? 'Imported collection'
                 : 'Imported API';
 
@@ -636,7 +672,12 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
   const sourceName =
     effectiveFormat === 'opencollection' && previewSource?.kind === 'file' && OC_ROOT_FILE.test(filePath)
       ? nameFromSource({ kind: 'file', path: filePath.replace(OC_ROOT_FILE, '') }, defaultName)
-      : nameFromSource(previewSource, defaultName);
+      : effectiveFormat === 'postman-v3' && previewSource?.kind === 'file'
+        ? nameFromSource(
+            { kind: 'file', path: filePath.replace(V3_DEFINITION_FILE, '').replace(/[\\/]+$/, '') },
+            defaultName,
+          )
+        : nameFromSource(previewSource, defaultName);
   const newProjectName = name.trim().length > 0 ? name.trim() : sourceName;
 
   /**
@@ -883,6 +924,38 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
     }
   }
 
+  /**
+   * A folder (v3) collection: main reads the picked folder — or the folder a picked
+   * `.resources/definition.yaml` stands for — and places each collection's REST, gRPC and WebSocket
+   * API; a workspace folder brings its environments and globals too. Only a path main can check is
+   * accepted: a dropped or pasted copy is one file, not the folder.
+   */
+  async function importPostmanFolder(source: ImportSourceWire): Promise<void> {
+    if (source.kind !== 'file') {
+      setImportError('Pick the collection folder with Folder…, or its .resources/definition.yaml with Browse….');
+      return;
+    }
+    setImporting(true);
+    const chosen = openProjects.some((project) => project.id === target) ? target : NEW_PROJECT;
+    try {
+      const res = await ipc().api.importPostmanFolder({
+        target: chosen === NEW_PROJECT ? { newProjectName } : { projectId: chosen },
+        path: source.path,
+        ...(name.trim().length > 0 ? { name: name.trim() } : {}),
+      });
+      if (!res.ok) {
+        setImportError(res.error.message);
+        return;
+      }
+      getExplorerTree()?.open(`proj:${res.value.projectId}`);
+      setResult({ kind: 'postman-v3', value: res.value });
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Import failed');
+    } finally {
+      setImporting(false);
+    }
+  }
+
   async function onImport(): Promise<void> {
     if (importing) {
       return;
@@ -908,7 +981,9 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
                   ? 'Pick an environment file to import'
                   : effectiveFormat === 'opencollection'
                     ? 'Pick a collection .yml file, or the opencollection.yml of a collection folder'
-                    : 'Pick a file to import',
+                    : effectiveFormat === 'postman-v3'
+                      ? 'Pick the collection folder with Folder…'
+                      : 'Pick a file to import',
         );
       } else {
         setImportError(
@@ -924,7 +999,9 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
                     ? 'Paste the environment JSON to import'
                     : effectiveFormat === 'opencollection'
                       ? 'Paste the collection YAML to import'
-                      : 'Paste a definition to import',
+                      : effectiveFormat === 'postman-v3'
+                        ? 'A folder collection is imported from its folder: use the File tab'
+                        : 'Paste a definition to import',
         );
       }
       return;
@@ -956,6 +1033,11 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
 
     if (effectiveFormat === 'opencollection') {
       await importOpenCollection(source);
+      return;
+    }
+
+    if (effectiveFormat === 'postman-v3') {
+      await importPostmanFolder(source);
       return;
     }
 
@@ -1235,7 +1317,9 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
                                       ? 'Import HTTP Client Environments'
                                       : format === 'opencollection'
                                         ? 'Import OpenCollection'
-                                        : 'Import API or Service'}
+                                        : format === 'postman-v3'
+                                          ? 'Import Postman Collection v3'
+                                          : 'Import API or Service'}
             </Dialog.Title>
             <Dialog.Close asChild>
               <button type="button" aria-label="Close" className="text-fg-subtle hover:text-fg-default">
@@ -1274,6 +1358,7 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
                     <option value="openapi">OpenAPI / Swagger</option>
                     <option value="asyncapi">AsyncAPI (WebSocket)</option>
                     <option value="postman">Postman Collection</option>
+                    <option value="postman-v3">Postman Collection v3 (folder)</option>
                     <option value="postman-environment">Postman environment</option>
                     <option value="postman-globals">Postman globals</option>
                     <option value="har">HAR (recorded traffic)</option>
@@ -1441,6 +1526,7 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
                         value={filePath}
                         onChange={(e) => {
                           setDropped(undefined);
+                          setFolderPicked(false);
                           setFilePath(e.target.value);
                         }}
                         placeholder={
@@ -1464,6 +1550,11 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
                       >
                         Browse…
                       </Button>
+                      {(format === 'auto' || format === 'postman-v3') && (
+                        <Button data-testid="import-browse-folder" onClick={() => void browseForFolder()}>
+                          Folder…
+                        </Button>
+                      )}
                     </div>
                     <div
                       onDragOver={(e) => e.preventDefault()}
@@ -1474,6 +1565,12 @@ export function ImportDialog({ open, onOpenChange, initialFormat: propFormat }: 
                         ? `Loaded: ${dropped.name}`
                         : 'Drop an OpenAPI, Postman, WSDL or .proto file here'}
                     </div>
+                    {effectiveFormat === 'postman-v3' && (
+                      <p data-testid="import-postman-v3-help" className="text-xs text-fg-subtle">
+                        Pick the collection's folder with Folder…, or its .resources/definition.yaml. A workspace folder
+                        holding collections/ imports every collection, with its environments and globals.
+                      </p>
+                    )}
                     {effectiveFormat === 'opencollection' && (
                       <p data-testid="import-opencollection-help" className="text-xs text-fg-subtle">
                         For a collection saved as a folder, pick its opencollection.yml: the files beside it are read
@@ -1896,7 +1993,9 @@ function UnifiedSummary({ result, onDone }: { readonly result: UnifiedImportResu
                         ? 'import-http-summary'
                         : result.kind === 'opencollection'
                           ? 'import-opencollection-summary'
-                          : 'import-summary'
+                          : result.kind === 'postman-v3'
+                            ? 'import-postman-v3-summary'
+                            : 'import-summary'
       }
       className="mt-3 flex flex-col gap-3"
     >
@@ -2057,6 +2156,7 @@ function UnifiedSummary({ result, onDone }: { readonly result: UnifiedImportResu
       {result.kind === 'http-file' && <HttpFileSummary value={result.value} />}
 
       {result.kind === 'opencollection' && <OpenCollectionSummary value={result.value} />}
+      {result.kind === 'postman-v3' && <PostmanFolderSummary value={result.value} />}
 
       {result.kind === 'wsdl' && (
         <div className="rounded border border-hairline-strong p-2">
@@ -2315,6 +2415,36 @@ function OpenCollectionSummary({ value }: { readonly value: ApiImportOpenCollect
         notes={value.notes}
         reportText={value.reportText}
         testId="import-opencollection-summary"
+      />
+    </>
+  );
+}
+
+/**
+ * What a folder (v3) collection import made: the APIs, requests and folders (and collections, when
+ * a workspace folder held several), the examples kept, then the variables and the report.
+ */
+function PostmanFolderSummary({ value }: { readonly value: ApiImportPostmanFolderResponse }) {
+  const { counts, variables } = value;
+  return (
+    <>
+      <div className="rounded border border-hairline-strong p-3 text-sm text-fg-default">
+        <p data-testid="import-postman-v3-counts">
+          {counts.collections > 1 ? `${plural(counts.collections, 'collection')}: ` : ''}
+          {plural(value.apiIds.length, 'API')}, {plural(counts.requests, 'request')}, {plural(counts.folders, 'folder')}
+        </p>
+        {counts.examples > 0 && (
+          <p data-testid="import-postman-v3-examples" className="mt-1 text-xs text-fg-subtle">
+            {plural(counts.examples, 'example')} kept
+          </p>
+        )}
+        {variables !== undefined && <VariablesLines summary={variables} testId="import-postman-v3" />}
+      </div>
+      <ImportReportView
+        warnings={value.warnings}
+        notes={value.notes}
+        reportText={value.reportText}
+        testId="import-postman-v3-report"
       />
     </>
   );
