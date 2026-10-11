@@ -118,6 +118,10 @@ export interface ScriptRunValues {
   readonly props: Readonly<Record<string, string>>;
   /** The values of the secrets `scripts.secrets` lists. */
   readonly secrets: Readonly<Record<string, string>>;
+  /** A data-driven run's row for this iteration (#336). */
+  readonly data?: Readonly<Record<string, string>>;
+  /** Which iteration of a data-driven run this is. */
+  readonly iteration?: { readonly index: number; readonly count: number };
 }
 
 /** Runs requests' scripts, caching each script's type check by its text and its types. */
@@ -209,6 +213,8 @@ export class RequestScripting {
       vars: values.vars,
       props: values.props,
       secrets: values.secrets,
+      ...(values.data !== undefined ? { data: values.data } : {}),
+      ...(values.iteration !== undefined ? { iteration: values.iteration } : {}),
       requestName: request.name,
       ...(layer !== undefined ? { layer } : {}),
       ...(this.options.onSecretValue !== undefined ? { onSecretValue: this.options.onSecretValue } : {}),

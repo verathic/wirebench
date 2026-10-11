@@ -25,7 +25,7 @@ the app and from `wirebench run`, with the same iterations, the same values and 
 ## Scope
 
 - Data files: CSV (RFC 4180, a header row naming the columns) and JSON (an array of flat objects).
-- `${#Data#column}` in every protocol's request text, and `data.get(column)` and `iteration` in scripts.
+- `${#Data#column}` in every protocol's request text, and `iteration.data.get(column)` in scripts.
 - An iteration driver in the engine shared by request runs and sequence runs: iterations, delay between requests,
   over-run, bail across iterations, results tagged by iteration.
 - CLI: `--data <file>`, `--iterations <n>`, `--delay <ms>`, `--data-overrun stop|wrap|repeat-last`, with `--bail`
@@ -76,9 +76,10 @@ values } }` (0-based indexes; `count` is the plan's length).
 
 ## 4. Scripts
 
-- `ScriptRunValues` gains `data: Record<string, string>` and `iteration: { index: number; count: number }`.
-- Declarations: `declare const data: { get(column: string): string | undefined }` and
-  `declare const iteration: { readonly index: number; readonly count: number }` (index 0-based).
+- `ScriptRunValues` gains `data` (the row) and `iteration` (`{ index, count }`), both optional.
+- One new global, declared `declare const iteration: { readonly index: number; readonly count: number; readonly
+  data: { get(column: string): string | undefined } }` (index 0-based). Not a `data` global: scripts are checked as
+  global scripts, so a global `data` would break every script that declares `const data = response.json()`.
 - The compatibility API's `pm.iterationData.get/has/toObject` read the same row, and `pm.info.iteration` /
   `pm.info.iterationCount` the same numbers (they were a stub answering 0 and 1).
 - A send outside a data-driven run sees an empty row and `{ index: 0, count: 1 }`.

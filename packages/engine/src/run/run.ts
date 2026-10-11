@@ -229,6 +229,8 @@ export function deferredSession(
           vars: context.sequence ?? {},
           props: scriptProperties(scopesFor(context)),
           secrets,
+          ...(context.data !== undefined ? { data: context.data } : {}),
+          ...(context.iteration !== undefined ? { iteration: context.iteration } : {}),
         },
         options,
       ),

@@ -27,9 +27,9 @@
 3. **Data scope.** `project/properties.ts` (`Data` scope: explicit, literal, entitized, not followed by
    `secretNamesIn`), `RunContext.data`/`iteration`, `scopesFor`. Tests in the properties and context suites,
    including a send through `runRequests` reading `${#Data#x}`.
-4. **Scripts read the row.** `ScriptRunValues.data`/`iteration`, the sandbox prelude's `data` and `iteration`,
+4. **Scripts read the row.** `ScriptRunValues.data`/`iteration`, the sandbox prelude's `iteration` global (with `iteration.data`),
    declarations in `script/types/api.ts`, `pm.iterationData` and `pm.info.iteration*`; `deferredSession` passes
-   them. Tests: a script reads `data.get`, a type check accepts it, the compatibility API reads the row.
+   them. Tests: a script reads `iteration.data.get`, a type check accepts it, the compatibility API reads the row.
 5. **Iteration driver and pacer.** `run/iterate.ts` (`runIterations`, `createPacer`), `RequestResult.iteration`,
    `RunSummary.iterations`, `RunOptions.pace` and `RunOptions.send`. Tests: tagging, summary, bail across
    iterations, abort, delay between sends, single-iteration identity.
