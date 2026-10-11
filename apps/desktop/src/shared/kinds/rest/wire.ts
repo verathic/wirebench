@@ -451,6 +451,33 @@ export const requestPreflightRestRequestSchema = z.object({
   secretsOnly: z.boolean().optional(),
 });
 
+/** Request payload for `request.restHeaders`: which REST request, and the editor's unsaved edits. */
+export const requestRestHeadersRequestSchema = z.object({
+  requestId: z.string(),
+  draft: restRequestPatchSchema.optional(),
+});
+export type RequestRestHeadersRequest = z.infer<typeof requestRestHeadersRequestSchema>;
+
+/**
+ * One header a REST send would put on the wire: the engine's `RestHeaderRow`, its value masked unless
+ * the session shows secrets (`masked` says so).
+ */
+export const restHeaderRowWireSchema = z.object({
+  name: z.string(),
+  value: z.string(),
+  source: z.enum(['preference', 'auth', 'body', 'cookie', 'typed', 'transport', 'handshake']),
+  state: z.enum(['sent', 'overridden', 'omitted', 'merged']),
+  masked: z.boolean().optional(),
+});
+export type RestHeaderRowWire = z.infer<typeof restHeaderRowWireSchema>;
+
+/** Response payload for `request.restHeaders`: every header, and what the preview could not know. */
+export const requestRestHeadersResponseSchema = z.object({
+  headers: z.array(restHeaderRowWireSchema),
+  notes: z.array(z.string()).optional(),
+});
+export type RequestRestHeadersResponse = z.infer<typeof requestRestHeadersResponseSchema>;
+
 /**
  * Request payload for `request.restBodySchema`: which REST request, and the editor's unsaved edits,
  * so the operation is looked up by the method and URL the tab shows rather than the saved ones.
