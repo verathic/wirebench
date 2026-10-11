@@ -5,7 +5,8 @@
  *
  * A secret never crosses: a value is expanded with no secrets and no process environment, and one
  * that reaches a `${secret:…}` token or a `${#System#…}` variable goes over masked, without its value.
- * System variables go over by name only, so a `${#System#HOME}` is not marked unresolved.
+ * System variables go over by name only, so a `${#System#HOME}` is not marked unresolved. A value
+ * that generates a `${$…}` one (#333) goes over as written, since every send makes a new one.
  *
  * Pure: no `electron`, no `fs`.
  */
@@ -85,11 +86,13 @@ function entryFor(
     secret !== undefined ||
     expanded.unresolved.some((ref) => ref.scope === 'Secret' || ref.scope === 'System') ||
     expanded.used.some((used) => used.scope === 'Secret' || used.scope === 'System');
+  // A generated value would be one sample the send never uses: such a value is shown as written.
+  const dynamic = expanded.used.some((used) => used.scope === 'Dynamic');
   const edit = editTarget(scope, input.located, name);
   return {
     name,
     scope,
-    ...(masked ? {} : { value: expanded.text }),
+    ...(masked ? {} : { value: dynamic ? raw : expanded.text }),
     masked,
     ...(secret !== undefined ? { secretName: secret.name } : {}),
     shadowed,

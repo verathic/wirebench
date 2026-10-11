@@ -97,6 +97,15 @@ describe('requestVariables', () => {
     expect(JSON.stringify(entries)).not.toContain('/home/me');
   });
 
+  it('shows a value that generates a dynamic one as written, not as one sample', () => {
+    const shop = { ...project(), properties: { requestId: 'req-${$guid}' } };
+    const scopes = resolveScopes(shop, undefined, {}, {});
+    const { entries } = requestVariables({ scopes, located: { project: shop }, secretNames: [] });
+    expect(entries).toContainEqual(
+      expect.objectContaining({ name: 'requestId', value: 'req-${$guid}', masked: false }),
+    );
+  });
+
   it('never carries a secret value, whatever the scopes hold', () => {
     const shop = project();
     const scopes = { ...resolveScopes(shop, 'e1', {}, {}), secrets: { api_key: 'TOPSECRET' } };

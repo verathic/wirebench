@@ -95,6 +95,23 @@ describe('a key/value cell inside a request editor', () => {
     expect(onChange).toHaveBeenCalledWith([row('X-Host', 'https://${host}')]);
   });
 
+  it('completes a dynamic value after ${$, and leaves a known one unmarked', () => {
+    mountTable([row('X-Id', '${$guid}/${$nope}')]);
+    const marks = document.querySelectorAll('[data-variable-start]');
+    expect([...marks].map((mark) => [mark.textContent, mark.getAttribute('data-unresolved')])).toEqual([
+      ['${$guid}', null],
+      ['${$nope}', 'true'],
+    ]);
+    cleanup();
+
+    mountTable([row('X-Id', '')]);
+    const value = screen.getByTestId('h-value');
+    value.focus();
+    type(value, '${$gu');
+    fireEvent.keyDown(value, { key: 'Enter' });
+    expect((value as HTMLTextAreaElement).value).toBe('${$guid}');
+  });
+
   it('closes the list on Escape without reverting the cell', () => {
     mountTable([row('X-Host', '')]);
     const value = screen.getByTestId('h-value');

@@ -93,7 +93,8 @@ export function registerVariableAssistOnce(monacoNS: typeof Monaco): void {
         if (variables === undefined) return { suggestions: [] };
         const line = model.getLineContent(position.lineNumber);
         const context = completionContext(line.slice(0, position.column - 1));
-        if (context === undefined) return { suggestions: [] };
+        // A dynamic name is completed by the dynamic values' own provider (#333), in every body editor.
+        if (context === undefined || context.kind === 'dynamic') return { suggestions: [] };
         const range = {
           startLineNumber: position.lineNumber,
           startColumn: context.start + 1,

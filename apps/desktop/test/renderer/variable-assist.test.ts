@@ -56,11 +56,15 @@ describe('completionContext', () => {
     expect(completionContext('${secret:ap')).toEqual({ kind: 'secret', prefix: 'ap', start: 9 });
   });
 
-  it('stays out of the escape, a closed reference and the dynamic forms', () => {
+  it('recognises a dynamic name in either of its forms', () => {
+    expect(completionContext('${$gu')).toEqual({ kind: 'dynamic', prefix: 'gu', start: 3 });
+    expect(completionContext('${#Dynamic#gu')).toEqual({ kind: 'dynamic', prefix: 'gu', start: 11 });
+  });
+
+  it('stays out of the escape and a closed reference', () => {
     expect(completionContext('$${ho')).toBeUndefined();
+    expect(completionContext('$${$gu')).toBeUndefined();
     expect(completionContext('${host} x')).toBeUndefined();
-    expect(completionContext('${$gu')).toBeUndefined();
-    expect(completionContext('${#Dynamic#gu')).toBeUndefined();
     expect(completionContext('plain')).toBeUndefined();
   });
 });
@@ -87,7 +91,7 @@ describe('completionItems', () => {
   it('lists the scopes after ${#, and one scope’s names, System included, after ${#Scope#', () => {
     expect(
       completionItems({ kind: 'scope', prefix: '', start: 3 }, list, false).map((item) => item.insertText),
-    ).toEqual(['Env#', 'Project#', 'Workspace#', 'Global#', 'System#']);
+    ).toEqual(['Env#', 'Project#', 'Workspace#', 'Global#', 'System#', 'Dynamic#']);
     expect(
       completionItems({ kind: 'name', scope: 'System', prefix: '', start: 10 }, list, false).map((item) => item.label),
     ).toEqual(['HOME']);
@@ -96,6 +100,14 @@ describe('completionItems', () => {
         (item) => item.insertText,
       ),
     ).toEqual(['host}', 'apiKey}']);
+  });
+
+  it('lists the dynamic generators after ${$, with what each gives', () => {
+    const items = completionItems({ kind: 'dynamic', prefix: 'gu', start: 3 }, list, false);
+    expect(items.map((item) => item.insertText)).toEqual(['guid}']);
+    expect(items[0]?.detail).toBe('Dynamic');
+    expect(items[0]?.documentation).not.toBe('');
+    expect(completionItems({ kind: 'dynamic', prefix: '', start: 3 }, list, true)[0]?.insertText).not.toContain('}');
   });
 
   it('lists secret names after ${secret:', () => {
@@ -126,10 +138,18 @@ describe('classifyReference', () => {
     expect(classify('${host')).toMatchObject({ status: 'unresolved' });
   });
 
+  it('knows a dynamic generator by its name or an alias, and marks an unknown one', () => {
+    expect(classify('${$guid}')).toMatchObject({ status: 'dynamic', generator: { name: 'guid' } });
+    expect(classify('${#Dynamic#isoTimestamp(+1d)}')).toMatchObject({
+      status: 'dynamic',
+      generator: { name: 'isoTimestamp' },
+    });
+    expect(classify('${$nope}')).toEqual({ status: 'unresolved', name: '$nope' });
+  });
+
   it('never marks what only a run knows, a built name, or anything before the list arrives', () => {
     expect(classify('${#Sequence#id}')).toEqual({ status: 'unknown' });
     expect(classify('${${#Env#which}}')).toEqual({ status: 'unknown' });
-    expect(classify('${$guid}')).toEqual({ status: 'unknown' });
     expect(classifyReference(propertyReferences('${hots}')[0]!, undefined)).toEqual({ status: 'unknown' });
   });
 });
@@ -152,6 +172,19 @@ describe('referenceText', () => {
     expect(referenceText('fresh', 'Global', list)).toBe('${fresh}');
     expect(referenceText('region', 'Project', list)).toBe('${region}');
     expect(referenceText('HOME', 'System', list)).toBe('${#System#HOME}');
+  });
+});
+
+describe('hoverContent for a dynamic value', () => {
+  it('says what the generator gives and that each send makes a new one', () => {
+    const hover = hoverContent(classify('${$guid}'), '${$guid}');
+    expect(hover).toMatchObject({ title: '$guid', scope: 'Dynamic' });
+    expect(hover?.value).toContain('generated for each send');
+    expect(hover).not.toHaveProperty('edit');
+    expect(hoverContent(classify('${$nope}'), '${$nope}')).toMatchObject({
+      scope: 'Unresolved',
+      value: 'No dynamic value is named "nope".',
+    });
   });
 });
 

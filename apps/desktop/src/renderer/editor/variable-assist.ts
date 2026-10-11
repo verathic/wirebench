@@ -2,7 +2,8 @@
  * The editor's help with variables (#340), with no Monaco and no DOM in it, so every field and every
  * editor shares one set of rules — and the tests read them without either:
  *
- * - what the text before the caret is in the middle of typing (`${na`, `${#`, `${#Env#na`, `${secret:`);
+ * - what the text before the caret is in the middle of typing (`${na`, `${#`, `${#Env#na`, `${secret:`,
+ *   `${$na`);
  * - what to offer there, and what accepting an item writes;
  * - what one reference resolves to, against the request's `request.variables` list;
  * - which references to mark as unresolved;
@@ -10,7 +11,12 @@
  *
  * A masked value is shown only as `••••••`: the list never carries it in the first place.
  */
-import { propertyReferences, type PropertyReference } from '@wirebench/engine/rest';
+import {
+  DYNAMIC_GENERATORS,
+  propertyReferences,
+  type DynamicGeneratorInfo,
+  type PropertyReference,
+} from '@wirebench/engine/rest';
 import type { RequestVariablesResponse, RequestVariableWire, VariableEditTargetWire } from '../../shared/wire-base.js';
 
 /** What `request.variables` answered for one request. */
@@ -29,6 +35,9 @@ export const SCOPE_LABEL: Readonly<Record<VariableScope, string>> = {
 /** The scopes `${#Scope#` completes to, in chain order. */
 const SCOPES: readonly VariableScope[] = ['Env', 'Project', 'Workspace', 'Global', 'System'];
 
+/** The scope of the generated values (#333): `${#Dynamic#name}`, or `${$name}` for short. */
+const DYNAMIC = 'Dynamic';
+
 /** The mask a secret-backed value is shown as. */
 export const MASK = '••••••';
 
@@ -36,20 +45,27 @@ export const MASK = '••••••';
 export type CompletionContext =
   | { readonly kind: 'name'; readonly scope?: VariableScope; readonly prefix: string; readonly start: number }
   | { readonly kind: 'scope'; readonly prefix: string; readonly start: number }
-  | { readonly kind: 'secret'; readonly prefix: string; readonly start: number };
+  | { readonly kind: 'secret'; readonly prefix: string; readonly start: number }
+  | { readonly kind: 'dynamic'; readonly prefix: string; readonly start: number };
 
 // Each one anchored at the caret, and never behind the `$${` escape.
 const SCOPED_NAME = /(?<!\$)\$\{#([A-Za-z]+)#([^\s{}#$]*)$/;
 const SCOPE = /(?<!\$)\$\{#([A-Za-z]*)$/;
 const SECRET = /(?<!\$)\$\{secret:([A-Za-z0-9_]*)$/;
+const DYNAMIC_NAME = /(?<!\$)\$\{(?:\$|#Dynamic#)([A-Za-z0-9]*)$/;
 const NAME = /(?<!\$)\$\{([^\s{}#$:]*)$/;
 
 /** The completion context when `before` (the text up to the caret) ends inside an open reference. */
 export function completionContext(before: string): CompletionContext | undefined {
+  const dynamic = DYNAMIC_NAME.exec(before);
+  if (dynamic !== null) {
+    const prefix = dynamic[1]!;
+    return { kind: 'dynamic', prefix, start: before.length - prefix.length };
+  }
   const scoped = SCOPED_NAME.exec(before);
   if (scoped !== null) {
     const scope = scoped[1] as VariableScope;
-    // `${#Dynamic#` is the dynamic values' own completion's; an unknown scope has nothing to offer.
+    // An unknown scope has nothing to offer.
     if (!SCOPES.includes(scope)) return undefined;
     const prefix = scoped[2]!;
     return { kind: 'name', scope, prefix, start: before.length - prefix.length };
@@ -98,11 +114,23 @@ export function completionItems(
   const matches = (label: string): boolean => label.toLowerCase().startsWith(prefix);
   switch (context.kind) {
     case 'scope':
-      return SCOPES.filter((scope) => matches(scope)).map((scope) => ({
-        label: scope,
-        insertText: `${scope}#`,
-        detail: SCOPE_LABEL[scope],
-        documentation: '',
+      return [
+        ...SCOPES.filter((scope) => matches(scope)).map((scope) => ({
+          label: scope,
+          insertText: `${scope}#`,
+          detail: SCOPE_LABEL[scope],
+          documentation: '',
+        })),
+        ...(matches(DYNAMIC)
+          ? [{ label: DYNAMIC, insertText: `${DYNAMIC}#`, detail: 'Generated on each send', documentation: '' }]
+          : []),
+      ];
+    case 'dynamic':
+      return DYNAMIC_GENERATORS.filter((generator) => matches(generator.name)).map((generator) => ({
+        label: generator.name,
+        insertText: `${generator.name}${brace}`,
+        detail: DYNAMIC,
+        documentation: generatorText(generator),
       }));
     case 'secret':
       return variables.secretNames
@@ -141,9 +169,22 @@ export function completionItems(
   }
 }
 
+/** What a generator gives, and the arguments it takes. */
+function generatorText(generator: DynamicGeneratorInfo): string {
+  return generator.usage === undefined
+    ? generator.description
+    : `${generator.description} Arguments: (${generator.usage}).`;
+}
+
+/** The generator `name` (no arguments) names, by its own name or an alias. */
+function generatorNamed(name: string): DynamicGeneratorInfo | undefined {
+  return DYNAMIC_GENERATORS.find((generator) => generator.name === name || generator.aliases.includes(name));
+}
+
 /** What one reference resolves to. `unknown` is never marked: only a send can tell. */
 export type ReferenceStatus =
   | { readonly status: 'resolved'; readonly entry: RequestVariableWire }
+  | { readonly status: 'dynamic'; readonly generator: DynamicGeneratorInfo }
   | { readonly status: 'secret'; readonly name: string }
   | { readonly status: 'unresolved'; readonly name: string }
   | { readonly status: 'unknown' };
@@ -177,7 +218,13 @@ export function classifyReference(
     case 'unknown-scope':
     case 'malformed':
       return unresolved;
-    case 'dynamic':
+    case 'dynamic': {
+      // Arguments are checked only when the value is generated, at send time.
+      const generator = generatorNamed(reference.name);
+      return generator === undefined
+        ? { status: 'unresolved', name: `$${reference.name}` }
+        : { status: 'dynamic', generator };
+    }
     case 'nested':
       return { status: 'unknown' };
   }
@@ -225,6 +272,12 @@ export function hoverContent(status: ReferenceStatus, raw: string): HoverContent
       };
     case 'secret':
       return { title: status.name, scope: 'Secret', value: MASK };
+    case 'dynamic':
+      return {
+        title: `$${status.generator.name}`,
+        scope: DYNAMIC,
+        value: `${generatorText(status.generator)} A new value is generated for each send.`,
+      };
     case 'unresolved': {
       const title = status.name === '' ? raw : status.name;
       return {
@@ -233,7 +286,9 @@ export function hoverContent(status: ReferenceStatus, raw: string): HoverContent
         value:
           status.name === ''
             ? 'This reference is not closed with "}".'
-            : `No variable named "${status.name}" is in scope for this request.`,
+            : status.name.startsWith('$')
+              ? `No dynamic value is named "${status.name.slice(1)}".`
+              : `No variable named "${status.name}" is in scope for this request.`,
         unresolved: true,
       };
     }
