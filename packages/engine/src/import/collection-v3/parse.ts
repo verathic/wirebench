@@ -96,8 +96,12 @@ function wellFormedKey(path: string): boolean {
 class Reader {
   readonly report = new ReportBuilder();
   private readonly docs = new Map<string, Rec | undefined>();
-  /** The well-formed keys, in a stable order. */
-  readonly keys: readonly string[];
+  /** The files directly in each folder, by root-relative folder path (`''` for the root), sorted. */
+  private readonly filesIn = new Map<string, string[]>();
+  /** The folders directly in each folder, by name. */
+  private readonly foldersIn = new Map<string, Set<string>>();
+  /** Every folder holding a request file (outside `.resources`) or a folder definition, at any depth. */
+  private readonly holding = new Set<string>();
 
   constructor(private readonly files: ReadonlyMap<string, string>) {
     const keys: string[] = [];
@@ -113,7 +117,47 @@ class Reader {
       keys.push(key);
     }
     keys.sort();
-    this.keys = keys;
+    // One pass builds the index every lookup below uses, so reading a large tree stays linear.
+    for (const key of keys) {
+      const dir = dirOf(key);
+      const files = this.filesIn.get(dir);
+      if (files === undefined) this.filesIn.set(dir, [key]);
+      else files.push(key);
+      const segments = key.split('/');
+      for (let depth = 1; depth < segments.length; depth += 1) {
+        const parent = segments.slice(0, depth - 1).join('/');
+        const folders = this.foldersIn.get(parent);
+        if (folders === undefined) this.foldersIn.set(parent, new Set([segments[depth - 1]!]));
+        else folders.add(segments[depth - 1]!);
+      }
+      const name = segments[segments.length - 1]!;
+      const isRequest = !segments.includes(RESOURCES) && endsWithAny(name, REQUEST_SUFFIXES) !== undefined;
+      const isDefinition =
+        segments.length >= 2 &&
+        segments[segments.length - 2] === RESOURCES &&
+        DEFINITION_NAMES.includes(name.toLowerCase());
+      if (!isRequest && !isDefinition) continue;
+      // A request's own folder and its parents; a definition's folder (above `.resources`) and its parents.
+      const own = isRequest ? segments.length - 1 : segments.length - 2;
+      for (let depth = own; depth >= 0; depth -= 1) this.holding.add(segments.slice(0, depth).join('/'));
+    }
+  }
+
+  /** The files directly in folder `dir`. */
+  filesOf(dir: string): readonly string[] {
+    return this.filesIn.get(dir) ?? [];
+  }
+
+  /** The folders directly in `dir` that hold collection files, sorted, `.resources` aside. */
+  folders(dir: string): string[] {
+    return [...(this.foldersIn.get(dir) ?? [])]
+      .filter((name) => name !== RESOURCES && this.holding.has(join(dir, name)))
+      .sort();
+  }
+
+  /** Whether anything at or under `dir` is a request file or a folder definition. */
+  holds(dir: string): boolean {
+    return this.holding.has(dir);
   }
 
   has(path: string): boolean {
@@ -151,10 +195,8 @@ class Reader {
 
   /** The documents directly inside `dir` whose names end in one of `suffixes`, by `order`. */
   listed(dir: string, suffixes: readonly string[]): V3File[] {
-    const prefix = `${dir}/`;
     const found: (V3File & { order: number | undefined; name: string })[] = [];
-    for (const key of this.keys) {
-      if (!key.startsWith(prefix) || key.slice(prefix.length).includes('/')) continue;
+    for (const key of this.filesOf(dir)) {
       if (endsWithAny(key, suffixes) === undefined) continue;
       const doc = this.doc(key);
       if (doc === undefined) continue;
@@ -218,11 +260,6 @@ class Reader {
   }
 }
 
-/** True for a path holding a `.resources` segment: metadata, never a request. */
-function inResources(path: string): boolean {
-  return path.split('/').includes(RESOURCES);
-}
-
 function readRequest(reader: Reader, path: string, root: string): V3Request | undefined {
   const doc = reader.doc(path);
   if (doc === undefined) return undefined;
@@ -253,23 +290,13 @@ function readRequest(reader: Reader, path: string, root: string): V3Request | un
 function readFolder(reader: Reader, dir: string, root: string, fallbackName: string): V3Folder {
   const definitionPath = reader.definitionPath(dir);
   const definition = definitionPath === undefined ? undefined : reader.doc(definitionPath);
-  const prefix = dir === '' ? '' : `${dir}/`;
   const requests: V3Request[] = [];
-  const subdirs = new Set<string>();
-  for (const key of reader.keys) {
-    if (!key.startsWith(prefix)) continue;
-    const rest = key.slice(prefix.length);
-    const slash = rest.indexOf('/');
-    if (slash !== -1) {
-      const child = rest.slice(0, slash);
-      if (child !== RESOURCES && holdsCollectionFiles(reader, join(dir, child))) subdirs.add(child);
-      continue;
-    }
-    if (endsWithAny(rest, REQUEST_SUFFIXES) === undefined) continue;
+  for (const key of reader.filesOf(dir)) {
+    if (endsWithAny(lastSegment(key), REQUEST_SUFFIXES) === undefined) continue;
     const request = readRequest(reader, key, root);
     if (request !== undefined) requests.push(request);
   }
-  const folders = [...subdirs].map((child) => readFolder(reader, join(dir, child), root, child));
+  const folders = reader.folders(dir).map((child) => readFolder(reader, join(dir, child), root, child));
   const ownName = str(definition?.['name'])?.trim();
   return {
     type: 'folder',
@@ -283,47 +310,21 @@ function readFolder(reader: Reader, dir: string, root: string, fallbackName: str
   };
 }
 
-/** Whether anything under `dir` is a request file or a folder definition: a folder worth reading. */
-function holdsCollectionFiles(reader: Reader, dir: string): boolean {
-  const prefix = `${dir}/`;
-  return reader.keys.some(
-    (key) =>
-      key.startsWith(prefix) &&
-      ((!inResources(key.slice(prefix.length)) && endsWithAny(key, REQUEST_SUFFIXES) !== undefined) ||
-        DEFINITION_NAMES.some((name) => key.endsWith(`/${RESOURCES}/${name}`))),
-  );
-}
-
 /** Whether folder `dir` is itself a collection: it has a definition or request files of its own. */
 function isCollectionRoot(reader: Reader, dir: string): boolean {
   if (reader.definitionPath(dir) !== undefined) return true;
-  const prefix = dir === '' ? '' : `${dir}/`;
-  return reader.keys.some((key) => {
-    if (!key.startsWith(prefix)) return false;
-    const rest = key.slice(prefix.length);
-    return !rest.includes('/') && endsWithAny(rest, REQUEST_SUFFIXES) !== undefined;
-  });
+  return reader.filesOf(dir).some((key) => endsWithAny(lastSegment(key), REQUEST_SUFFIXES) !== undefined);
 }
 
 /** The folders directly under `dir` that hold collection files: the collections of a collections folder. */
 function collectionDirs(reader: Reader, dir: string): string[] {
-  const prefix = dir === '' ? '' : `${dir}/`;
-  const names = new Set<string>();
-  for (const key of reader.keys) {
-    if (!key.startsWith(prefix)) continue;
-    const rest = key.slice(prefix.length);
-    const slash = rest.indexOf('/');
-    if (slash > 0) names.add(rest.slice(0, slash));
-  }
-  return [...names].filter((name) => name !== RESOURCES && holdsCollectionFiles(reader, join(dir, name))).sort();
+  return reader.folders(dir);
 }
 
 /** The YAML documents directly in folder `dir`. */
 function documentsIn(reader: Reader, dir: string): V3File[] {
-  const prefix = `${dir}/`;
   const out: V3File[] = [];
-  for (const key of reader.keys) {
-    if (!key.startsWith(prefix) || key.slice(prefix.length).includes('/')) continue;
+  for (const key of reader.filesOf(dir)) {
     if (endsWithAny(key, YAML_SUFFIXES) === undefined) continue;
     const doc = reader.doc(key);
     if (doc !== undefined) out.push({ path: key, doc });
@@ -335,7 +336,8 @@ function documentsIn(reader: Reader, dir: string): V3File[] {
  * Reads a picked folder. It is one collection when it has a definition or request files of its own;
  * a workspace folder when it has neither but holds `collections/` (each folder there a collection,
  * with `environments/` and `globals/` beside it); a collections folder when it is named
- * `collections` and has neither (each folder in it a collection). `rootName` is the picked folder's
+ * `collections` and has neither (each folder in it a collection); otherwise one collection when
+ * requests lie in folders below it. `rootName` is the picked folder's
  * own name: a collection without a definition is named after it.
  */
 export function readCollectionV3(files: ReadonlyMap<string, string>, rootName: string): V3Workspace {
@@ -353,6 +355,9 @@ export function readCollectionV3(files: ReadonlyMap<string, string>, rootName: s
     globals = documentsIn(reader, 'globals');
   } else if (rootName === 'collections') {
     collections = collectionDirs(reader, '').map((name) => readFolder(reader, name, name, name));
+  } else if (reader.holds('')) {
+    // A collection made only of folders: nothing of its own at the top, requests below.
+    collections = [readFolder(reader, '', '', rootName)];
   } else {
     collections = [];
   }

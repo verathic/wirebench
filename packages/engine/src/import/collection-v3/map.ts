@@ -493,7 +493,7 @@ export function mapCollectionV3(workspace: V3Workspace, options: MapCollectionV3
   if (requests === 0 && environments.length === 0 && globals.length === 0) {
     throw new PostmanError(
       'postman-v3-nothing-to-import',
-      'The folder holds no HTTP, gRPC or WebSocket request and no environment to import.',
+      'The folder holds nothing Wirebench can bring across: no HTTP, gRPC or WebSocket request, and no environment.',
     );
   }
   return {

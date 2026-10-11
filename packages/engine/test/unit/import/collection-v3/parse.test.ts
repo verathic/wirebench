@@ -172,3 +172,20 @@ describe('resolveInside', () => {
     }
   });
 });
+
+describe('readCollectionV3: scale', () => {
+  it('reads a collection at the file limit in one pass over the paths, not one per folder', () => {
+    const files = new Map<string, string>();
+    for (let folder = 0; folder < 1000; folder += 1) {
+      const dir = `f${String(folder % 10)}/g${String(folder)}`;
+      files.set(`${dir}/.resources/definition.yaml`, `$kind: collection\norder: ${String(folder)}`);
+      for (let n = 0; n < 4; n += 1) files.set(`${dir}/r${String(n)}.request.yaml`, '$kind: http-request');
+    }
+    const started = performance.now();
+    const read = readCollectionV3(files, 'big');
+    const elapsed = performance.now() - started;
+    expect(read.collections[0]?.name).toBe('big');
+    expect(v3Requests(read.collections[0]!)).toHaveLength(4000);
+    expect(elapsed).toBeLessThan(3000);
+  });
+});

@@ -354,19 +354,20 @@ async function addCollectionV3(
       added.push({ kind: api.kind, name: api.name, slug, requests: requestCount(api) });
     }
   }
-  const properties: Record<string, string> = { ...next.properties };
+  // A Map, then fromEntries: a variable named like an Object.prototype member stays an own entry.
+  const properties = new Map(Object.entries(next.properties));
   const disabled = new Set(next.disabledProperties);
   const secrets: string[] = [];
   const kept: string[] = [];
   for (const variable of mapped.variables.projectProperties?.variables ?? []) {
     if (variable.secret) secrets.push(variable.name);
-    else if (Object.hasOwn(properties, variable.name)) kept.push(variable.name);
+    else if (properties.has(variable.name)) kept.push(variable.name);
     else {
-      properties[variable.name] = variable.value;
+      properties.set(variable.name, variable.value);
       if (!variable.enabled) disabled.add(variable.name);
     }
   }
-  next = { ...next, properties, disabledProperties: [...disabled] };
+  next = { ...next, properties: Object.fromEntries(properties), disabledProperties: [...disabled] };
   await saveProject(next, context.projectDir);
 
   const problems: ImportProblemView[] = [];
