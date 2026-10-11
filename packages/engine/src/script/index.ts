@@ -47,6 +47,7 @@ export type {
   ScriptRunLevel,
   ScriptRunValues,
 } from './request-scripts.js';
+export { containerScriptLevels } from './levels.js';
 export { SecretPlaceholders } from './send.js';
 export { scriptProperties } from './props.js';
 export { apiDeclarations, apiReference, scriptDeclarations, secretNameType } from './types/api.js';

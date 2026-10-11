@@ -9,6 +9,7 @@ import type { RestRequestSnapshot, RestResponseSnapshot } from '../../../src/res
 import { scriptSession } from '../../../src/run/script-support.js';
 import { createScriptChecker } from '../../../src/script/check/host.js';
 import type { RequestScripts } from '../../../src/script/model.js';
+import { containerScriptLevels } from '../../../src/script/levels.js';
 import { RequestScripting, type ScriptedRequest } from '../../../src/script/request-scripts.js';
 import { createScriptSandbox } from '../../../src/script/sandbox/host.js';
 
@@ -196,5 +197,29 @@ describe('level scripts', () => {
         message: expect.stringContaining('API "Shop"') as unknown,
       });
     });
+  });
+});
+
+describe('containerScriptLevels', () => {
+  const on = scripts({ pre: { text: 'log("x");' } });
+
+  it('lists the container, then each scripted folder, its stem the folder path inside the container', () => {
+    expect(
+      containerScriptLevels({ name: 'Hello', scripts: on }, 'api', [
+        { name: 'Greeter', slug: 'Greeter', scripts: on },
+        { name: 'Plain', slug: 'Plain' },
+        { name: 'Deep', slug: 'Deep', scripts: on },
+      ]).map((level) => [level.level, level.name, level.stem]),
+    ).toEqual([
+      ['api', 'Hello', 'api'],
+      ['folder', 'Greeter', 'Greeter/folder'],
+      ['folder', 'Deep', 'Greeter/Plain/Deep/folder'],
+    ]);
+  });
+
+  it('names a SOAP interface’s level as an interface', () => {
+    expect(containerScriptLevels({ name: 'Stock', scripts: on }, 'interface')).toEqual([
+      { level: 'interface', name: 'Stock', stem: 'interface', scripts: on },
+    ]);
   });
 });

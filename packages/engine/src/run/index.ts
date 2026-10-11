@@ -8,6 +8,7 @@ export type { RunContext, RunWorkspace } from './context.js';
 export {
   cappedExchange,
   checkRunScripts,
+  hasPostResponseScript,
   createRunSender,
   deferredSession,
   errorOf,
