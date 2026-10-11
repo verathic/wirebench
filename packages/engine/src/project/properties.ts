@@ -7,6 +7,9 @@
  * unresolved expressions are left verbatim in the output and reported via
  * `unresolved`.
  *
+ * `${#Dynamic#name}`, or `${$name}` for short, is a value generated at send time (`dynamic.ts`): each
+ * distinct reference is generated once per `scopes.dynamic` memo and substituted literally.
+ *
  * `${#Sequence#name}` is the exception: its values come from responses, so
  * they are never expanded again, never reached by the shorthand, and never
  * allowed to form another reference's name (ADR-0015). `${#Data#column}`, a
@@ -19,6 +22,7 @@
 
 import { entitizeValue } from '../xml/entitize.js';
 import { SECRET_NAME_PATTERN } from '../secrets/secret-token.js';
+import { DynamicValues } from './dynamic.js';
 import type { PropertyMap } from './model.js';
 
 /** The property lookup scopes available to {@link expand}. */
@@ -63,6 +67,12 @@ export interface PropertyScopes {
    * and reachable only by the explicit form, as a Sequence value is, so a cell never reaches a secret.
    */
   readonly data?: PropertyMap;
+  /**
+   * The `${#Dynamic#…}` values of one send, so the same reference gives the same value wherever the
+   * send uses it. A host makes one per send with its scopes; spreading the scopes keeps it. Absent:
+   * {@link expand} makes one for that call alone.
+   */
+  readonly dynamic?: DynamicValues;
 }
 
 /**
@@ -97,8 +107,10 @@ export interface UnresolvedRef {
   /**
    * Why the reference stayed unexpanded. `name-from-response`: the reference's own name was built
    * from a `${#Sequence#…}` value, so a server would be choosing which property (or secret) is read.
+   * `bad-arguments`: a `${#Dynamic#…}` generator refused the arguments it was given.
    */
-  readonly code: 'missing' | 'unknown-scope' | 'cycle' | 'too-deep' | 'malformed' | 'name-from-response';
+  readonly code:
+    'missing' | 'unknown-scope' | 'cycle' | 'too-deep' | 'malformed' | 'name-from-response' | 'bad-arguments';
   /**
    * Offsets into the original text of the *outermost* `${...}` reference the user can see. When
    * this ref was discovered while recursively expanding a property's value (not the original
@@ -122,10 +134,10 @@ export interface ExpandResult {
 }
 
 const DEFAULT_MAX_DEPTH = 8;
-const SCOPE_NAMES = new Set(['Project', 'Env', 'Workspace', 'Global', 'System', 'Sequence', 'Data']);
+const SCOPE_NAMES = new Set(['Project', 'Env', 'Workspace', 'Global', 'System', 'Sequence', 'Data', 'Dynamic']);
 
 interface ParsedExpr {
-  /** Explicit scope (`Project`/`Env`/`Workspace`/`Global`/`System`/`Sequence`/`Data`), or undefined for the shorthand form. */
+  /** Explicit scope (`Project`/`Env`/`Workspace`/`Global`/`System`/`Sequence`/`Data`/`Dynamic`/`Secret`), or undefined for the shorthand form. */
   readonly scope: string | undefined;
   readonly name: string;
 }
@@ -141,6 +153,10 @@ function parseExpr(inner: string): ParsedExpr {
         return { scope, name };
       }
     }
+  }
+  // `${$name}`: the Dynamic scope's short form, so no property named `$…` is reached by the shorthand.
+  if (inner.length > 1 && inner.startsWith('$')) {
+    return { scope: 'Dynamic', name: inner.slice(1) };
   }
   if (inner.startsWith('secret:')) {
     return { scope: 'Secret', name: inner.slice('secret:'.length) };
@@ -267,6 +283,7 @@ interface ExpandContext {
   readonly entitize: boolean;
   readonly unresolved: UnresolvedRef[];
   readonly used: { scope: string; name: string }[];
+  readonly dynamic: DynamicValues;
 }
 
 /** The original-text span (and property chain) to attribute unresolved refs to, once expansion has recursed into a property's value. */
@@ -350,6 +367,26 @@ function expandAt(
       continue;
     }
     const { scope, name } = parseExpr(resolvedInner);
+
+    if (scope === 'Dynamic') {
+      // Generated, so literal: never expanded again, and never part of a cycle.
+      const result = ctx.dynamic.resolve(name);
+      if (!result.ok) {
+        pushUnresolved(ctx, outer, via, {
+          expr: token.raw,
+          scope,
+          name,
+          code: result.code,
+          start: token.start,
+          end: token.end,
+        });
+        out += token.raw;
+        continue;
+      }
+      ctx.used.push({ scope, name });
+      out += substituted(ctx, outer, result.value, scope);
+      continue;
+    }
 
     if (scope !== undefined) {
       const key = `${scope}#${name}`;
@@ -460,6 +497,7 @@ export function expand(text: string, scopes: PropertyScopes, options?: ExpandOpt
     entitize: options?.entitize ?? false,
     unresolved: [],
     used: [],
+    dynamic: scopes.dynamic ?? new DynamicValues(),
   };
   const out = expandAt(text, 0, [], ctx, undefined, []);
   const seen = new Set<string>();
