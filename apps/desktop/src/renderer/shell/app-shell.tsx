@@ -482,33 +482,32 @@ export function AppShell() {
                     </div>
                   )}
                 </div>
+                {/* The right panel shares this row with the sidebar and the editor: opening it narrows
+                  the editor (the row, and so the sidebar's share, stay the same width). While closed it
+                  unmounts completely; the rail's icon or `view.toggleCode` reopens it. */}
+                <SlideOver
+                  label="Code"
+                  open={slideOver.open && !hostDetailsShown && !settingsOpen}
+                  width={slideOverWidth}
+                  onWidthChange={setSlideOverWidth}
+                  onToggle={toggleCode}
+                  onClose={closeCode}
+                >
+                  <CodePanel />
+                </SlideOver>
+                <SlideOver
+                  label="Host details"
+                  open={hostDetailsShown && !settingsOpen}
+                  width={slideOverWidth}
+                  onWidthChange={setSlideOverWidth}
+                  onToggle={toggleHostDetails}
+                  onClose={closeHostDetails}
+                >
+                  <HostDetails />
+                </SlideOver>
               </div>
 
               <RightRail platform={platform} />
-              {/* The slide-over is the exception to the two handles above: it overlays the editor
-                rather than sharing the row with it, so while closed it unmounts completely — a
-                handle left over the editor's right edge would swallow clicks and drag-selection
-                there. The rail's Code icon and `view.toggleCode` reopen it. */}
-              <SlideOver
-                label="Code"
-                open={slideOver.open && !hostDetailsShown && !settingsOpen}
-                width={slideOverWidth}
-                onWidthChange={setSlideOverWidth}
-                onToggle={toggleCode}
-                onClose={closeCode}
-              >
-                <CodePanel />
-              </SlideOver>
-              <SlideOver
-                label="Host details"
-                open={hostDetailsShown && !settingsOpen}
-                width={slideOverWidth}
-                onWidthChange={setSlideOverWidth}
-                onToggle={toggleHostDetails}
-                onClose={closeHostDetails}
-              >
-                <HostDetails />
-              </SlideOver>
             </div>
           )}
         </div>
