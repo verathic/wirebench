@@ -18,7 +18,12 @@ import { defaultRegistry } from '../protocols.js';
 import type { SelectedRequest, SentExchange } from '../protocols.js';
 import type { GoldenFile, GoldenRead, GoldenWrite } from '../snapshot/golden-file.js';
 import { scriptProperties } from '../script/props.js';
-import { activeScripts, type RequestScripting, type ScriptedRequest } from '../script/request-scripts.js';
+import {
+  activeScripts,
+  scriptSecretNames,
+  type RequestScripting,
+  type ScriptedRequest,
+} from '../script/request-scripts.js';
 import type { RequestScripts } from '../script/model.js';
 import { SecretPlaceholders } from '../script/send.js';
 import type { TransferResult } from '../sequence/run.js';
@@ -219,7 +224,7 @@ export function deferredSession(
 ): ScriptSession {
   let opening: Promise<ScriptSession> | undefined;
   const open = (): Promise<ScriptSession> => {
-    opening ??= listedSecrets(scripted.scripts.secrets, context.host.getSecret).then((secrets) =>
+    opening ??= listedSecrets(scriptSecretNames(scripted), context.host.getSecret).then((secrets) =>
       // The run records a value as it merges it (`mergeScriptValues`); nothing about the send is
       // shown before that.
       scriptSession(

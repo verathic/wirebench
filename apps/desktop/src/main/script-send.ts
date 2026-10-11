@@ -66,6 +66,7 @@ export function scriptsFailed(error: unknown): SentScripts {
     values: [],
     log: { lines: [], truncated: false },
     error: { code: 'script-error', message: error instanceof Error ? error.message : String(error) },
+    levels: [],
   };
 }
 

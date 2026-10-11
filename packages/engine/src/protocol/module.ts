@@ -257,6 +257,11 @@ export interface ProtocolScripting<
 > {
   /** The API's ambient declarations for one phase, after the common ones. */
   declarations(phase: ScriptPhase): string;
+  /**
+   * The generated half of the types an API's or a folder's script is checked against (#334): what a
+   * request gets when its operation is unknown, since a level runs for many operations.
+   */
+  levelTypes(): string;
   /** The docs site's reference sections for this protocol, in order. */
   reference(): readonly ApiReferenceSection[];
   /** Sandbox-side source that defines `request` and `response` from the input snapshot. */

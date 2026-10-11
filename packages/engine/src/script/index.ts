@@ -28,16 +28,23 @@ export type {
   ScriptValue,
 } from './model.js';
 export {
+  activeLevels,
   activeScripts,
   assertScriptsUsable,
+  levelOwner,
   RequestScripting,
   scriptError,
+  scriptLevels,
+  scriptSecretNames,
   typeCheckError,
 } from './request-scripts.js';
 export type {
   RequestScriptingOptions,
   RequestScriptTypes,
   ScriptedRequest,
+  ScriptLevel,
+  ScriptLevelKind,
+  ScriptRunLevel,
   ScriptRunValues,
 } from './request-scripts.js';
 export { SecretPlaceholders } from './send.js';

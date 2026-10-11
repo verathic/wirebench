@@ -100,7 +100,7 @@ and in `wirebench run`. Each level is checked once per send, and the cache is ke
 ## Results
 
 `SentScripts` gains `levels`: one entry per script that ran, in run order, each with
-`{ level: 'api' | 'folder' | 'request', name, phase, tests, log, error? }`. Its flat `tests`, `values`, `log` and
+`{ level: 'api' | 'interface' | 'folder' | 'request', name, phase, tests, log, error? }`. Its flat `tests`, `values`, `log` and
 `error` are unchanged, so reports, assertions and History read the same as before.
 
 The response **Script** tab lists the levels in order. Each shows its tests, its failure and its log under a heading
