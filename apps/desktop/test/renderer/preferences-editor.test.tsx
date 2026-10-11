@@ -91,6 +91,24 @@ describe('PreferencesEditor', () => {
     });
   });
 
+  it('puts a field back to the saved value when main refuses the change', async () => {
+    const update = vi.fn().mockResolvedValue({
+      ok: false,
+      error: { code: 'preference-locked', message: 'Locked by the managed-preferences policy: editor.tabSize' },
+    });
+    installWirebenchApi({ preferences: { update } });
+    usePreferencesStore.getState().applyPreferences(DEFAULTS);
+    render(<PreferencesEditor initialSection="appearance" />);
+
+    const tabSize = screen.getByLabelText<HTMLInputElement>('Tab size');
+    fireEvent.change(tabSize, { target: { value: '8' } });
+    fireEvent.keyDown(tabSize, { key: 'Enter' });
+    await vi.waitFor(() => {
+      expect(tabSize.value).toBe(String(DEFAULTS.editor.tabSize));
+    });
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
   it('sets the secret source cache lifetime from the Secrets section', async () => {
     const update = stubUpdate();
     installWirebenchApi({ preferences: { update } });
