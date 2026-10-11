@@ -349,8 +349,27 @@ export { isSoapFault, parseFault } from './soap/fault.js';
 export type { FaultReason, SoapFault } from './soap/fault.js';
 export { recreateRequest } from './soap/recreate.js';
 export type { RecreateOptions, RecreateResult } from './soap/recreate.js';
-export { toCurl } from './http/curl.js';
+export { quoteForShell, toCurl } from './http/curl.js';
 export type { CurlBody, CurlCommand, CurlHeader, CurlPart, ToCurlOptions } from './http/curl.js';
+export {
+  CODE_TARGETS,
+  defaultIndent,
+  envMarker,
+  generateCode,
+  secretTokensToEnv,
+  splitEnv,
+} from './http/codegen/index.js';
+export { restCodeRequest } from './rest/codegen.js';
+export { soapCodeRequest } from './soap/codegen.js';
+export type {
+  CodeBody,
+  CodeHeader,
+  CodeOptions,
+  CodeRequest,
+  CodeTargetId,
+  GeneratedCode,
+  TextPart,
+} from './http/codegen/index.js';
 export { fromCurl, soapToCurl } from './soap/curl.js';
 export type { FromCurlResult } from './soap/curl.js';
 export { parseSoapResponse } from './soap/response-parser.js';
