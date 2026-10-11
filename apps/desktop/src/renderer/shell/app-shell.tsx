@@ -82,6 +82,7 @@ import { SlideOver } from './slide-over.js';
 import { StatusBar } from './status-bar.js';
 import { TitleBar } from './title-bar.js';
 import { subscribeToMocks } from '../state/mock-runs.js';
+import { subscribeToRunnerProgress } from '../state/runner.js';
 import { subscribeToSequenceProgress } from '../state/sequence-runs.js';
 
 /** The sidebar's size bounds, as a percentage of the row it shares with the editor/console column. */
@@ -317,6 +318,7 @@ export function AppShell() {
   useEffect(() => subscribeToRestLive(), []);
   useEffect(() => subscribeToWsLive(), []);
   useEffect(() => subscribeToSequenceProgress(), []);
+  useEffect(() => subscribeToRunnerProgress(), []);
   useEffect(() => subscribeToMocks(), []);
 
   const openPalette = useCallback((mode: PaletteMode = 'commands') => {
