@@ -19,6 +19,8 @@ import type {
   PostmanItem,
   PostmanQueryParam,
   PostmanRequest,
+  PostmanRequestBehaviour,
+  PostmanResponse,
   PostmanUrl,
   PostmanUrlEncodedParam,
   PostmanVariable,
@@ -245,14 +247,70 @@ function parseItem(raw: Record_, ctx: ParseContext, depth: number): PostmanItem 
     return undefined;
   }
   const request = parseRequest(raw['request'], ctx);
+  const responses = Array.isArray(raw['response']) ? parseResponses(raw['response']) : undefined;
+  const behaviour = isRecord(raw['protocolProfileBehavior'])
+    ? parseBehaviour(raw['protocolProfileBehavior'])
+    : undefined;
   return {
+    ...(behaviour !== undefined ? { protocolProfileBehavior: behaviour } : {}),
     name,
     request,
+    ...(responses !== undefined && responses.kept.length > 0 ? { response: responses.kept } : {}),
+    ...(responses !== undefined && responses.dropped > 0 ? { responsesDropped: responses.dropped } : {}),
     ...(event.length > 0 ? { event } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(auth !== undefined ? { auth } : {}),
     ...(variable !== undefined ? { variable } : {}),
   };
+}
+
+/** The redirect settings of `protocolProfileBehavior`; `undefined` when it names neither. */
+function parseBehaviour(raw: Record_): PostmanRequestBehaviour | undefined {
+  const follow = asBoolean(raw['followRedirects']);
+  const max = raw['maxRedirects'];
+  const maxRedirects = typeof max === 'number' && Number.isInteger(max) && max >= 0 ? max : undefined;
+  if (follow === undefined && maxRedirects === undefined) return undefined;
+  return {
+    ...(follow !== undefined ? { followRedirects: follow } : {}),
+    ...(maxRedirects !== undefined ? { maxRedirects } : {}),
+  };
+}
+
+/**
+ * Saved responses as written: the status text, the headers and a string body. Values are not
+ * translated: an example records what came back, not a template.
+ */
+function parseResponses(raw: readonly unknown[]): { kept: PostmanResponse[]; dropped: number } {
+  const kept: PostmanResponse[] = [];
+  let dropped = 0;
+  for (const entry of raw) {
+    if (!isRecord(entry)) {
+      dropped += 1;
+      continue;
+    }
+    const name = asString(entry['name']);
+    const code = entry['code'];
+    const status = asString(entry['status']);
+    const body = asString(entry['body']);
+    const previewLanguage = asString(entry['_postman_previewlanguage']);
+    const header: { key: string; value: string }[] = [];
+    if (Array.isArray(entry['header'])) {
+      for (const h of entry['header']) {
+        if (!isRecord(h)) continue;
+        const key = asString(h['key']);
+        if (key !== undefined && key !== '') header.push({ key, value: asString(h['value']) ?? '' });
+      }
+    }
+    kept.push({
+      ...(name !== undefined ? { name } : {}),
+      ...(typeof code === 'number' && Number.isInteger(code) ? { code } : {}),
+      ...(status !== undefined ? { status } : {}),
+      header,
+      ...(body !== undefined ? { body } : {}),
+      ...(previewLanguage !== undefined && previewLanguage !== '' ? { previewLanguage } : {}),
+    });
+  }
+  return { kept, dropped };
 }
 
 function parseRequest(raw: string | Record_, ctx: ParseContext): PostmanRequest | string {
@@ -513,6 +571,14 @@ function parseGraphqlVariables(raw: unknown): unknown {
   } catch {
     return {};
   }
+}
+
+/**
+ * A v2.1 auth object read on its own, with `{{var}}` translated (dynamic names added to `dynamic`);
+ * `undefined` when `raw` is not a record. For importers that write their auth in the v2.1 shape.
+ */
+export function parsePostmanAuth(raw: unknown, dynamic?: Set<string>): PostmanAuth | undefined {
+  return isRecord(raw) ? parseAuth(raw, { dynamic: dynamic ?? new Set(), skippedItems: 0 }) : undefined;
 }
 
 /** Auth attributes, with `{{var}}` in string values translated like every other field. */
