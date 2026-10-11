@@ -351,6 +351,16 @@ export { recreateRequest } from './soap/recreate.js';
 export type { RecreateOptions, RecreateResult } from './soap/recreate.js';
 export { toCurl } from './http/curl.js';
 export type { CurlBody, CurlCommand, CurlHeader, CurlPart, ToCurlOptions } from './http/curl.js';
+export { CODE_TARGETS, defaultIndent, envMarker, generateCode, splitEnv } from './http/codegen/index.js';
+export type {
+  CodeBody,
+  CodeHeader,
+  CodeOptions,
+  CodeRequest,
+  CodeTargetId,
+  GeneratedCode,
+  TextPart,
+} from './http/codegen/index.js';
 export { fromCurl, soapToCurl } from './soap/curl.js';
 export type { FromCurlResult } from './soap/curl.js';
 export { parseSoapResponse } from './soap/response-parser.js';
