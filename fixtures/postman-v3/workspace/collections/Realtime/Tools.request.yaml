@@ -1,0 +1,4 @@
+$kind: mcp-request
+transport: sse
+url: https://mcp.example.com/sse
+order: 6000

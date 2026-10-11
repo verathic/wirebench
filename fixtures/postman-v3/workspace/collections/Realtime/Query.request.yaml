@@ -1,0 +1,4 @@
+$kind: graphql-request
+url: https://api.example.com/graphql
+query: '{ books { id } }'
+order: 3000

@@ -1,0 +1,14 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/books/1/cover'
+body:
+  type: formdata
+  content:
+    - key: caption
+      type: text
+      value: Front cover
+    - key: image
+      type: file
+      src: ./covers/front.png
+      contentType: image/png
+order: 1000

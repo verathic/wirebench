@@ -1,0 +1,7 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/page'
+body:
+  type: html
+  content: <p>hello</p>
+order: 5000

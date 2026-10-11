@@ -1,0 +1,3 @@
+$kind: socket.io-request
+url: https://io.example.com
+order: 5000
