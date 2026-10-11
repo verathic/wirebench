@@ -38,7 +38,7 @@
 7. **CLI wiring.** `commands/run.ts` and `commands/sequence.ts`: read and parse the file up front (exit 2), plan,
    run requests or sequences per iteration with the row, pacer across the run. Tests against a local server:
    rows reach requests and sequence steps, bail, over-run.
-8. **Reporters.** `cli`, `junit`, `json`, `html` show the iteration; tests; existing ones unchanged.
+8. **Reporters.** `junit` and `html` show the iteration (`cli` and `json` land with task 7, whose test reads them); tests; existing ones unchanged.
 9. **Docs and changelog.** `docs/cli.md` (flags, a "Data-driven runs" section), `CHANGELOG.md` under
    [Unreleased].
 

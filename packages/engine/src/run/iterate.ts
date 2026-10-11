@@ -28,7 +28,12 @@ export function iterationContext(context: RunContext, iteration: Iteration): Run
   };
 }
 
-function tagged(request: RequestResult, iteration: Iteration): RequestResult {
+/**
+ * `request` tagged with the iteration that sent it; a plain run's is returned as it is. `runIterations`
+ * tags its merged result; a host that shows each request as it ends tags it with this.
+ */
+export function tagIteration(request: RequestResult, iteration: Iteration): RequestResult {
+  if (isPlain(iteration)) return request;
   return {
     ...request,
     iteration: {
@@ -74,7 +79,9 @@ export async function runIterations(
       durationMs: Math.round(performance.now() - started),
       iterations: { planned: plan.length, run: runs.length },
     },
-    requests: runs.flatMap(({ result, iteration }) => result.requests.map((request) => tagged(request, iteration))),
+    requests: runs.flatMap(({ result, iteration }) =>
+      result.requests.map((request) => tagIteration(request, iteration)),
+    ),
   };
 }
 

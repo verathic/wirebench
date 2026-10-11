@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RunContext } from '../../../src/run/context.js';
-import { createPacer, iterationContext, runIterations } from '../../../src/run/iterate.js';
+import { createPacer, iterationContext, runIterations, tagIteration } from '../../../src/run/iterate.js';
 import { planIterations } from '../../../src/run/iterations.js';
 import type { Iteration } from '../../../src/run/iterations.js';
 import type { RequestOutcome, RunResult } from '../../../src/run/run.js';
@@ -96,6 +96,14 @@ describe('runIterations', () => {
     const merged = await runIterations(planIterations({ rows }), once, { signal: controller.signal });
     expect(once).toHaveBeenCalledTimes(1);
     expect(merged.summary.iterations).toEqual({ planned: 3, run: 1 });
+  });
+});
+
+describe('tagIteration', () => {
+  it('leaves a plain run’s request alone and tags any other', () => {
+    const [request] = result(['passed']).requests;
+    expect(tagIteration(request!, { index: 0, count: 1 })).toBe(request);
+    expect(tagIteration(request!, { index: 1, count: 2 }).iteration).toEqual({ index: 1, count: 2 });
   });
 });
 
