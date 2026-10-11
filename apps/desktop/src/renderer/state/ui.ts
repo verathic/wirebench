@@ -2,6 +2,7 @@ import type { Draft } from 'immer';
 import { AREAS } from '@shared/area-module.js';
 import { KINDS, type KindId } from '@shared/kinds/kind-module.js';
 import type { AreaId } from '@shared/area-module.js';
+import type { CodeLanguage, CodeSettings, CodeTarget } from '@shared/code-targets.js';
 import { produce } from 'immer';
 import { create } from 'zustand';
 import type {
@@ -14,7 +15,7 @@ import type {
   UiSnapshot,
 } from './ui-state.js';
 import type { RequestImportCurlTarget } from '../../shared/kinds/rest/wire.js';
-import type { PreferencesSectionWire } from '../../shared/wire-base.js';
+import type { SettingsSectionRequest } from '../features/preferences/settings-model.js';
 import { DEFAULT_UI_STATE, defaultSidebarSize, readUi, writeUi } from './ui-state.js';
 
 /**
@@ -90,6 +91,7 @@ export type ImportDialogFormat =
   | 'http-file'
   | 'http-env'
   | 'opencollection'
+  | 'postman-v3'
   | 'wsdl'
   | 'proto'
   | 'legacy-soap-project';
@@ -107,6 +109,8 @@ export interface UiStore extends UiSnapshot {
   readonly importPostmanDialogOpen: boolean;
   /** The folder whose credentials dialog is open, if any. A folder has no tab to put them on. */
   readonly folderAuthId: string | undefined;
+  /** The folder whose scripts dialog is open, if any (#334). */
+  readonly folderScriptsId: string | undefined;
   /**
    * Where an Import cURL… opened from the palette or the explorer should land, if it is open.
    *
@@ -164,8 +168,8 @@ export interface UiStore extends UiSnapshot {
   readonly secretSourcesDialog: SecretSourcesDialogTarget | null;
   /** The dialog that approves the workspace's shared secret sources on this machine. */
   readonly secretSourcesApproval: boolean;
-  /** Whether the Settings dialog is open, and which section it should land on. Transient. */
-  readonly preferences: { readonly open: boolean; readonly section: PreferencesSectionWire | undefined };
+  /** Whether the Settings page is open, and which section it should land on. Transient. */
+  readonly preferences: { readonly open: boolean; readonly section: SettingsSectionRequest | undefined };
   /** Project id pending a "remove from workspace" confirmation, from a command or a menu. */
   readonly confirmRemoveProjectId: string | undefined;
   readonly setSelection: (selection: Selection | undefined) => void;
@@ -173,6 +177,7 @@ export interface UiStore extends UiSnapshot {
   readonly setImportOpenApiDialogOpen: (open: boolean) => void;
   readonly setImportPostmanDialogOpen: (open: boolean) => void;
   readonly setFolderAuthId: (folderId: string | undefined) => void;
+  readonly setFolderScriptsId: (folderId: string | undefined) => void;
   readonly setImportCurlTarget: (target: RequestImportCurlTarget | undefined) => void;
   readonly setNewProjectDialogOpen: (open: boolean) => void;
   readonly closeImportDialog: () => void;
@@ -197,8 +202,8 @@ export interface UiStore extends UiSnapshot {
   readonly setSecretTokenDialog: (target: SecretTokenDialogTarget | null) => void;
   readonly setSecretSourcesDialog: (target: SecretSourcesDialogTarget | null) => void;
   readonly setSecretSourcesApproval: (open: boolean) => void;
-  /** Opens the Settings dialog, optionally on one section. Every route into Settings goes here. */
-  readonly openPreferences: (section?: PreferencesSectionWire) => void;
+  /** Opens the Settings page, optionally on one section. Every route into Settings goes here. */
+  readonly openPreferences: (section?: SettingsSectionRequest) => void;
   readonly setPreferencesOpen: (open: boolean) => void;
   readonly requestRemoveProject: (projectId: string | undefined) => void;
   /** Hides the sidebar, remembering its current size in `lastSize` so expand can restore it. What
@@ -236,6 +241,10 @@ export interface UiStore extends UiSnapshot {
   readonly setSlideOverWidth: (width: number) => void;
   /** Remembers the Code panel's POSIX/PowerShell choice. */
   readonly setCodeShell: (shell: CodeShell) => void;
+  /** Remembers the language the Code panel shows; `curl` keeps using the remembered shell. */
+  readonly setCodeLanguage: (language: CodeLanguage) => void;
+  /** Remembers (or, with `undefined`, forgets) one language's layout choices. */
+  readonly setCodeSettings: (target: CodeTarget, settings: CodeSettings | undefined) => void;
   readonly toggleTheme: () => void;
   readonly setTheme: (theme: ThemePreference) => void;
   readonly toggleEditorLineNumbers: () => void;
@@ -273,6 +282,7 @@ export const useUiStore = create<UiStore>((set, get) => {
     importOpenApiDialogOpen: false,
     importPostmanDialogOpen: false,
     folderAuthId: undefined,
+    folderScriptsId: undefined,
     importCurlTarget: undefined,
     newProjectDialogOpen: false,
     confirmRemoveInterfaceId: undefined,
@@ -338,6 +348,9 @@ export const useUiStore = create<UiStore>((set, get) => {
     },
     setFolderAuthId: (folderId) => {
       set({ folderAuthId: folderId });
+    },
+    setFolderScriptsId: (folderId) => {
+      set({ folderScriptsId: folderId });
     },
     setImportCurlTarget: (target) => {
       set({ importCurlTarget: target });
@@ -548,6 +561,20 @@ export const useUiStore = create<UiStore>((set, get) => {
     setCodeShell: (shell) =>
       update((draft) => {
         draft.slideOver.codeShell = shell;
+      }),
+
+    setCodeLanguage: (language) =>
+      update((draft) => {
+        draft.slideOver.codeLanguage = language;
+      }),
+
+    setCodeSettings: (target, settings) =>
+      update((draft) => {
+        if (settings === undefined) {
+          delete draft.slideOver.codeSettings[target];
+        } else {
+          draft.slideOver.codeSettings[target] = settings;
+        }
       }),
 
     toggleTheme: () =>

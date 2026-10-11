@@ -186,7 +186,8 @@ const VERB_FLAGS: Readonly<Record<OpName, readonly string[]>> = {
 };
 
 export const OPS_HELP_TEXT = `wirebench import <source> [--name <name>] [--project <dir>]
-                       Adds a WSDL or OpenAPI document (a file or an http(s) URL) to the project.
+                       Adds a WSDL or OpenAPI document (a file or an http(s) URL), or a folder
+                       collection (v3), to the project.
 wirebench operations [<interface-or-api>] [--project <dir>]
                        Lists SOAP operations, REST endpoints and saved WebSocket requests, with the
                        references generate and validate take and the saved requests send takes.
@@ -235,7 +236,13 @@ or there is nothing to export.`,
   import: `${USAGE.import} [--project <dir>] [--json]
 
 Adds a WSDL or an OpenAPI document to the project, as the desktop's import does: its definition is
-cached when the project caches definitions, and each operation gets a Request 1.`,
+cached when the project caches definitions, and each operation gets a Request 1.
+
+<source> may instead be a folder collection (v3): its folder, its .resources/definition.yaml, or a
+workspace folder holding collections/ (every collection in it is imported). Each collection becomes
+a REST, a gRPC and a WebSocket API, each only when it has requests of that kind, and its plain
+variables become project properties; a property the project already has keeps its value. Secret
+variables, environments and globals are reported, not imported: set them in the desktop.`,
   operations: `${USAGE.operations} [--project <dir>] [--json]
 
 Lists the project's SOAP operations (interface, binding, operation, SOAP action) and REST endpoints

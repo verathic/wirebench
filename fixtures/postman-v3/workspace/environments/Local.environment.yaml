@@ -1,0 +1,14 @@
+name: Local
+values:
+  - key: baseUrl
+    value: 'http://localhost:8080'
+    type: default
+    enabled: true
+  - key: accessToken
+    value: 'local-token-value'
+    type: secret
+    enabled: true
+  - key: debug
+    value: 'true'
+    type: default
+    enabled: false

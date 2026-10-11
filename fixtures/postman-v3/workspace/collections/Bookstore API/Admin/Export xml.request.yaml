@@ -1,0 +1,7 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/export'
+body:
+  type: xml
+  content: <books><book id="1"/></books>
+order: 3000

@@ -108,6 +108,25 @@ export interface PostmanEvent {
   readonly exec: string;
 }
 
+/** A saved response kept with a request (`item.response[]`), imported as an example. */
+export interface PostmanResponse {
+  readonly name?: string;
+  /** The status code; a response without one is not imported. */
+  readonly code?: number;
+  /** The status text. */
+  readonly status?: string;
+  readonly header: readonly { readonly key: string; readonly value: string }[];
+  readonly body?: string;
+  /** `_postman_previewlanguage`: how the body was shown, which names its type when no header does. */
+  readonly previewLanguage?: string;
+}
+
+/** The redirect settings of `protocolProfileBehavior` that Wirebench takes. */
+export interface PostmanRequestBehaviour {
+  readonly followRedirects?: boolean;
+  readonly maxRedirects?: number;
+}
+
 export interface PostmanItem {
   readonly name: string;
   readonly description?: string;
@@ -115,6 +134,11 @@ export interface PostmanItem {
   readonly event?: readonly PostmanEvent[];
   readonly item?: readonly PostmanItem[];
   readonly request?: PostmanRequest | string;
+  /** A request's saved responses, as written: entries that are not records are dropped, the rest checked by the mapper. */
+  readonly response?: readonly PostmanResponse[];
+  /** How many `response` entries were not records. */
+  readonly responsesDropped?: number;
+  readonly protocolProfileBehavior?: PostmanRequestBehaviour;
   readonly auth?: PostmanAuth;
   readonly variable?: readonly PostmanVariable[];
 }

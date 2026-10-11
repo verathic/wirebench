@@ -412,3 +412,27 @@ describe('OpenCollection', () => {
     expect(detectImportFormat({ filename: 'other.yml' }).kind).toBe('openapi');
   });
 });
+
+describe('folder (v3) collections', () => {
+  it('detects any of its documents by $kind', () => {
+    for (const kind of ['collection', 'http-request', 'grpc-request', 'graphql-request', 'http-example']) {
+      expect(detectImportFormat({ text: `$kind: ${kind}\nurl: https://x.example\n` })).toEqual({
+        kind: 'postman-v3',
+        label: 'Postman Collection v3 (folder)',
+        confidence: 'definite',
+      });
+    }
+    expect(detectImportFormat({ text: '$kind: something-else\n' }).kind).toBe('unknown');
+  });
+
+  it('detects a definition or a request file by name, ahead of the YAML fallback', () => {
+    expect(detectImportFormat({ filename: '/c/Books/.resources/definition.yaml' })).toEqual({
+      kind: 'postman-v3',
+      label: 'Postman Collection v3 (folder)',
+      confidence: 'probable',
+    });
+    expect(detectImportFormat({ filename: 'C:\\c\\.resources\\definition.yml' }).kind).toBe('postman-v3');
+    expect(detectImportFormat({ filename: 'Get books.request.yaml' }).kind).toBe('postman-v3');
+    expect(detectImportFormat({ filename: 'definition.yaml' }).kind).toBe('openapi');
+  });
+});

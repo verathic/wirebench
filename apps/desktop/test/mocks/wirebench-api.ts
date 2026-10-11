@@ -113,6 +113,7 @@ export function stubWirebenchApi(overrides: ApiOverrides = {}): WirebenchApi {
       preflight: fail('request.preflight'),
       recreate: fail('request.recreate'),
       curl: fail('request.curl'),
+      code: fail('request.code'),
       importCurl: fail('request.importCurl'),
       sendGrpc: fail('request.sendGrpc'),
       grpcPush: fail('request.grpcPush'),
@@ -122,6 +123,7 @@ export function stubWirebenchApi(overrides: ApiOverrides = {}): WirebenchApi {
       wsSend: fail('request.wsSend'),
       wsClose: fail('request.wsClose'),
       preflightWs: fail('request.preflightWs'),
+      variables: vi.fn().mockResolvedValue({ ok: true, value: { entries: [], secretNames: [] } }),
     },
     theme: { get: vi.fn().mockResolvedValue({ ok: true, value: { os: 'dark' } }) },
     cookies: {

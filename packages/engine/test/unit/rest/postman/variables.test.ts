@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { PostmanError } from '../../../../src/errors.js';
 import * as engine from '../../../../src/index.js';
 import {
+  postmanVariablesOf,
   importPostmanVariables,
   isPostmanVariables,
   parsePostmanVariablesText,
@@ -47,13 +48,14 @@ describe('parsePostmanVariablesText — environment', () => {
     expect(byName.get('emptySecret')).toEqual({ name: 'emptySecret', value: '', enabled: true, secret: true });
   });
 
-  it('reports what it skipped, kept as written, or noticed', () => {
+  it('reports what it skipped, kept as written, or noticed, and maps a dynamic variable', () => {
     expect(byName.has('nested')).toBe(false);
+    expect(byName.get('requestId')).toMatchObject({ value: '${$guid}' });
+    expect(plan.report.warnings.join('\n')).not.toContain('Dynamic variables');
     expect(plan.report.warnings).toEqual(
       expect.arrayContaining([
         'Staging: "nested" has a value that is not text, a number or true/false, so it was skipped.',
         'Staging: a variable with no name was skipped.',
-        'Dynamic variables are kept as written and not expanded: $guid',
         expect.stringContaining('sessionToken'),
       ]),
     );
@@ -99,5 +101,20 @@ describe('importPostmanVariables', () => {
     expect(engine.importPostmanVariables).toBe(importPostmanVariables);
     expect(engine.parsePostmanVariablesText).toBe(parsePostmanVariablesText);
     expect(engine.isPostmanVariables).toBe(isPostmanVariables);
+  });
+});
+
+describe('postmanVariablesOf', () => {
+  it('reads an already parsed export, the scope given when the document names none', () => {
+    const doc = { name: 'Shared', values: [{ key: 'a', value: '1', enabled: true }] };
+    expect(postmanVariablesOf(doc).environments.map((e) => e.name)).toEqual(['Shared']);
+    expect(postmanVariablesOf(doc, 'globals').globals?.variables.map((v) => v.name)).toEqual(['a']);
+    expect(postmanVariablesOf({ values: [] }, 'globals').globals?.name).toBe('Globals');
+  });
+
+  it('refuses a document without a values list, whatever the scope', () => {
+    expect(() => postmanVariablesOf({ name: 'x' }, 'environment')).toThrow(PostmanError);
+    expect(() => postmanVariablesOf({ values: [] })).toThrow(PostmanError);
+    expect(() => postmanVariablesOf('text', 'globals')).toThrow(PostmanError);
   });
 });

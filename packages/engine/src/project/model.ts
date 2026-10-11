@@ -27,10 +27,12 @@ import type { ContainerBase } from '../protocol/module.js';
  * collection, its folders and its items, the `callback` assertion kind (callback-assertion spec §2.1), and `assertions` on a WebSocket request (#192).
  * 6 shipped in 3.1.0. 7 added `examples` on a REST request: recorded responses kept beside it (#64).
  * 8 added Kerberos auth (`type: kerberos`), so an older build refuses such a project as too new.
+ * 9 added `scripts` on an API, a SOAP interface and a REST or gRPC folder (#334), which an older
+ * build would drop and send without.
  * All are additive; this format does not round-trip unknown keys, so an older build would delete them on
  * its next save (see `schema.ts` and ADR-0003) — and would meanwhile send a request without its scripts.
  */
-export const FORMAT_VERSION = 8;
+export const FORMAT_VERSION = 9;
 
 /** A flat, ordered map of property name to value (project- or environment-scoped). */
 export type PropertyMap = Readonly<Record<string, string>>;

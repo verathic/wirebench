@@ -1,0 +1,7 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/snippet'
+body:
+  type: javascript
+  content: console.log(1);
+order: 6000
