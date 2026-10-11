@@ -8,6 +8,16 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Dynamic values.** `${$guid}` (or `${#Dynamic#guid}`) sends a fresh value with every request: UUIDs,
+  Unix and ISO timestamps with offsets (`${$isoTimestamp(+1d)}`), random numbers
+  (`${$randomInt(1,100)}`), and fake names, emails, addresses, phone numbers, companies, lorem text,
+  dates, IP and MAC addresses, URLs, colours, currencies, file names and MIME types. Each reference is
+  generated once per send, so a value used twice matches, and the HTTP Log and History show what was
+  sent. The desktop app, `wirebench run` and the MCP `send` resolve them alike. Imported `{{$guid}}`,
+  `{{$timestamp}}`, `{{$randomInt}}` and the other common names now map onto them; a name with no
+  generator keeps the import warning. Type `${$` in a body editor, or use **Get Data…**, to list them
+  (#333).
+
 - **A container of a kind this build cannot open stays in the explorer.** It shows as a dimmed row,
   at its place among the project's containers, whose tooltip and only menu item say why: the kind
   is switched off, or this version of Wirebench does not know it. Its files are never rewritten, a
