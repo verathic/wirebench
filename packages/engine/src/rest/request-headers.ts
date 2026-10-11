@@ -6,6 +6,7 @@
  * `2026-10-11-generated-headers-preview-design.md`).
  */
 
+import type { SendAuth } from '../http/auth/send-auth.js';
 import type { KeyValueEntry } from './model.js';
 
 /**
@@ -49,6 +50,14 @@ export interface RestHeaderLayers {
 export function isOmitted(omit: readonly string[] | undefined, name: string): boolean {
   const key = name.toLowerCase();
   return omit?.some((omitted) => omitted.toLowerCase() === key) === true;
+}
+
+/**
+ * True when an omitted `Authorization` drops this credential: a preemptive Basic one, whose header the
+ * transport adds before the first attempt. A challenge-based credential is not a header to switch off.
+ */
+export function omittedBasic(transport: SendAuth | undefined, omit: readonly string[] | undefined): boolean {
+  return transport?.type === 'basic' && transport.preemptive && isOmitted(omit, 'Authorization');
 }
 
 /**

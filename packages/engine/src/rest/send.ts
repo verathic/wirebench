@@ -35,7 +35,7 @@ import { decodeResponseText, detectLanguage, parseSetCookie } from './response.j
 import { createSseParser, isEventStream } from './sse.js';
 import type { SseRow } from './sse.js';
 import { createSseRowStore } from './sse-transcript.js';
-import { headersOfRows, isOmitted, restHeaderRows } from './request-headers.js';
+import { headersOfRows, isOmitted, omittedBasic, restHeaderRows } from './request-headers.js';
 import { composeUrl } from './url.js';
 import type { UrlProblem } from './url.js';
 
@@ -282,10 +282,7 @@ export async function sendRest(input: RestSendInput): Promise<RestExchange> {
   // Basic, NTLM and Kerberos may need a round trip of their own; every other scheme is already in `headers`.
   // An omitted `Authorization` drops a preemptive Basic one too; a challenge-based credential is
   // not something a header switch can turn off (spec decision 4).
-  const transportAuth =
-    applied.transportAuth?.type === 'basic' && applied.transportAuth.preemptive && isOmitted(omit, 'Authorization')
-      ? undefined
-      : applied.transportAuth;
+  const transportAuth = omittedBasic(applied.transportAuth, omit) ? undefined : applied.transportAuth;
   const authenticated = await sendWithAuth(httpRequest, transportAuth);
   return {
     ...decodeRestResponse(authenticated.http, methodFor(request.method), sseState),
