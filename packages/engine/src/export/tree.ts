@@ -324,6 +324,7 @@ class TreeBuilder {
       'sendCookies',
       'escapeProperties',
       'keepBodyOnRedirect',
+      'omitHeaders',
     ]);
     const { timeoutMs, followRedirects, maxRedirects, encodeUrl } = request.settings;
     return {

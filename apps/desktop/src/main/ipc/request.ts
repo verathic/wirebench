@@ -79,6 +79,7 @@ import type {
 import type { RequestPatchWire } from '../../shared/kinds/soap/wire.js';
 import type { UnresolvedRefWire, FailedExchangeWire, RequestCurlResponse } from '../../shared/wire-base.js';
 import { cancelEnvironmentBatch, sendToEnvironments } from '../multi-env-send.js';
+import { toRestSettingsWire } from '../project-wire.js';
 import { registerHandler } from './register.js';
 
 /** The `ProjectRouter` surface the `request.*` channels drive; a stub stands in for it in tests. */
@@ -926,7 +927,7 @@ async function importCurlAsRest(
       ...(query !== undefined ? { query: [...query] } : {}),
       ...(headers !== undefined ? { headers: [...headers] } : {}),
       ...(body !== undefined ? { body: bodyToWire(body) } : {}),
-      ...(settings !== undefined ? { settings } : {}),
+      ...(settings !== undefined ? { settings: toRestSettingsWire(settings) } : {}),
       ...(auth !== undefined ? { auth } : {}),
     },
   });

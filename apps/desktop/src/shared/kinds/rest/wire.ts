@@ -128,6 +128,8 @@ export const restSettingsWireSchema = z.object({
   maxSizeBytes: z.number().int().nonnegative().optional(),
   sendCookies: z.boolean().optional(),
   escapeProperties: z.boolean().optional(),
+  /** Generated headers the request leaves out, by name (`omitHeaders` in the request file). */
+  omitHeaders: z.array(z.string()).optional(),
 });
 export type RestSettingsWire = z.infer<typeof restSettingsWireSchema>;
 
