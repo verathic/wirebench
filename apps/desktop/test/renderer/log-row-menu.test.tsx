@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { HttpLog } from '../../src/renderer/features/console/http-log.js';
 import { EMPTY_FILTER, useExchangesStore } from '../../src/renderer/state/exchanges.js';
 import { useProjectStore } from '../../src/renderer/state/project.js';
-import type { RestRequestWire } from '../../src/shared/wire-types.js';
+import type { RestRequestWire } from '../../src/shared/kinds/rest/wire.js';
 import { logExchange, makeFailure, makeRestExchange } from '../mocks/exchange-fixtures.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
 

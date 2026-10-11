@@ -28,8 +28,8 @@ vi.mock('electron', () => ({
   },
 }));
 
-const { registerApiChannels } = await import('../src/main/ipc/api.js');
-type ApiChannelDeps = Parameters<typeof registerApiChannels>[0];
+const { registerApiChannelsWithKinds } = await import('./helpers/kind-channels.js');
+type ApiChannelDeps = Parameters<typeof registerApiChannelsWithKinds>[0];
 
 const sender = { isDestroyed: () => false, send: vi.fn() };
 
@@ -81,17 +81,17 @@ beforeEach(async () => {
   const unused = vi.fn();
   const deps: ApiChannelDeps = {
     router: {
-      addApi: (_projectId, input) => host.addApi(input),
+      addApi: (_projectId, input) => host.kind('rest').addApi(input),
       addGrpcApi: unused,
       importAsyncApi: unused,
       asyncApiSource: unused,
       asyncApiPlanUpdate: unused,
       asyncApiApplyUpdate: unused,
-      restSource: (apiId) => host.restSource(apiId),
-      restPlanUpdate: (apiId, next) => host.planRestUpdate(apiId, next),
-      restApplyUpdate: (apiId, next, options) => host.applyRestUpdate(apiId, next, options),
-      webhookItems: (apiId) => host.webhookItems(apiId),
-      importWebhooks: (apiId, keys) => host.importWebhooks(apiId, keys),
+      restSource: (apiId) => host.kind('rest').restSource(apiId),
+      restPlanUpdate: (apiId, next) => host.kind('rest').planRestUpdate(apiId, next),
+      restApplyUpdate: (apiId, next, options) => host.kind('rest').applyRestUpdate(apiId, next, options),
+      webhookItems: (apiId) => host.kind('rest').webhookItems(apiId),
+      importWebhooks: (apiId, keys) => host.kind('rest').importWebhooks(apiId, keys),
       apiDefinitionDocuments: unused,
       apiDefinitionText: unused,
       exportApiDefinitionTo: unused,
@@ -112,7 +112,7 @@ beforeEach(async () => {
     history: { open: unused, recordImportedRestBatch: unused },
     onHistoryChanged: unused,
   };
-  registerApiChannels(deps);
+  registerApiChannelsWithKinds(deps);
 });
 
 afterEach(() => {

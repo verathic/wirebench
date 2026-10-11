@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CookieStore } from '../src/main/cookie-store.js';
 import { registerCookiesChannels } from '../src/main/ipc/cookies.js';
 import { channels } from '../src/shared/ipc.js';
-import type { CookieJarStateWire } from '../src/shared/wire-types.js';
+import type { CookieJarStateWire } from '../src/shared/wire-base.js';
 
 const registeredHandlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 

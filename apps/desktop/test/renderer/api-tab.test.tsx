@@ -14,7 +14,9 @@ import { useWorkspaceStore } from '../../src/renderer/state/workspace.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
 import { workspaceWire } from '../helpers/workspace-wire.js';
 import { NO_REST, PROJECT_SETTINGS, restApiWire } from '../helpers/wire-defaults.js';
-import type { EnvironmentWire, ProjectWire, RestApiWire } from '../../src/shared/wire-types.js';
+import type { ProjectWire } from '../../src/shared/wire-types.js';
+import type { RestApiWire } from '../../src/shared/kinds/rest/wire.js';
+import type { EnvironmentWire } from '../../src/shared/wire-base.js';
 
 const updateApi = vi.fn();
 

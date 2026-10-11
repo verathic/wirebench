@@ -25,7 +25,7 @@ import {
 } from '../../editor/script-language.js';
 import { useProjectStore } from '../../state/project.js';
 import { registerScriptEditFlush } from '../../state/script-edits.js';
-import type { RequestScriptsPatchWire, RequestScriptsWire } from '../../../shared/wire-types.js';
+import type { RequestScriptsPatchWire, RequestScriptsWire } from '../../../shared/wire-base.js';
 
 /** Long enough that a burst of keystrokes is one write, short enough that a send right after sees it. */
 const COMMIT_DEBOUNCE_MS = 300;

@@ -4,8 +4,8 @@
  * REST requests; the collection and its folders carry a *target* where an API carries a base URL.
  */
 import { WirebenchError } from '../errors.js';
-import type { AuthConfig, CreateOptions } from '../project/model.js';
-import { generateId } from '../project/model.js';
+import type { AuthConfig, CreateOptions, Project } from '../project/model.js';
+import { generateId, protocolDataOf, withProtocolData } from '../project/model.js';
 import { slugify } from '../project/paths.js';
 import { SIGNING_PSEUDO_REF_PREFIX } from '../secrets/env-names.js';
 import type { RestFolder, RestRequestDef } from '../rest/model.js';
@@ -67,6 +67,16 @@ export interface WebhookCollection {
   readonly signing?: WebhookSigning;
   readonly folders: readonly WebhookFolder[];
   readonly requests: readonly RestRequestDef[];
+}
+
+/** The project's webhook collection, or undefined until the first webhook is created or imported. */
+export function webhooksOf(project: Project): WebhookCollection | undefined {
+  return protocolDataOf(project, 'rest') as WebhookCollection | undefined;
+}
+
+/** `project` with its webhook collection replaced; undefined removes it. */
+export function withWebhooks(project: Project, webhooks: WebhookCollection | undefined): Project {
+  return withProtocolData(project, 'rest', webhooks);
 }
 
 /** The target a new collection starts with. */

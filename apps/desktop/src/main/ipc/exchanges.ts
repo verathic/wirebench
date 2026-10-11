@@ -1,7 +1,7 @@
 import { BrowserWindow, dialog } from 'electron';
 import { nodeFs, WirebenchError, writeFileAtomic } from '@wirebench/engine';
 import { channels } from '../../shared/ipc.js';
-import { extensionForContentType } from './attachments.js';
+import { extensionForContentType } from '../kinds/soap/channels/attachments.js';
 import { redactExchangeSummary } from '../engine-wire.js';
 import type { ExchangeCache } from '../exchange-cache.js';
 import { registerHandler } from './register.js';

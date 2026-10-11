@@ -23,7 +23,7 @@ import { contractRange, setContractMarkers } from '../../../editor/markers.js';
 import { useContractRevealStore } from './contract.js';
 import { HtmlPreview } from './html-preview.js';
 import type * as Monaco from 'monaco-editor';
-import type { RestExchangeSummary } from '../../../../shared/wire-types.js';
+import type { RestExchangeSummary } from '../../../../shared/kinds/rest/wire.js';
 
 /** Which of the three views is showing. */
 export type BodyViewMode = 'pretty' | 'raw' | 'preview';

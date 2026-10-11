@@ -57,28 +57,23 @@ import { sshScopeOf, sshSecretsFor } from './ssh-window.js';
 import { windowHosts, type HostsService } from './hosts-service.js';
 import { SshService, sshSessionsEndOnSwitch } from './ssh-service.js';
 import { registerKerberosChannels, setUpKerberos } from './kerberos.js';
-import { clearAttachmentsTmp, registerAttachmentChannels } from './ipc/attachments.js';
+import { clearAttachmentsTmp } from './kinds/soap/channels/attachments.js';
+import { enabledKindsFromEnv, kindRegistry } from './kinds/enabled-kinds.js';
+import { MAIN_KINDS } from './kinds/kind-main.js';
 import { registerKeystoreChannels } from './ipc/keystores.js';
 import { registerCertificateChannels } from './ipc/certificates.js';
-import { registerWsaChannels } from './ipc/wsa.js';
-import { registerWssChannels } from './ipc/wss.js';
-import { registerDefinitionChannels } from './ipc/definition.js';
 import { registerDialogsChannels } from './ipc/dialogs.js';
 import { registerExchangeChannels } from './ipc/exchanges.js';
 import { registerLogChannels } from './ipc/log.js';
 import { registerFsChannels } from './ipc/fs.js';
-import { registerXmlChannels } from './ipc/xml.js';
-import { registerXpathChannels } from './ipc/xpath.js';
-import { registerValidateChannels } from './ipc/validate.js';
-import { registerWsiChannels } from './ipc/wsi.js';
 import { registerGlobalsChannels } from './ipc/globals.js';
 import { CookieStore } from './cookie-store.js';
 import { CurrentValuesStore } from './current-values.js';
 import { registerCookiesChannels } from './ipc/cookies.js';
 import { registerCurrentValuesChannels } from './ipc/current-values.js';
-import { registerHistoryChannels } from './ipc/history.js';
+import { registerHistoryChannels, type HistoryChannelDeps } from './ipc/history.js';
 import { registerPreferencesChannels } from './ipc/preferences.js';
-import { registerApiChannels } from './ipc/api.js';
+import { registerApiChannels, type ApiChannelDeps } from './ipc/api.js';
 import { registerProjectChannels } from './ipc/project.js';
 import { registerWorkspaceChannels } from './ipc/workspace.js';
 import { registerMockChannels } from './ipc/mock.js';
@@ -130,7 +125,7 @@ import { createMainWindow } from './windows.js';
 import { createUpdateController } from './update-service.js';
 import type { IpcEvent } from '../shared/ipc.js';
 import type { z } from 'zod';
-import type { WorkspaceWire } from '../shared/wire-types.js';
+import type { WorkspaceWire } from '../shared/wire-base.js';
 
 // Must run before `app.ready` — Electron only honours scheme privileges registered this
 // early. This is what lets the packaged renderer be served from a real (non-`file://`)
@@ -493,6 +488,15 @@ const secretScans = scoped(scopes, (scope) => scope.secretScans);
 /** The areas `WIREBENCH_AREAS` leaves switched on (see `areas.ts`). */
 const enabledAreas = enabledAreasFromEnv();
 
+/**
+ * The kinds `WIREBENCH_KINDS` leaves switched on (see `kinds/enabled-kinds.ts`), and the engine
+ * registry built from them once. Each workspace hands the registry to its project hosts, which pass it
+ * to every load, save and send, so a project's containers of a kind that is off load as placeholders
+ * and are saved untouched.
+ */
+const enabledKinds = enabledKindsFromEnv();
+const kindsRegistry = kindRegistry(enabledKinds);
+
 /** The calling window's `hosts.yaml` (each window has its own, for its own workspace; see `createWindowScope`). */
 const hostsService = scoped(scopes, (scope) => scope.hosts);
 
@@ -583,6 +587,8 @@ function createWindowScope(window: BrowserWindow, sweepJoining: boolean): Window
     userDataDir: app.getPath('userData'),
     state: workspaceState,
     sweepJoining,
+    enabledKinds,
+    registry: kindsRegistry,
     // One workspace, one window (design D5): the window holding it is brought forward instead.
     heldElsewhere: (workspaceId) => {
       const holder = scopes
@@ -810,6 +816,7 @@ void app.whenReady().then(() => {
       openWindow({ reopenLast: false });
     },
     enabledAreas,
+    enabledKinds,
   );
   // The calling window's open projects' folders: the containment roots a renderer-named import path may sit in.
   const openProjectDirs = (): readonly string[] =>
@@ -817,16 +824,12 @@ void app.whenReady().then(() => {
       .hosts()
       .map((host) => host.snapshot()?.dir)
       .filter((dir): dir is string => dir !== undefined);
-  registerDefinitionChannels(engineService, {
-    project: workspaceService,
-    picks: dialogPicks,
-    projectDirs: openProjectDirs,
-  });
   // Request scripts (#63): one sandbox and one checker for the app, started on first use.
   const scripts = new ScriptHost({
     modelOf: (entityId) =>
       workspaceService.projectId(entityId) === undefined ? undefined : workspaceService.hostOfEntity(entityId).model(),
-    openApiDocumentFor: async (apiId) => await workspaceService.hostOfEntity(apiId).openApiDocumentFor(apiId),
+    openApiDocumentFor: async (apiId) =>
+      await workspaceService.hostOfEntity(apiId).kind('rest').openApiDocumentFor(apiId),
     grpcProtoSetFor: async (apiId) => await workspaceService.grpcProtoSetFor(apiId),
     soapDefinitionFor: (interfaceId) => engineService.resultFor(interfaceId),
     onValuesChanged: (projectId) => {
@@ -945,7 +948,7 @@ void app.whenReady().then(() => {
     // onChange, so there is nothing further to log and never a token to log.
     .catch(() => {});
   // A resend is a send like any other: the request channels' dependencies, scripts and registry.
-  registerHistoryChannels(historyService, {
+  const historyDeps: HistoryChannelDeps = {
     project: workspaceService,
     send: toSendDeps(engineService, requestDeps),
     // One window's History is its own workspace's projects (another window may have others open).
@@ -957,7 +960,8 @@ void app.whenReady().then(() => {
           const id = host.snapshot()?.id;
           return id === undefined ? [] : [id];
         }),
-  });
+  };
+  registerHistoryChannels(historyService, historyDeps);
   registerProjectChannels({
     router: workspaceService,
     addProject: async (name) => await workspaceService.addProject(name),
@@ -977,7 +981,7 @@ void app.whenReady().then(() => {
       scope.currentValues.syncGlobals(state);
     }
   };
-  registerApiChannels({
+  const apiDeps: ApiChannelDeps = {
     router: workspaceService,
     imports: openApiImports,
     asyncApiImports: openApiImports,
@@ -1054,7 +1058,8 @@ void app.whenReady().then(() => {
         : {}),
       secrets: teamSecretStore,
     }),
-  });
+  };
+  registerApiChannels(apiDeps);
   registerWorkspaceChannels({
     service: workspaceService,
     suggestions: async () => await readLeftoverProjectFolders(app.getPath('userData')),
@@ -1110,16 +1115,21 @@ void app.whenReady().then(() => {
   });
   registerDialogsChannels(dialogPicks);
   registerFsChannels();
-  registerXmlChannels(engineService);
-  registerXpathChannels();
-  registerValidateChannels(engineService, workspaceService);
-  registerWsiChannels(engineService, {
-    project: workspaceService,
-    picks: dialogPicks,
-    dialog: {
+  // A kind that is off registers no channels: a call to one is refused as an unknown channel.
+  for (const kind of MAIN_KINDS.filter((candidate) => enabledKinds.includes(candidate.kind))) {
+    kind.registerChannels({
+      engine: engineService,
+      request: requestDeps,
+      api: apiDeps,
+      history: historyService,
+      historyDeps,
+      router: workspaceService,
+      picks: dialogPicks,
+      projectDirs: openProjectDirs,
+      userDataDir: app.getPath('userData'),
       // Mirrors `dialogs.saveFile`, including its e2e override: a Playwright run cannot drive a
       // native Save-as panel, so the same env var short-circuits both.
-      showSave: async (options) => {
+      showSaveHtml: async (options) => {
         const override = saveOverride();
         if (override !== undefined) {
           return override;
@@ -1131,8 +1141,8 @@ void app.whenReady().then(() => {
         });
         return result.canceled ? undefined : result.filePath;
       },
-    },
-  });
+    });
+  }
   registerSearchChannels(engineService, workspaceService);
   registerSecretsChannels(teamSecretStore, showSecretsFlag);
   registerSecretSourcesChannels(workspaceService, secretSources);
@@ -1160,16 +1170,8 @@ void app.whenReady().then(() => {
     picks: dialogPicks,
     appVersion: appVersion(),
   });
-  registerAttachmentChannels({
-    exchanges: engineService.exchanges,
-    project: workspaceService,
-    picks: dialogPicks,
-    userDataDir: app.getPath('userData'),
-  });
   registerKeystoreChannels({ project: workspaceService, picks: dialogPicks });
   registerCertificateChannels({ project: workspaceService, preferences: preferencesService });
-  registerWsaChannels({ project: workspaceService });
-  registerWssChannels({ project: workspaceService });
   registerEnabledAreaChannels(enabledAreas, {
     hosts: hostsService,
     secrets: sshSecrets,

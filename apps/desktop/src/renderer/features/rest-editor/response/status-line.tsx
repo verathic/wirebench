@@ -6,7 +6,7 @@
  * of the app. A transport failure has no status at all and replaces the line.
  */
 import type { IpcError } from '../../../../shared/ipc.js';
-import type { RestExchangeSummary } from '../../../../shared/wire-types.js';
+import type { RestExchangeSummary } from '../../../../shared/kinds/rest/wire.js';
 import { base64ByteLength, formatBytes } from '../../../lib/format-size.js';
 import type { RestLiveState } from '../../../state/exchanges.js';
 import { ContractChip } from './contract-chip.js';

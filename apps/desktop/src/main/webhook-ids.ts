@@ -1,7 +1,7 @@
 /**
  * The synthetic id a project's webhook collection travels under on the wire: `webhooks:<projectId>`,
  * never a real API id. Its own tiny module so `project-wire.ts` (which only ever reads a `Project`)
- * does not have to import anything from `project-webhook-mutations.ts` (which writes one).
+ * does not have to import anything from `kinds/rest/webhooks/mutations.ts` (which writes one).
  */
 
 import { WEBHOOKS_COLLECTION_PREFIX } from '@wirebench/engine';

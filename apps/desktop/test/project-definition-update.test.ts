@@ -74,7 +74,7 @@ beforeEach(async () => {
   await service.create({ dir: projectDir, name: 'Versioned' });
   // The v1 file is outside the project, so it needs the same dialog evidence a user would give.
   picks.rememberRead(v1Path);
-  const added = await service.addInterface({ source: { kind: 'file', path: v1Path } });
+  const added = await service.kind('soap').addInterface({ source: { kind: 'file', path: v1Path } });
   interfaceId = added.interfaceId;
 });
 
@@ -87,7 +87,7 @@ afterEach(async () => {
 describe('ProjectHost — Update Definition', () => {
   it('plans the v1 → v2 update without changing anything', async () => {
     picks.rememberRead(v2Path);
-    const plan = await service.planDefinitionUpdate(interfaceId, { kind: 'file', path: v2Path });
+    const plan = await service.kind('soap').planDefinitionUpdate(interfaceId, { kind: 'file', path: v2Path });
     expect(plan.newOperations.map((ref) => ref.operationName)).toEqual(['Subtract']);
     expect(plan.removedOperations.map((ref) => ref.operationName)).toEqual(['Legacy']);
     expect(plan.changedOperations.map((changed) => changed.ref.operationName)).toEqual(['Echo']);
@@ -108,7 +108,9 @@ describe('ProjectHost — Update Definition', () => {
     await service.save({ reason: 'test' });
 
     picks.rememberRead(v2Path);
-    const applied = await service.applyDefinitionUpdate(interfaceId, { kind: 'file', path: v2Path }, DEFAULTS);
+    const applied = await service
+      .kind('soap')
+      .applyDefinitionUpdate(interfaceId, { kind: 'file', path: v2Path }, DEFAULTS);
 
     expect(applied.requestsCreated).toHaveLength(1);
     expect(applied.requestsRecreated).toHaveLength(1);
@@ -132,21 +134,17 @@ describe('ProjectHost — Update Definition', () => {
 
   it('inserts the new optional element when "Recreate optional elements" is set', async () => {
     picks.rememberRead(v2Path);
-    await service.applyDefinitionUpdate(
-      interfaceId,
-      { kind: 'file', path: v2Path },
-      { ...DEFAULTS, recreateOptional: true },
-    );
+    await service
+      .kind('soap')
+      .applyDefinitionUpdate(interfaceId, { kind: 'file', path: v2Path }, { ...DEFAULTS, recreateOptional: true });
     expect(requestOf(service.snapshot() as ProjectWire, 'Echo')?.envelopeXml).toContain('note');
   });
 
   it('writes no backup when "Create backups" is clear', async () => {
     picks.rememberRead(v2Path);
-    const applied = await service.applyDefinitionUpdate(
-      interfaceId,
-      { kind: 'file', path: v2Path },
-      { ...DEFAULTS, createBackups: false },
-    );
+    const applied = await service
+      .kind('soap')
+      .applyDefinitionUpdate(interfaceId, { kind: 'file', path: v2Path }, { ...DEFAULTS, createBackups: false });
     expect(applied.backups).toEqual([]);
   });
 
@@ -159,14 +157,14 @@ describe('ProjectHost — Update Definition', () => {
     try {
       await txService.create({ dir: txProjectDir, name: 'VersionedTx' });
       txPicks.rememberRead(v1Path);
-      const added = await txService.addInterface({ source: { kind: 'file', path: v1Path } });
+      const added = await txService.kind('soap').addInterface({ source: { kind: 'file', path: v1Path } });
       const txInterfaceId = added.interfaceId;
       const before = txService.snapshot() as ProjectWire;
 
       fail();
       txPicks.rememberRead(v2Path);
       await expect(
-        txService.applyDefinitionUpdate(txInterfaceId, { kind: 'file', path: v2Path }, DEFAULTS),
+        txService.kind('soap').applyDefinitionUpdate(txInterfaceId, { kind: 'file', path: v2Path }, DEFAULTS),
       ).rejects.toThrow(/simulated disk failure/);
 
       // The project model is exactly what it was before the failed apply.
@@ -176,7 +174,7 @@ describe('ProjectHost — Update Definition', () => {
 
       // The live `WsdlImportResult` was never swapped: a plan against v2 still reports it as new,
       // which is only possible if the "previous" side of the diff is still v1.
-      const plan = await txService.planDefinitionUpdate(txInterfaceId, { kind: 'file', path: v2Path });
+      const plan = await txService.kind('soap').planDefinitionUpdate(txInterfaceId, { kind: 'file', path: v2Path });
       expect(plan.newOperations.map((ref) => ref.operationName)).toEqual(['Subtract']);
       expect(plan.removedOperations.map((ref) => ref.operationName)).toEqual(['Legacy']);
 
@@ -192,19 +190,21 @@ describe('ProjectHost — Update Definition', () => {
   });
 
   it('refuses a file that was never picked and is outside the project', async () => {
-    await expect(service.planDefinitionUpdate(interfaceId, { kind: 'file', path: v2Path })).rejects.toThrow(
-      /outside the project/,
-    );
+    await expect(
+      service.kind('soap').planDefinitionUpdate(interfaceId, { kind: 'file', path: v2Path }),
+    ).rejects.toThrow(/outside the project/);
   });
 
   it('refuses an interface the project does not have', async () => {
-    await expect(service.planDefinitionUpdate('nope', { kind: 'file', path: v2Path })).rejects.toThrow(/nope/);
+    await expect(service.kind('soap').planDefinitionUpdate('nope', { kind: 'file', path: v2Path })).rejects.toThrow(
+      /nope/,
+    );
   });
 
   it('updates from a URL served over HTTP', async () => {
     const server: TestSoapServer = await startTestSoapServer({ fixture: 'versioned/v2' });
     try {
-      const plan = await service.planDefinitionUpdate(interfaceId, { kind: 'url', url: server.wsdlUrl });
+      const plan = await service.kind('soap').planDefinitionUpdate(interfaceId, { kind: 'url', url: server.wsdlUrl });
       expect(plan.newOperations.map((ref) => ref.operationName)).toEqual(['Subtract']);
     } finally {
       await server.close();
@@ -216,7 +216,7 @@ describe('ProjectHost — Export Definition and documentation', () => {
   it('exports every document of the bundle into a folder', async () => {
     const target = tempDir('export');
     try {
-      const files = await service.exportDefinitionTo(interfaceId, target);
+      const files = await service.kind('soap').exportDefinitionTo(interfaceId, target);
       expect(files).toHaveLength(1);
       const written = await readFile(join(target, files[0] ?? ''), 'utf8');
       expect(written).toContain('VersionedService');
@@ -226,15 +226,15 @@ describe('ProjectHost — Export Definition and documentation', () => {
   });
 
   it('renders documentation in both formats, titled with the interface name', () => {
-    const html = service.definitionDocs(interfaceId, 'html');
+    const html = service.kind('soap').definitionDocs(interfaceId, 'html');
     expect(html.startsWith('<!DOCTYPE html>')).toBe(true);
     expect(html).toContain('<title>VersionedService</title>');
-    expect(service.definitionDocs(interfaceId, 'markdown').startsWith('# VersionedService')).toBe(true);
+    expect(service.kind('soap').definitionDocs(interfaceId, 'markdown').startsWith('# VersionedService')).toBe(true);
   });
 
   it('refuses to export or document an interface the project does not have', async () => {
-    await expect(service.exportDefinitionTo('nope', tempDir('export'))).rejects.toThrow(/nope/);
-    expect(() => service.definitionDocs('nope', 'html')).toThrow(/nope/);
+    await expect(service.kind('soap').exportDefinitionTo('nope', tempDir('export'))).rejects.toThrow(/nope/);
+    expect(() => service.kind('soap').definitionDocs('nope', 'html')).toThrow(/nope/);
   });
 });
 
@@ -259,13 +259,14 @@ describe('ProjectHost — Update Definition auth across origins', () => {
     const dir = join(tempDir('projects'), 'Krb');
     try {
       await host.create({ dir, name: 'Krb' });
-      const added = await host.addInterface({ source: { kind: 'url', url: first.wsdlUrl } });
+      const added = await host.kind('soap').addInterface({ source: { kind: 'url', url: first.wsdlUrl } });
       await host.mutate({
         kind: 'update-interface-auth',
         interfaceId: added.interfaceId,
         auth: ownerAuth,
       });
       await host
+        .kind('soap')
         .planDefinitionUpdate(added.interfaceId, { kind: 'url', url: update(first, second) })
         .catch(() => undefined);
       return preview.mock.calls[0]?.[1];

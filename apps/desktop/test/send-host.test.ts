@@ -29,7 +29,8 @@ import { desktopSendHost, type DesktopSend, type DesktopSendDeps } from '../src/
 import { failedExchangeOf } from '../src/main/failed-exchange.js';
 import { toWsHandshakeWire } from '../src/main/engine-wire.js';
 import { containsRecordedSecret, redactSecretText } from '../src/main/redact.js';
-import type { FailedExchangeWire, HistoryEntryWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { HistoryEntryWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { FailedExchangeWire } from '../src/shared/wire-base.js';
 
 vi.mock('electron', () => ({ ipcMain: { handle: () => undefined } }));
 
@@ -290,30 +291,34 @@ describe('desktopSendHost', () => {
     });
     const model: Project = {
       ...createProject('P', { id: 'p1' }),
-      apis: [
-        createApi('Petstore', {
-          id: 'api-1',
-          baseUrl: 'https://api.test',
-          requests: [
-            createRestRequest('Subscribe', {
-              id: 'parent',
-              method: 'POST',
-              url: '/subscriptions',
-              contract: { method: 'post', path: '/subscriptions' },
+      containers: {
+        rest: [
+          createApi('Petstore', {
+            id: 'api-1',
+            baseUrl: 'https://api.test',
+            requests: [
+              createRestRequest('Subscribe', {
+                id: 'parent',
+                method: 'POST',
+                url: '/subscriptions',
+                contract: { method: 'post', path: '/subscriptions' },
+              }),
+            ],
+          }),
+        ],
+      },
+      protocols: {
+        rest: createWebhookCollection({
+          folders: [
+            createWebhookFolder('Petstore', {
+              id: 'g1',
+              target: 'https://group.test',
+              source: { apiId: 'api-1' },
+              requests: [callback],
             }),
           ],
         }),
-      ],
-      webhooks: createWebhookCollection({
-        folders: [
-          createWebhookFolder('Petstore', {
-            id: 'g1',
-            target: 'https://group.test',
-            source: { apiId: 'api-1' },
-            requests: [callback],
-          }),
-        ],
-      }),
+      },
     };
     const asked: [string, string][] = [];
     const newestHistory = (projectId: string, requestId: string): HistoryEntryWire | undefined => {

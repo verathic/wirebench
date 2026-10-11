@@ -5,6 +5,7 @@ import {
   createRestRequest,
   createWebhookCollection,
   createWebhookFolder,
+  webhooksOf,
 } from '@wirebench/engine';
 import type { Project } from '@wirebench/engine';
 import { applyChange } from '../src/main/project-mutations.js';
@@ -14,15 +15,16 @@ import {
   toEngineSigning,
   updateFolder,
   updateRestRequest,
-} from '../src/main/project-rest-mutations.js';
+} from '../src/main/kinds/rest/mutations.js';
 import {
   setWebhookFolderSigning,
   setWebhookFolderTarget,
   updateWebhooks,
-} from '../src/main/project-webhook-mutations.js';
+} from '../src/main/kinds/rest/webhooks/mutations.js';
 import { withDraft } from '../src/main/send/draft.js';
-import { projectChangeSchema, restRequestPatchSchema } from '../src/shared/wire-types.js';
-import type { WebhookSigningWire } from '../src/shared/wire-types.js';
+import { projectChangeSchema } from '../src/shared/wire-types.js';
+import { restRequestPatchSchema } from '../src/shared/kinds/rest/wire.js';
+import type { WebhookSigningWire } from '../src/shared/wire-base.js';
 
 const HMAC: WebhookSigningWire = {
   mode: 'sign',
@@ -35,54 +37,56 @@ const deps = { generate: () => Promise.reject(new Error('not needed')) };
 function project(): Project {
   return {
     ...createProject('P', { id: 'p1' }),
-    apis: [createApi('Shop', { id: 'api-1', requests: [createRestRequest('List', { id: 'r1' })] })],
-    webhooks: createWebhookCollection({
-      requests: [createRestRequest('Ping', { id: 'w1', method: 'POST' })],
-      folders: [
-        createWebhookFolder('Orders', {
-          id: 'g1',
-          requests: [createRestRequest('Paid', { id: 'w2', method: 'POST' })],
-        }),
-      ],
-    }),
+    containers: { rest: [createApi('Shop', { id: 'api-1', requests: [createRestRequest('List', { id: 'r1' })] })] },
+    protocols: {
+      rest: createWebhookCollection({
+        requests: [createRestRequest('Ping', { id: 'w1', method: 'POST' })],
+        folders: [
+          createWebhookFolder('Orders', {
+            id: 'g1',
+            requests: [createRestRequest('Paid', { id: 'w2', method: 'POST' })],
+          }),
+        ],
+      }),
+    },
   };
 }
 
 describe('webhook signing in main (§5.1)', () => {
   it('sets and clears the collection, a folder and an item', () => {
     let p = updateWebhooks(project(), { signing: HMAC }).project;
-    expect(p.webhooks?.signing).toEqual(HMAC);
+    expect(webhooksOf(p)?.signing).toEqual(HMAC);
     p = setWebhookFolderSigning(p, 'g1', { mode: 'none' }).project;
-    expect(p.webhooks?.folders[0]?.signing).toEqual({ mode: 'none' });
+    expect(webhooksOf(p)?.folders[0]?.signing).toEqual({ mode: 'none' });
     p = updateRestRequest(p, 'w2', { signing: HMAC }).project;
-    expect(p.webhooks?.folders[0]?.requests[0]?.signing).toEqual(HMAC);
+    expect(webhooksOf(p)?.folders[0]?.requests[0]?.signing).toEqual(HMAC);
     p = updateRestRequest(p, 'w2', { signing: null }).project;
-    expect(p.webhooks?.folders[0]?.requests[0]).not.toHaveProperty('signing');
+    expect(webhooksOf(p)?.folders[0]?.requests[0]).not.toHaveProperty('signing');
     p = setWebhookFolderSigning(p, 'g1', null).project;
-    expect(p.webhooks?.folders[0]).not.toHaveProperty('signing');
+    expect(webhooksOf(p)?.folders[0]).not.toHaveProperty('signing');
     p = updateWebhooks(p, { signing: null }).project;
-    expect(p.webhooks).not.toHaveProperty('signing');
+    expect(webhooksOf(p)).not.toHaveProperty('signing');
   });
 
   it('keeps signing through an unrelated patch and a clone', () => {
     let p = updateRestRequest(project(), 'w1', { signing: HMAC }).project;
     p = updateRestRequest(p, 'w1', { url: '/ping' }).project;
-    expect(p.webhooks?.requests[0]?.signing).toEqual(HMAC);
+    expect(webhooksOf(p)?.requests[0]?.signing).toEqual(HMAC);
     const cloned = cloneRestRequest(p, 'w1');
-    expect(cloned.project.webhooks?.requests.find((r) => r.id === cloned.createdId)?.signing).toEqual(HMAC);
+    expect(webhooksOf(cloned.project)?.requests.find((r) => r.id === cloned.createdId)?.signing).toEqual(HMAC);
   });
 
   it('keeps a folder signing through a rename, a patch and a target change', () => {
     let p = setWebhookFolderSigning(project(), 'g1', HMAC).project;
     p = updateFolder(p, 'g1', { name: 'Orders v2' }).project;
-    expect(p.webhooks?.folders[0]?.name).toBe('Orders v2');
-    expect(p.webhooks?.folders[0]?.signing).toEqual(HMAC);
+    expect(webhooksOf(p)?.folders[0]?.name).toBe('Orders v2');
+    expect(webhooksOf(p)?.folders[0]?.signing).toEqual(HMAC);
     p = updateFolder(p, 'g1', { description: 'paid orders' }).project;
-    expect(p.webhooks?.folders[0]?.signing).toEqual(HMAC);
+    expect(webhooksOf(p)?.folders[0]?.signing).toEqual(HMAC);
     p = setWebhookFolderTarget(p, 'g1', 'https://hooks.example.test').project;
-    expect(p.webhooks?.folders[0]?.signing).toEqual(HMAC);
+    expect(webhooksOf(p)?.folders[0]?.signing).toEqual(HMAC);
     p = setWebhookFolderSigning(p, 'g1', { mode: 'none' }).project;
-    expect(p.webhooks?.folders[0]?.target).toBe('https://hooks.example.test');
+    expect(webhooksOf(p)?.folders[0]?.target).toBe('https://hooks.example.test');
   });
 
   it('refuses signing on an API request, and a scheme the engine refuses', () => {
@@ -111,15 +115,15 @@ describe('webhook signing in main (§5.1)', () => {
       mode: 'sign',
       scheme: HMAC.mode === 'sign' ? HMAC.scheme : { kind: 'standard', toleranceSec: 300 },
     };
-    expect(updateWebhooks(project(), { signing: withoutEnv }).project.webhooks?.signing).toEqual(withoutEnv);
+    expect(webhooksOf(updateWebhooks(project(), { signing: withoutEnv }).project)?.signing).toEqual(withoutEnv);
   });
 
   it('carries the change kinds through the wire and applyChange', async () => {
     expect(restRequestPatchSchema.parse({ signing: null })).toEqual({ signing: null });
     const change = projectChangeSchema.parse({ kind: 'set-webhook-folder-signing', folderId: 'g1', signing: HMAC });
-    expect((await applyChange(project(), change, deps)).project.webhooks?.folders[0]?.signing).toEqual(HMAC);
+    expect(webhooksOf((await applyChange(project(), change, deps)).project)?.folders[0]?.signing).toEqual(HMAC);
     const collection = projectChangeSchema.parse({ kind: 'update-webhooks', patch: { signing: { mode: 'none' } } });
-    expect((await applyChange(project(), collection, deps)).project.webhooks?.signing).toEqual({ mode: 'none' });
+    expect(webhooksOf((await applyChange(project(), collection, deps)).project)?.signing).toEqual({ mode: 'none' });
   });
 
   it('projects signing onto the collection, folder and request wires', () => {

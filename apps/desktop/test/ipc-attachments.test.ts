@@ -11,8 +11,8 @@ import {
   clearAttachmentsTmp,
   extensionForContentType,
   registerAttachmentChannels,
-} from '../src/main/ipc/attachments.js';
-import type { AttachmentChannelDeps } from '../src/main/ipc/attachments.js';
+} from '../src/main/kinds/soap/channels/attachments.js';
+import type { AttachmentChannelDeps } from '../src/main/kinds/soap/channels/attachments.js';
 import { DialogPicks } from '../src/main/dialog-picks.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();

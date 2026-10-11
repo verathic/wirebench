@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import { Tabs } from '../../components/tabs.js';
 import { formatBytes } from '../../lib/format-size.js';
 import type { IpcError } from '../../../shared/ipc.js';
-import type { WsFrameWire, WsHandshakeWire } from '../../../shared/wire-types.js';
+import type { WsFrameWire, WsHandshakeWire } from '../../../shared/kinds/ws/wire.js';
 import type { WsExchangeState } from '../../state/exchanges.js';
 import { AssertionResults, assertionResultsBadge } from '../assertions/assertion-results.js';
 import { TimingsBar } from '../console/timings-bar.js';

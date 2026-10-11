@@ -11,6 +11,7 @@ import { WebhookSettingsDialog } from '../features/webhook-items/webhook-setting
 import { subscribeToAccounts, useAccountStore } from '../state/account.js';
 import { ToastViewport } from '../components/toast.js';
 import { toAreaIds } from '@shared/area-module.js';
+import { toKindId, type KindId } from '@shared/kinds/kind-module.js';
 import { ipc } from '../state/ipc-client.js';
 import { registerShellCommands } from '../commands/register-shell-commands.js';
 import type { CommandContext } from '../lib/commands.js';
@@ -323,6 +324,17 @@ export function AppShell() {
         if (cancelled || !result.ok) return;
         useUiStore.getState().setEnabledAreas(toAreaIds(result.value.enabled));
         registerShellCommands(openPalette); // resetCommands() at its top makes re-registration safe
+        void syncAppMenu();
+      });
+    // And which kinds; a kind that is off registers no commands, and its containers show as placeholders.
+    void ipc()
+      .app.kinds(undefined)
+      .then((result) => {
+        if (cancelled || !result.ok) return;
+        useUiStore
+          .getState()
+          .setEnabledKinds(result.value.enabled.map(toKindId).filter((kind): kind is KindId => kind !== undefined));
+        registerShellCommands(openPalette);
         void syncAppMenu();
       });
     return () => {

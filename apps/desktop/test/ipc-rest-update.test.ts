@@ -17,11 +17,8 @@ import { ProjectHost } from '../src/main/project-host.js';
 import { OpenApiImportService } from '../src/main/openapi-import.js';
 import { createDefaultFetchDocument, parseOpenApi, writeApiDefinitionCache } from '@wirebench/engine';
 import type { DocumentFetchOptions, FetchDocument } from '@wirebench/engine';
-import {
-  apiRestApplyUpdateResponseSchema,
-  apiRestPlanUpdateResponseSchema,
-  type ProjectWire,
-} from '../src/shared/wire-types.js';
+import { apiRestApplyUpdateResponseSchema, type ProjectWire } from '../src/shared/wire-types.js';
+import { apiRestPlanUpdateResponseSchema } from '../src/shared/kinds/rest/wire.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -45,8 +42,8 @@ vi.mock('electron', () => ({
   },
 }));
 
-const { registerApiChannels } = await import('../src/main/ipc/api.js');
-type ApiChannelDeps = Parameters<typeof registerApiChannels>[0];
+const { registerApiChannelsWithKinds } = await import('./helpers/kind-channels.js');
+type ApiChannelDeps = Parameters<typeof registerApiChannelsWithKinds>[0];
 
 const sender = { isDestroyed: () => false, send: vi.fn() };
 
@@ -182,17 +179,17 @@ beforeEach(async () => {
   const unused = vi.fn();
   const deps: ApiChannelDeps = {
     router: {
-      addApi: (_projectId, input) => host.addApi(input),
+      addApi: (_projectId, input) => host.kind('rest').addApi(input),
       addGrpcApi: unused,
       importAsyncApi: unused,
       asyncApiSource: unused,
       asyncApiPlanUpdate: unused,
       asyncApiApplyUpdate: unused,
-      restSource: (apiId) => host.restSource(apiId),
-      restPlanUpdate: (apiId, next) => host.planRestUpdate(apiId, next),
-      restApplyUpdate: (apiId, next, options) => host.applyRestUpdate(apiId, next, options),
-      webhookItems: (apiId) => host.webhookItems(apiId),
-      importWebhooks: (apiId, keys) => host.importWebhooks(apiId, keys),
+      restSource: (apiId) => host.kind('rest').restSource(apiId),
+      restPlanUpdate: (apiId, next) => host.kind('rest').planRestUpdate(apiId, next),
+      restApplyUpdate: (apiId, next, options) => host.kind('rest').applyRestUpdate(apiId, next, options),
+      webhookItems: (apiId) => host.kind('rest').webhookItems(apiId),
+      importWebhooks: (apiId, keys) => host.kind('rest').importWebhooks(apiId, keys),
       apiDefinitionDocuments: unused,
       apiDefinitionText: unused,
       exportApiDefinitionTo: unused,
@@ -213,7 +210,7 @@ beforeEach(async () => {
     history: { open: unused, recordImportedRestBatch: unused },
     onHistoryChanged: unused,
   };
-  registerApiChannels(deps);
+  registerApiChannelsWithKinds(deps);
 });
 
 afterEach(() => {
@@ -237,7 +234,9 @@ describe('api.restPlanUpdate / api.restApplyUpdate', () => {
   it('plans against the cache, then applies: orphans, adds, rewrites the cache, drops the memo, saves', async () => {
     const apiId = await importPets();
     const get = requests(apiId).find((r) => r.method === 'GET');
-    const before = await host.restContractFor(get?.id ?? '', { method: 'GET', url: 'https://pets.example.test/pets' });
+    const before = await host
+      .kind('rest')
+      .restContractFor(get?.id ?? '', { method: 'GET', url: 'https://pets.example.test/pets' });
     expect(JSON.stringify(before?.responses)).not.toContain('"object"');
 
     await writeFile(docPath, V2);
@@ -266,7 +265,9 @@ describe('api.restPlanUpdate / api.restApplyUpdate', () => {
     const slug = applied.project.apis.find((a) => a.id === apiId)?.slug ?? '';
     const cached = await readFile(join(projectDir, 'project', 'apis', slug, 'definition', 'openapi.yaml'), 'utf8');
     expect(cached).toBe(V2);
-    const after = await host.restContractFor(get?.id ?? '', { method: 'GET', url: 'https://pets.example.test/pets' });
+    const after = await host
+      .kind('rest')
+      .restContractFor(get?.id ?? '', { method: 'GET', url: 'https://pets.example.test/pets' });
     expect(JSON.stringify(after?.responses)).toContain('"object"');
   });
 
@@ -346,7 +347,7 @@ describe('api.restPlanUpdate / api.restApplyUpdate', () => {
     const apiId = await importPets();
     await writeFile(docPath, V2);
     const next = await parseOpenApi({ kind: 'text', text: V2 }, { fetchDocument: createDefaultFetchDocument() });
-    await host.applyRestUpdate(apiId, next, {
+    await host.kind('rest').applyRestUpdate(apiId, next, {
       check: async () => {
         await host.mutate({ kind: 'update-api', apiId, patch: { name: 'Renamed meanwhile' } });
       },

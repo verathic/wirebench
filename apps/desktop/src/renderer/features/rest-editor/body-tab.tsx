@@ -22,7 +22,8 @@ import { ipc } from '../../state/ipc-client.js';
 import { usePreferencesStore } from '../../state/preferences.js';
 import { useProjectStore } from '../../state/project.js';
 import { JsonFormView } from './json-form-view.js';
-import type { KeyValueWire, RestBodyWire, RestRequestPatchWire, RestSettingsWire } from '../../../shared/wire-types.js';
+import type { RestBodyWire, RestRequestPatchWire, RestSettingsWire } from '../../../shared/kinds/rest/wire.js';
+import type { KeyValueWire } from '../../../shared/wire-base.js';
 
 /** The body kinds, in the order the switch offers them. */
 const KINDS = [

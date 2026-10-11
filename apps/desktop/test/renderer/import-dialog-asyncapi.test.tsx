@@ -11,7 +11,8 @@ import userEvent from '@testing-library/user-event';
 import { ImportDialog } from '../../src/renderer/features/explorer/import-dialog.js';
 import { useProjectStore } from '../../src/renderer/state/project.js';
 import { useUiStore } from '../../src/renderer/state/ui.js';
-import type { AsyncApiImportSummaryWire, ProjectWire } from '../../src/shared/wire-types.js';
+import type { ProjectWire } from '../../src/shared/wire-types.js';
+import type { AsyncApiImportSummaryWire } from '../../src/shared/kinds/ws/wire.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
 import { NO_REST, PROJECT_SETTINGS } from '../helpers/wire-defaults.js';
 

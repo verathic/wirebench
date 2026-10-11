@@ -61,9 +61,7 @@ an editor does not flag a wrong import, and `pnpm check` (and CI) does.
 | --- | --- | --- |
 | `protocols.ts` | every module: it is the composition file | stays; becomes the `engine` package in phase 5 |
 | `index.ts` | the public exports | stays |
-| `project/model.ts` | the REST, gRPC, WebSocket and webhook container types, type-only; the WS-Addressing model | phase 3 |
-| `project/load.ts`, `project/serialize.ts` | REST's request reader and writer for `webhooks/`; the webhook model | phase 3 |
-| `project/request-location.ts`, `secrets/scan/walk.ts`, `secrets/scan/apply.ts` | request types, type-only | phase 3 |
+| `project/environments.ts`, `workspace/environments.ts`, `project/attachments-cache.ts` | SOAP's endpoint and attachment types, type-only | phase 5 |
 | `import-detect.ts` | format detectors | phase 7 |
 
 The groups are: SOAP (`soap/`, `wsdl/`, `xsd/`, `wss/`, `wsa/`, `validate/`), REST (`rest/`, `webhooks/`), gRPC
@@ -81,6 +79,14 @@ into `keystore/`.
 nothing in this phase and would cost a desktop-wide change. The price is the `project/model.ts` exception above.
 Phase 3 replaces the lists, together with the desktop's per-kind code. A kind with no list of its own keeps its
 containers in `Project.extraContainers`.
+
+_Amended in 6.0 (#184 phase 3):_ the lists and `extraContainers` are gone. `Project.containers` holds every kind's
+containers keyed by kind, and each protocol's folder exports a typed reader and writer (`restApisOf` /
+`withRestApis` and the like), so `project/model.ts` imports no protocol's container type. SOAP's model (`Interface`,
+`SoapRequestDef`, `Endpoint`, `Attachment` and their factories) is in `soap/model.ts`. What a protocol keeps outside
+its containers moved too: REST's webhook collection and SOAP's WS-Security configurations live in `Project.protocols`
+and are loaded and saved by the module's `projectFiles` facet, so the loader and the writer import no protocol. The
+keystore registry stays core's, as `Project.keystores`: REST and gRPC TLS use it too.
 
 **The script rules stay in core.** The rules of ADR-0016 are applied by `script/apply.ts` to every protocol the same
 way: the changed request parses against the module's schema and keeps its protocol; its destination keeps its origin;
@@ -129,6 +135,13 @@ interface may change in any release. Phase 7 decides what of it is promised.
   throws; the compiler does not catch it.
 - Core still names the four built-in container types in `project/model.ts`, and still loads webhooks and WS-Security
   configurations itself. The exception table is the list of what is left to cut.
+
+_Amended in 6.0 (#184 phase 3):_ the last two points no longer hold: `project/model.ts` names no protocol and the
+modules load their own project-level files (above). The desktop sends through the modules and is split into kind
+modules of its own ([ADR-0023](0023-a-desktop-kind-is-a-module-behind-one-interface.md)), so ADR-0007's `kind` branch
+is gone from its shell too, and `WIREBENCH_KINDS` switches a kind off in the desktop as well as the engine: the
+desktop builds one registry from it and passes it to every load, save and send. The engine keeps no process-wide
+registry; one a caller does not pass is the built-in one, every protocol on.
 
 ## Alternatives considered
 

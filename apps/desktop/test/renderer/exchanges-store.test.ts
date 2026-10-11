@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ExchangeSummary } from '../../src/shared/wire-types.js';
+import type { ExchangeSummary } from '../../src/shared/kinds/soap/wire.js';
 import { useExchangesStore } from '../../src/renderer/state/exchanges.js';
 import {
   EMPTY_FILTER,

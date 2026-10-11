@@ -23,7 +23,7 @@ import { HistoryService } from '../src/main/history-service.js';
 import { ProjectHost } from '../src/main/project-host.js';
 import { WorkspaceService } from '../src/main/workspace-service.js';
 import type { WorkspaceServiceDeps } from '../src/main/workspace-service.js';
-import type { WorkspaceWire } from '../src/shared/wire-types.js';
+import type { WorkspaceWire } from '../src/shared/wire-base.js';
 
 /**
  * `fs.watch`'s coalescing on real disks is not instant; a short debounce keeps every test here

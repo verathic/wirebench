@@ -4,7 +4,8 @@ import { DetailsInspector } from '../../src/renderer/features/request-editor/ins
 import { useProjectStore } from '../../src/renderer/state/project.js';
 import { useWorkspaceStore } from '../../src/renderer/state/workspace.js';
 import { makeDraft } from '../mocks/exchange-fixtures.js';
-import type { InterfaceWire, ProjectWire } from '../../src/shared/wire-types.js';
+import type { ProjectWire } from '../../src/shared/wire-types.js';
+import type { InterfaceWire } from '../../src/shared/kinds/soap/wire.js';
 
 const project = {
   id: 'p1',

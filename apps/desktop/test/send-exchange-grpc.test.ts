@@ -18,22 +18,21 @@ import {
   createProject,
   DEFAULT_PREFERENCES,
   entry,
+  grpcApisOf,
   parseSecretPseudoRef,
   WirebenchError,
+  withGrpcApis,
 } from '@wirebench/engine';
 import type { ExchangeHandle, GrpcMethodKind, GrpcRequestDef, Project } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
 import { HistoryService } from '../src/main/history-service.js';
-import { registerRequestChannels, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { recordSecretValue } from '../src/main/redact.js';
 import { ExchangeRegistry } from '../src/main/send/exchange.js';
-import type {
-  FailedExchangeWire,
-  GrpcExchangeSummary,
-  GrpcLiveEvent,
-  HistoryEntryWire,
-  RequestCurlResponse,
-} from '../src/shared/wire-types.js';
+import type { HistoryEntryWire } from '../src/shared/wire-types.js';
+import type { GrpcExchangeSummary, GrpcLiveEvent } from '../src/shared/kinds/grpc/wire.js';
+import type { FailedExchangeWire, RequestCurlResponse } from '../src/shared/wire-base.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -125,16 +124,18 @@ function seeded(req: GrpcRequestDef = request('SayHello'), target = server.targe
   return {
     ...createProject('Demo', { id: 'p1' }),
     properties: { who: 'Ada', tenant: 'acme' },
-    grpcApis: [
-      createGrpcApi('Greeter', {
-        id: 'g-1',
-        target,
-        tls: false,
-        metadata: [entry('x-tenant', '${tenant}')],
-        auth: { type: 'bearer', tokenRef: 'sec_tok' },
-        folders: [createGrpcFolder('Greeter', { id: 'f-1', requests: [req] })],
-      }),
-    ],
+    containers: {
+      grpc: [
+        createGrpcApi('Greeter', {
+          id: 'g-1',
+          target,
+          tls: false,
+          metadata: [entry('x-tenant', '${tenant}')],
+          auth: { type: 'bearer', tokenRef: 'sec_tok' },
+          folders: [createGrpcFolder('Greeter', { id: 'f-1', requests: [req] })],
+        }),
+      ],
+    },
   };
 }
 
@@ -147,7 +148,7 @@ async function openHistory(): Promise<HistoryService> {
 /** Registers the `request.*` channels over `model`, with `extra` laid over the dependencies. */
 function registerOver(model: Project, extra: Partial<RequestChannelDeps> = {}): void {
   handlers.clear();
-  registerRequestChannels(new EngineService(), {
+  registerRequestChannelsWithKinds(new EngineService(), {
     project: {
       projectId: () => model.id,
       runContextFor: () => ({ project: model, projectDir: '/tmp/none', globals: {} }),
@@ -593,11 +594,13 @@ describe('request.curl for a Kerberos gRPC request', () => {
     async (shown) => {
       const getSecret = vi.fn(secrets);
       const project = seeded();
-      const api = project.grpcApis[0]!;
-      const kerberos: Project = {
-        ...project,
-        grpcApis: [{ ...api, auth: { type: 'kerberos', username: 'alice', domain: 'CORP', passwordRef: 'sec_pw' } }],
-      };
+      const api = grpcApisOf(project)[0]!;
+      const kerberos: Project = withGrpcApis(
+        {
+          ...project,
+        },
+        [{ ...api, auth: { type: 'kerberos', username: 'alice', domain: 'CORP', passwordRef: 'sec_pw' } }],
+      );
       registerOver(kerberos, { getSecret, showSecrets: { get: () => shown } });
       const reply = unwrap<RequestCurlResponse>(await invoke('request.curl', { requestId: 'q-1', shell: 'posix' }));
       expect(reply.notes).toContain('Kerberos is not expressible in this command; no authorization is shown.');

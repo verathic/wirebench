@@ -17,23 +17,22 @@ import {
   createWebhookCollection,
   createWebhookFolder,
   entry,
+  restApisOf,
   verifyWebhook,
 } from '@wirebench/engine';
 import type { Project, RequestScripts, RestRequestDef, WebhookSigning } from '@wirebench/engine';
 import { buildRestHistoryEntry, toHistoryEntryWire, type RecordRestSendInput } from '../src/main/history-service.js';
 import { EngineService } from '../src/main/engine-service.js';
 import { HistoryService } from '../src/main/history-service.js';
-import { registerRequestChannels, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { ScriptHost } from '../src/main/script-host.js';
 import { recordSecretValue, redactSecretText } from '../src/main/redact.js';
 import { sendThroughEngine } from '../src/main/send/exchange.js';
-import type {
-  FailedExchangeWire,
-  HistoryEntryWire,
-  RestExchangeSummary,
-  RestLiveEvent,
-} from '../src/shared/wire-types.js';
+import type { HistoryEntryWire } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary, RestLiveEvent } from '../src/shared/kinds/rest/wire.js';
+import type { FailedExchangeWire } from '../src/shared/wire-base.js';
 import { sendDepsFor } from './helpers/send-deps.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -65,7 +64,7 @@ function unwrap<T>(result: unknown): T {
 /** Registers the `request.*` channels over `model`, with `extra` laid over the dependencies. */
 function registerOver(model: Project, extra: Partial<RequestChannelDeps> = {}): void {
   handlers.clear();
-  registerRequestChannels(new EngineService(), {
+  registerRequestChannelsWithKinds(new EngineService(), {
     project: {
       projectId: () => model.id,
       runContextFor: () => ({ project: model, projectDir: '/tmp/none', globals: {} }),
@@ -107,7 +106,7 @@ function seeded(requests?: readonly RestRequestDef[]): Project {
     auth: { type: 'api-key', name: 'api_key', in: 'query', valueRef: 'sec_key' },
     requests: [...(requests ?? [createRestRequest('Echo', { id: 'req-1', url: '/echo', query: [entry('x', '1')] })])],
   });
-  return { ...createProject('Demo', { id: 'p1' }), apis: [api] };
+  return { ...createProject('Demo', { id: 'p1' }), containers: { rest: [api] } };
 }
 
 async function openHistory(): Promise<HistoryService> {
@@ -324,7 +323,13 @@ describe('sendThroughEngine for a REST request', () => {
       const failures: FailedExchangeWire[] = [];
       // Nothing listens on port 1: the send fails on the wire, after the proxy lookup.
       const model = seeded();
-      const refused: Project = { ...model, apis: model.apis.map((api) => ({ ...api, baseUrl: 'http://127.0.0.1:1' })) };
+      const refused: Project = {
+        ...model,
+        containers: {
+          ...model.containers,
+          rest: restApisOf(model).map((api) => ({ ...api, baseUrl: 'http://127.0.0.1:1' })),
+        },
+      };
       const deps = sendDepsFor(refused, {
         getSecret: secrets,
         history: await openHistory(),
@@ -512,16 +517,18 @@ describe('sendThroughEngine for a webhook item', () => {
     });
     return {
       ...createProject('P', { id: 'p1' }),
-      webhooks: createWebhookCollection({
-        target,
-        folders: [
-          createWebhookFolder('Orders', {
-            id: 'g1',
-            signing,
-            requests: [orphan ? { ...paid, orphaned: true } : paid],
-          }),
-        ],
-      }),
+      protocols: {
+        rest: createWebhookCollection({
+          target,
+          folders: [
+            createWebhookFolder('Orders', {
+              id: 'g1',
+              signing,
+              requests: [orphan ? { ...paid, orphaned: true } : paid],
+            }),
+          ],
+        }),
+      },
     };
   }
 
@@ -643,42 +650,46 @@ describe('sendThroughEngine for a webhook item', () => {
     const callback = `${server.url}/echo?t=abc123&sub=42`;
     const model: Project = {
       ...createProject('P', { id: 'p1' }),
-      apis: [
-        createApi('Petstore', {
-          id: 'api-1',
-          baseUrl: 'https://api.test',
-          requests: [
-            createRestRequest('Subscribe', {
-              id: 'parent',
-              method: 'POST',
-              url: '/subscriptions',
-              contract: { method: 'post', path: '/subscriptions' },
-            }),
-          ],
-        }),
-      ],
-      webhooks: createWebhookCollection({
-        folders: [
-          createWebhookFolder('Petstore', {
-            id: 'g1',
-            target: 'http://127.0.0.1:1/never',
-            source: { apiId: 'api-1' },
+      containers: {
+        rest: [
+          createApi('Petstore', {
+            id: 'api-1',
+            baseUrl: 'https://api.test',
             requests: [
-              createRestRequest('onEvent', {
-                id: 'w3',
+              createRestRequest('Subscribe', {
+                id: 'parent',
                 method: 'POST',
-                url: '/onEvent',
-                hook: {
-                  kind: 'callback',
-                  operation: 'post /subscriptions',
-                  name: 'onEvent',
-                  expression: '{$request.body#/callbackUrl}',
-                },
+                url: '/subscriptions',
+                contract: { method: 'post', path: '/subscriptions' },
               }),
             ],
           }),
         ],
-      }),
+      },
+      protocols: {
+        rest: createWebhookCollection({
+          folders: [
+            createWebhookFolder('Petstore', {
+              id: 'g1',
+              target: 'http://127.0.0.1:1/never',
+              source: { apiId: 'api-1' },
+              requests: [
+                createRestRequest('onEvent', {
+                  id: 'w3',
+                  method: 'POST',
+                  url: '/onEvent',
+                  hook: {
+                    kind: 'callback',
+                    operation: 'post /subscriptions',
+                    name: 'onEvent',
+                    expression: '{$request.body#/callbackUrl}',
+                  },
+                }),
+              ],
+            }),
+          ],
+        }),
+      },
     };
     const parent: HistoryEntryWire = {
       id: 'h1',

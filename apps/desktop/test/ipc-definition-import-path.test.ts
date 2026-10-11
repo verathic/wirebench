@@ -13,8 +13,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DialogPicks } from '../src/main/dialog-picks.js';
 import { EngineService } from '../src/main/engine-service.js';
-import type { DefinitionChannelProject } from '../src/main/ipc/definition.js';
-import { registerDefinitionChannels } from '../src/main/ipc/definition.js';
+import type { DefinitionChannelProject } from '../src/main/kinds/soap/channels/definition.js';
+import { registerDefinitionChannels } from '../src/main/kinds/soap/channels/definition.js';
 import { readPublicFixture } from './helpers/fixtures.js';
 
 const { readFileSpy } = vi.hoisted(() => ({ readFileSpy: vi.fn<(path: unknown) => void>() }));

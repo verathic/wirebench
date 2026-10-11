@@ -45,31 +45,27 @@ import type {
   WssSignatureCheck,
   WssTimelineStep,
 } from '@wirebench/engine';
+import type { GrpcExchangeSummary, GrpcResponseMessageWire } from '../shared/kinds/grpc/wire.js';
 import type {
   RestEventStreamWire,
   RestContractResultWire,
   RestExchangeSummary,
+  SseRowWire,
+} from '../shared/kinds/rest/wire.js';
+import type {
   ExchangeSummary,
   FaultWire,
-  GrpcExchangeSummary,
-  GrpcResponseMessageWire,
-  HttpExchangeWire,
   ImportProblemWire,
   InterfaceSummary,
   OperationSummaryWire,
   RequestGenerateResponse,
   ResponseAttachmentWire,
   ServiceSummary,
-  SslInfoWire,
-  SseRowWire,
-  UnresolvedRefWire,
-  WsExchangeSummary,
-  WsFrameContractWire,
-  WsFrameWire,
-  WsHandshakeWire,
   WssSignatureCheckWire,
   WssTimelineStepWire,
-} from '../shared/wire-types.js';
+} from '../shared/kinds/soap/wire.js';
+import type { WsExchangeSummary, WsFrameContractWire, WsFrameWire, WsHandshakeWire } from '../shared/kinds/ws/wire.js';
+import type { HttpExchangeWire, SslInfoWire, UnresolvedRefWire } from '../shared/wire-base.js';
 
 /** Base name of a URL or file path (its last `/`-separated, query/fragment-free segment). */
 function basenameOf(location: string): string {

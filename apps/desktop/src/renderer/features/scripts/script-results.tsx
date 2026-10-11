@@ -4,7 +4,7 @@
  * main. A request whose scripts are switched off says so, rather than showing an empty tab.
  */
 import { CheckCircle2, XCircle } from 'lucide-react';
-import type { ScriptResultWire } from '../../../shared/wire-types.js';
+import type { ScriptResultWire } from '../../../shared/wire-base.js';
 
 export interface ScriptResultsProps {
   readonly script: ScriptResultWire | undefined;

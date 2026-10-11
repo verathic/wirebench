@@ -69,11 +69,13 @@ describe('a WebSocket entry in History', () => {
     expect(screen.queryByRole('button', { name: 'Re-send Lobby' })).toBeNull();
   });
 
-  it('shows the status line and a read-only timeline, without a composer or Re-send', () => {
+  it('shows the status line and a read-only timeline, without a composer or Re-send', async () => {
     useHistoryStore.setState({ entries: [wsEntry()], total: 1 });
     render(<HistoryEntryView historyId="h-ws" />);
 
-    expect(screen.getByTestId('ws-response-status').textContent).toBe('101 · chat.v2 · 00:42 · ↑3 ↓17 · 4.1 KB');
+    expect((await screen.findByTestId('ws-response-status')).textContent).toBe(
+      '101 · chat.v2 · 00:42 · ↑3 ↓17 · 4.1 KB',
+    );
     expect(screen.getAllByTestId('ws-frame-row')).toHaveLength(2);
     expect(screen.queryByTestId('ws-composer')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Re-send' })).toBeNull();
@@ -83,15 +85,15 @@ describe('a WebSocket entry in History', () => {
     expect(useEditorsStore.getState().activeId).toBe('ws:ws-1');
   });
 
-  it('says how much of a capped transcript was left out', () => {
+  it('says how much of a capped transcript was left out', async () => {
     useHistoryStore.setState({ entries: [wsEntry({ truncated: true, omittedFrames: 1234 })], total: 1 });
     render(<HistoryEntryView historyId="h-ws" />);
-    expect(screen.getByTestId('ws-history-truncated').textContent).toBe(
+    expect((await screen.findByTestId('ws-history-truncated')).textContent).toBe(
       '1234 frames from the middle of the session were not kept.',
     );
   });
 
-  it('mentions trimmed payloads, alone or beside omitted frames', () => {
+  it('mentions trimmed payloads, alone or beside omitted frames', async () => {
     const trimmed = {
       index: 2,
       direction: 'received' as const,
@@ -105,7 +107,7 @@ describe('a WebSocket entry in History', () => {
       total: 1,
     });
     render(<HistoryEntryView historyId="h-ws" />);
-    expect(screen.getByTestId('ws-history-truncated').textContent).toBe(
+    expect((await screen.findByTestId('ws-history-truncated')).textContent).toBe(
       'Some payloads were not kept either; their frames show their size.',
     );
   });

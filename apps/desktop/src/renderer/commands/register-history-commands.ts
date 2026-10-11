@@ -6,7 +6,6 @@ import {
 } from '../features/history/history-actions.js';
 import { registerCommand } from '../lib/commands.js';
 import { useHistoryStore } from '../state/history.js';
-import { useWsiStore } from '../state/wsi.js';
 
 /**
  * Registers the `history.*` commands and the WS-I report export.
@@ -35,14 +34,5 @@ export function registerHistoryCommands(): void {
     when: () => useHistoryStore.getState().total > 0,
     whenScope: 'history.entries',
     run: () => void clearHistory(),
-  });
-
-  registerCommand({
-    ...catalogEntry('request.exportWsiReport'),
-    // The console's WS-I Report tab holds exactly one report — whichever check ran last — so
-    // there is something to export only once one has.
-    when: () => useWsiStore.getState().report !== undefined,
-    whenScope: 'wsi.report',
-    run: () => void useWsiStore.getState().exportHtml(),
   });
 }

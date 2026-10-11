@@ -46,8 +46,8 @@ export const GROUP_FOLDERS = Object.freeze({
  * The imports core makes of a protocol group (spec §7.2, rule 2). Rule 1 has no exceptions.
  *
  * Two kinds, told apart by `until`: the three files that are what they are (`protocols.ts`,
- * `index.ts`, `project-files.ts`); and the project model, History, the loader and the writer, which
- * hold protocol types until the phases of #184 that split them. Format detection and the `.http` and
+ * `index.ts`, `project-files.ts`); and the attachments cache and the environments, which hold SOAP
+ * types until the phase of #184 that splits them. Format detection and the `.http` and
  * OpenCollection importers, which turn one file or collection into several protocols' APIs, wait
  * for phase 7, which decides import's API. Each importer keeps its protocol imports in its `map.ts`;
  * the collection exporters, which read every protocol's APIs, keep theirs in `export/tree.ts`.
@@ -61,20 +61,9 @@ export const CORE_EXCEPTIONS = Object.freeze([
   { from: 'protocols.ts', to: '*', until: 'stays: the composition file' },
   { from: 'index.ts', to: '*', until: 'stays: the public exports' },
   { from: 'project-files.ts', to: '*', until: 'stays: the published schemas list every protocol file' },
-  { from: 'project/model.ts', to: 'rest/model.ts', typeOnly: true, until: 'phase 3' },
-  { from: 'project/model.ts', to: 'grpc/model.ts', typeOnly: true, until: 'phase 3' },
-  { from: 'project/model.ts', to: 'ws/model.ts', typeOnly: true, until: 'phase 3' },
-  { from: 'project/model.ts', to: 'webhooks/model.ts', typeOnly: true, until: 'phase 3' },
-  { from: 'project/model.ts', to: 'wsa/model.ts', until: 'phase 3' },
-  { from: 'project/load.ts', to: 'rest/', until: 'phase 3' },
-  { from: 'project/load.ts', to: 'webhooks/', until: 'phase 3' },
-  { from: 'project/serialize.ts', to: 'rest/', until: 'phase 3' },
-  { from: 'project/serialize.ts', to: 'webhooks/', until: 'phase 3' },
-  { from: 'project/request-location.ts', to: 'rest/model.ts', typeOnly: true, until: 'phase 3' },
-  { from: 'secrets/scan/walk.ts', to: 'rest/model.ts', typeOnly: true, until: 'phase 3' },
-  { from: 'secrets/scan/walk.ts', to: 'grpc/model.ts', typeOnly: true, until: 'phase 3' },
-  { from: 'secrets/scan/walk.ts', to: 'ws/model.ts', typeOnly: true, until: 'phase 3' },
-  { from: 'secrets/scan/apply.ts', to: 'rest/model.ts', typeOnly: true, until: 'phase 3' },
+  { from: 'project/attachments-cache.ts', to: 'soap/model.ts', typeOnly: true, until: 'phase 5' },
+  { from: 'project/environments.ts', to: 'soap/model.ts', typeOnly: true, until: 'phase 5' },
+  { from: 'workspace/environments.ts', to: 'soap/model.ts', typeOnly: true, until: 'phase 5' },
   { from: 'import-detect.ts', to: 'rest/postman/parse.ts', until: 'phase 7' },
   { from: 'import-detect.ts', to: 'rest/har/parse.ts', until: 'phase 7' },
   { from: 'import-detect.ts', to: 'soap/legacy-project/format.ts', until: 'phase 7' },
@@ -90,8 +79,9 @@ export const CORE_EXCEPTIONS = Object.freeze([
   { from: 'import/opencollection/map.ts', to: 'ws/model.ts', until: 'phase 7' },
   { from: 'export/tree.ts', to: 'rest/model.ts', until: 'phase 7' },
   { from: 'export/tree.ts', to: 'rest/url.ts', until: 'phase 7' },
-  { from: 'export/tree.ts', to: 'grpc/model.ts', typeOnly: true, until: 'phase 7' },
-  { from: 'export/tree.ts', to: 'ws/model.ts', typeOnly: true, until: 'phase 7' },
+  { from: 'export/tree.ts', to: 'soap/model.ts', until: 'phase 7' },
+  { from: 'export/tree.ts', to: 'grpc/model.ts', until: 'phase 7' },
+  { from: 'export/tree.ts', to: 'ws/model.ts', until: 'phase 7' },
 ]);
 
 /**

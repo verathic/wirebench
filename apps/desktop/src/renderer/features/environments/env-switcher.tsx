@@ -2,7 +2,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Braces, Check, ChevronDown } from 'lucide-react';
 import { useWorkspaceStore } from '../../state/workspace.js';
 import { useUiStore } from '../../state/ui.js';
-import type { WorkspaceEnvironmentWire } from '../../../shared/wire-types.js';
+import type { WorkspaceEnvironmentWire } from '../../../shared/wire-base.js';
 import { openEnvironmentTab } from './environment-actions.js';
 
 const ITEM_CLASS =

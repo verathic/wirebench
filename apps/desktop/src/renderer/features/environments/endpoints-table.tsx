@@ -2,14 +2,12 @@ import { useEffect, useId, useState } from 'react';
 import { selectEnvironment, useProjectStore } from '../../state/project.js';
 import { useWorkspaceStore } from '../../state/workspace.js';
 import { useGridNavigation, type GridRowProps } from '../../lib/grid-navigation.js';
-import type {
-  GrpcApiWire,
-  InterfaceWire,
-  ProjectWire,
-  RestApiWire,
-  WorkspaceEnvironmentWire,
-  WsApiWire,
-} from '../../../shared/wire-types.js';
+import type { ProjectWire } from '../../../shared/wire-types.js';
+import type { GrpcApiWire } from '../../../shared/kinds/grpc/wire.js';
+import type { RestApiWire } from '../../../shared/kinds/rest/wire.js';
+import type { InterfaceWire } from '../../../shared/kinds/soap/wire.js';
+import type { WsApiWire } from '../../../shared/kinds/ws/wire.js';
+import type { WorkspaceEnvironmentWire } from '../../../shared/wire-base.js';
 import { queueEndpointOverride } from './environment-queue.js';
 import type { EffectiveEndpointSource } from '../../state/endpoint-override.js';
 import { effectiveEndpointSource } from '../../state/endpoint-override.js';

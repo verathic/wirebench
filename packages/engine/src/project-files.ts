@@ -25,12 +25,11 @@ import {
   manifestSchema,
   protoDefinitionCacheManifestSchema,
   restFolderFileSchema,
-  webhookFolderFileSchema,
-  webhooksFileSchema,
   wssIncomingFileSchema,
   wssOutgoingFileSchema,
 } from './project/schema.js';
 import { apiFileSchema, restRequestFileSchema } from './rest/files.js';
+import { webhookFolderFileSchema, webhooksFileSchema } from './webhooks/schema.js';
 import { mockFileSchema, operationFileSchema, responseFileSchema } from './mock/file.js';
 import { sequenceFileSchema } from './sequence/file.js';
 import { goldenFileSchema } from './snapshot/golden-file.js';

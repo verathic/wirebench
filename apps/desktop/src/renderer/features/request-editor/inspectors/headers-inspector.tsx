@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { KvTable } from '../../../components/kv-table.js';
 import { useProblemsStore } from '../../../state/problems.js';
 import { useProjectStore } from '../../../state/project.js';
-import type { HeaderEntryWire, KeyValueWire, RequestWire } from '../../../../shared/wire-types.js';
+import type { RequestWire } from '../../../../shared/kinds/soap/wire.js';
+import type { HeaderEntryWire, KeyValueWire } from '../../../../shared/wire-base.js';
 
 export interface HeadersInspectorProps {
   readonly requestId: string;

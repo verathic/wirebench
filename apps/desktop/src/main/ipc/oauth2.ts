@@ -10,7 +10,7 @@
 import { WirebenchError } from '@wirebench/engine';
 import type { AuthConfig, OAuth2Auth } from '@wirebench/engine';
 import { channels } from '../../shared/ipc.js';
-import type { OAuth2StatusWire } from '../../shared/wire-types.js';
+import type { OAuth2StatusWire } from '../../shared/wire-base.js';
 import type { OAuth2Service } from '../oauth2.js';
 import type { ProjectRouter } from '../project-router.js';
 import { registerHandler } from './register.js';

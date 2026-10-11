@@ -37,7 +37,7 @@ export interface PersistedTab {
 }
 
 /** Every tab kind that survives a workspace switch, in one place so the reader can check against it. */
-const PERSISTED_TAB_KINDS: readonly PersistedTab['kind'][] = [
+export const PERSISTED_TAB_KINDS: readonly PersistedTab['kind'][] = [
   'request',
   'interface',
   'environment',

@@ -3,38 +3,24 @@
  * unsaved draft laid over it for this send only. Nothing here is persisted. Unlike a run, a person
  * may send a request its contract no longer has (orphaned), as the app always let them.
  */
-import {
-  createInterface,
-  createRequest,
-  grpcItemFor,
-  normalizeWsa,
-  restItemFor,
-  signingAlong,
-  soapItemFor,
-  webhookPath,
-  wsItemFor,
-} from '@wirebench/engine';
+import { createInterface, createRequest, normalizeWsa, signingAlong, webhookPath, webhooksOf } from '@wirebench/engine';
 import type {
   Project,
   RequestProperties,
   RestRequestDef,
   RestRequestSettings,
   RestSelected,
-  SelectedRequest,
   SoapOverride,
   SoapSelected,
   WsaConfigPatch,
 } from '@wirebench/engine';
-import { withGrpcPatch } from '../project-grpc-mutations.js';
-import { toEngineAuthConfig, toEngineBody, toEngineRows, toEngineSigning } from '../project-rest-mutations.js';
-import { withWsPatch } from '../project-ws-mutations.js';
+import { toEngineBody, toEngineSigning } from '../kinds/rest/mutations.js';
+import { toEngineAuthConfig, toEngineRows } from '../project-api-mutations.js';
 import type { HistoryNameFallback } from './record.js';
-import type {
-  GrpcRequestPatchWire,
-  ResolvedSendInputWire,
-  RestRequestPatchWire,
-  WsRequestPatchWire,
-} from '../../shared/wire-types.js';
+import type { ResolvedSendInputWire } from '../../shared/wire-types.js';
+import type { GrpcRequestPatchWire } from '../../shared/kinds/grpc/wire.js';
+import type { RestRequestPatchWire } from '../../shared/kinds/rest/wire.js';
+import type { WsRequestPatchWire } from '../../shared/kinds/ws/wire.js';
 
 /** What the editor holds for one send, by protocol. */
 export type DraftOf =
@@ -45,36 +31,6 @@ export type DraftOf =
 
 /** The request id a send with no saved request behind it goes by (`SendOptions.adHoc`). */
 export const AD_HOC_ID = 'ad-hoc';
-
-/** The saved request as a run item with the editor's draft applied. Undefined: no such request of that kind. */
-export function selectedFor(project: Project, requestId: string, draft: DraftOf): SelectedRequest | undefined {
-  switch (draft.kind) {
-    case 'rest': {
-      // An API request or a webhook item, orphaned or not.
-      const found = restItemFor(project, requestId);
-      return found === undefined ? undefined : withRestDraft(project, found, draft.draft);
-    }
-    case 'soap': {
-      // Orphaned or not: the editor sends what it shows.
-      const found = soapItemFor(project, requestId);
-      return found === undefined || draft.override === undefined ? found : { ...found, override: draft.override };
-    }
-    case 'grpc': {
-      // Any method kind, orphaned or not: a run skips streams, a person sends them.
-      const found = grpcItemFor(project, requestId);
-      return found === undefined || draft.draft === undefined
-        ? found
-        : { ...found, request: withGrpcPatch(found.request, draft.draft) };
-    }
-    case 'websocket': {
-      // Orphaned or not: the editor opens what it shows.
-      const found = wsItemFor(project, requestId);
-      return found === undefined || draft.draft === undefined
-        ? found
-        : { ...found, request: withWsPatch(found.request, draft.draft) };
-    }
-  }
-}
 
 /**
  * What the editor sends of a SOAP request: its envelope, the endpoint it resolved, and its headers.
@@ -160,10 +116,14 @@ function adHocProperties(input: ResolvedSendInputWire): Partial<RequestPropertie
  * `restEffectiveAuth` starts from the request; a webhook item's signing is climbed again from the
  * drafted request, so an unsaved Signing tab signs as the user sees it.
  */
-function withRestDraft(project: Project, item: RestSelected, draft: RestRequestPatchWire | undefined): RestSelected {
+export function withRestDraft(
+  project: Project,
+  item: RestSelected,
+  draft: RestRequestPatchWire | undefined,
+): RestSelected {
   if (draft === undefined) return item;
   const request = withDraft(item.request, draft);
-  const collection = project.webhooks;
+  const collection = webhooksOf(project);
   const path = item.signing === undefined || collection === undefined ? undefined : webhookPath(collection, request.id);
   return {
     ...item,

@@ -25,13 +25,14 @@ import {
 import type { Project, RequestScripts, RestRequestDef } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
 import { HistoryService } from '../src/main/history-service.js';
-import { registerHistoryChannels } from '../src/main/ipc/history.js';
 import type { RequestChannelDeps } from '../src/main/ipc/request.js';
 import { ScriptHost } from '../src/main/script-host.js';
 import { SequenceRunner } from '../src/main/sequence-runner.js';
 import { sendThroughEngine } from '../src/main/send/exchange.js';
 import { sendDepsFor } from './helpers/send-deps.js';
-import type { HistoryEntryWire, RestExchangeSummary } from '../src/shared/wire-types.js';
+import type { HistoryEntryWire } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary } from '../src/shared/kinds/rest/wire.js';
+import { registerHistoryChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -86,7 +87,7 @@ function project(requests: readonly RestRequestDef[]): Project {
     auth: { type: 'bearer', tokenRef: 'sec_token' },
     requests: [...requests],
   });
-  return { ...createProject('Demo', { id: 'p1' }), apis: [api] };
+  return { ...createProject('Demo', { id: 'p1' }), containers: { rest: [api] } };
 }
 
 interface Harness {
@@ -308,7 +309,11 @@ describe('a SOAP send with scripts', () => {
             },
           ],
         });
-        const model: Project = { ...createProject('Demo', { id: 'p1' }), properties: { v: '1' }, interfaces: [iface] };
+        const model: Project = {
+          ...createProject('Demo', { id: 'p1' }),
+          properties: { v: '1' },
+          containers: { soap: [iface] },
+        };
         await harness(model);
         const deps = sendDepsFor(model, {
           // The project's token, and the password its Basic auth names.
@@ -420,7 +425,7 @@ describe('a SOAP resend from History', () => {
           },
         ],
       });
-      const model: Project = { ...createProject('Demo', { id: 'p1' }), interfaces: [iface] };
+      const model: Project = { ...createProject('Demo', { id: 'p1' }), containers: { soap: [iface] } };
       await harness(model);
       const entry = {
         id: 'h-1',
@@ -438,7 +443,7 @@ describe('a SOAP resend from History', () => {
         sizeBytes: 1,
       } satisfies HistoryEntryWire;
       handlers.clear();
-      registerHistoryChannels(
+      registerHistoryChannelsWithKinds(
         { get: (id: string) => (id === 'h-1' ? entry : undefined) } as unknown as HistoryService,
         {
           project: {

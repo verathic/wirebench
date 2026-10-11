@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createProject, toWssOutgoingConfig } from '@wirebench/engine';
-import { wssEntryWireSchema, type WssEntryWire } from '../src/shared/wire-types.js';
+import { createProject, soapInterfacesOf, toWssOutgoingConfig, withWssConfigs, wssConfigsOf } from '@wirebench/engine';
+import { wssEntryWireSchema, type WssEntryWire } from '../src/shared/kinds/soap/wire.js';
 import { EngineService } from '../src/main/engine-service.js';
 import {
   addWssIncoming,
@@ -14,7 +14,7 @@ import {
   removeWssOutgoing,
   updateWssIncoming,
   updateWssOutgoing,
-} from '../src/main/project-wss-mutations.js';
+} from '../src/main/kinds/soap/wss-mutations.js';
 import { ProjectHost } from '../src/main/project-host.js';
 import type { Project } from '@wirebench/engine';
 
@@ -39,44 +39,47 @@ function newService(secrets?: { get(ref: string): Promise<string | undefined> })
 function projectWithRequest(base: Project, wssOutgoingRef?: string, wssIncomingRef?: string): Project {
   return {
     ...base,
-    interfaces: [
-      {
-        kind: 'soap' as const,
-        id: 'i1',
-        name: 'I',
-        slug: 'i',
-        order: 0,
-        definitionUrl: 'http://x',
-        cacheDefinition: true,
-        targetNamespace: '',
-        endpoints: [],
-        wsa: { enabled: false, version: '2005/08' as const },
-        operations: [
-          {
-            name: 'Op',
-            bindingName: 'B',
-            slug: 'op',
-            order: 0,
-            requests: [
-              {
-                id: 'r1',
-                name: 'Request 1',
-                slug: 'request-1',
-                order: 0,
-                envelopeXml: '<x/>',
-                soapVersion: '1.1' as const,
-                headers: [],
-                attachments: [],
-                ...(wssOutgoingRef !== undefined ? { wssOutgoingRef } : {}),
-                ...(wssIncomingRef !== undefined ? { wssIncomingRef } : {}),
-                properties: { encoding: 'UTF-8' },
-                assertions: [],
-              },
-            ],
-          },
-        ],
-      },
-    ],
+    containers: {
+      ...base.containers,
+      soap: [
+        {
+          kind: 'soap' as const,
+          id: 'i1',
+          name: 'I',
+          slug: 'i',
+          order: 0,
+          definitionUrl: 'http://x',
+          cacheDefinition: true,
+          targetNamespace: '',
+          endpoints: [],
+          wsa: { enabled: false, version: '2005/08' as const },
+          operations: [
+            {
+              name: 'Op',
+              bindingName: 'B',
+              slug: 'op',
+              order: 0,
+              requests: [
+                {
+                  id: 'r1',
+                  name: 'Request 1',
+                  slug: 'request-1',
+                  order: 0,
+                  envelopeXml: '<x/>',
+                  soapVersion: '1.1' as const,
+                  headers: [],
+                  attachments: [],
+                  ...(wssOutgoingRef !== undefined ? { wssOutgoingRef } : {}),
+                  ...(wssIncomingRef !== undefined ? { wssIncomingRef } : {}),
+                  properties: { encoding: 'UTF-8' },
+                  assertions: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
   } as unknown as Project;
 }
 
@@ -85,11 +88,11 @@ describe('outgoing WS-Security mutations', () => {
 
   it('creates a configuration with a unique default name and an id-based file', () => {
     const first = addWssOutgoing(base, {});
-    expect(first.project.wss.outgoing[0]?.name).toBe('Outgoing WSS');
-    expect(first.project.wss.outgoing[0]?.file).toBe(`wss/outgoing/${first.configId}.yaml`);
+    expect(wssConfigsOf(first.project).outgoing[0]?.name).toBe('Outgoing WSS');
+    expect(wssConfigsOf(first.project).outgoing[0]?.file).toBe(`wss/outgoing/${first.configId}.yaml`);
     const second = addWssOutgoing(first.project, {});
-    expect(second.project.wss.outgoing[1]?.name).toBe('Outgoing WSS 2');
-    expect(addWssOutgoing(base, { name: '  Gateway ' }).project.wss.outgoing[0]?.name).toBe('Gateway');
+    expect(wssConfigsOf(second.project).outgoing[1]?.name).toBe('Outgoing WSS 2');
+    expect(wssConfigsOf(addWssOutgoing(base, { name: '  Gateway ' }).project).outgoing[0]?.name).toBe('Gateway');
   });
 
   it('patches fields and replaces the entry list', () => {
@@ -104,16 +107,16 @@ describe('outgoing WS-Security mutations', () => {
         { kind: 'username-token', username: 'bob', passwordType: 'digest', addNonce: true, addCreated: true },
       ],
     });
-    expect(patched.wss.outgoing[0]?.document).toMatchObject({
+    expect(wssConfigsOf(patched).outgoing[0]?.document).toMatchObject({
       name: 'Gateway',
       actor: 'gw',
       mustUnderstand: true,
       defaultPasswordRef: 'secret:pw',
     });
     const cleared = updateWssOutgoing(patched, configId, { actor: null, defaultPasswordRef: null, entries: [] });
-    expect(cleared.wss.outgoing[0]?.document['actor']).toBeUndefined();
-    expect(cleared.wss.outgoing[0]?.document['defaultPasswordRef']).toBeUndefined();
-    expect(cleared.wss.outgoing[0]?.document['entries']).toEqual([]);
+    expect(wssConfigsOf(cleared).outgoing[0]?.document['actor']).toBeUndefined();
+    expect(wssConfigsOf(cleared).outgoing[0]?.document['defaultPasswordRef']).toBeUndefined();
+    expect(wssConfigsOf(cleared).outgoing[0]?.document['entries']).toEqual([]);
   });
 
   it('reports an unknown id', () => {
@@ -124,8 +127,8 @@ describe('outgoing WS-Security mutations', () => {
   it('clears wssOutgoingRef on every request that selected the removed configuration', () => {
     const { project, configId } = addWssOutgoing(base, {});
     const removed = removeWssOutgoing(projectWithRequest(project, configId), configId);
-    expect(removed.wss.outgoing).toHaveLength(0);
-    expect(removed.interfaces[0]?.operations[0]?.requests[0]?.wssOutgoingRef).toBeUndefined();
+    expect(wssConfigsOf(removed).outgoing).toHaveLength(0);
+    expect(soapInterfacesOf(removed)[0]?.operations[0]?.requests[0]?.wssOutgoingRef).toBeUndefined();
   });
 });
 
@@ -183,33 +186,30 @@ describe('ProjectHost WS-Security', () => {
       const added = await service.mutate({ kind: 'add-wss-outgoing', name: 'Future' });
       const configId = added.createdWssOutgoingId as string;
       const open = (service as unknown as { open: { project: Project } }).open;
-      open.project = {
-        ...open.project,
-        wss: {
-          ...open.project.wss,
-          outgoing: open.project.wss.outgoing.map((ref) =>
-            ref.id === configId
-              ? {
-                  ...ref,
-                  document: {
-                    ...ref.document,
-                    entries: [
-                      { kind: 'timestamp', timeToLiveSeconds: 300, millisecondPrecision: false },
-                      future,
-                      { kind: 'signature', keystoreRef: 'k', signatureAlgorithm: 'rsa-sha512' },
-                    ],
-                  },
-                }
-              : ref,
-          ),
-        },
-      };
+      open.project = withWssConfigs(open.project, {
+        ...wssConfigsOf(open.project),
+        outgoing: wssConfigsOf(open.project).outgoing.map((ref) =>
+          ref.id === configId
+            ? {
+                ...ref,
+                document: {
+                  ...ref.document,
+                  entries: [
+                    { kind: 'timestamp', timeToLiveSeconds: 300, millisecondPrecision: false },
+                    future,
+                    { kind: 'signature', keystoreRef: 'k', signatureAlgorithm: 'rsa-sha512' },
+                  ],
+                },
+              }
+            : ref,
+        ),
+      });
       return { service, configId };
     }
 
     function storedEntries(service: ProjectHost, configId: string): unknown {
       const open = (service as unknown as { open: { project: Project } }).open;
-      return open.project.wss.outgoing.find((ref) => ref.id === configId)?.document['entries'];
+      return wssConfigsOf(open.project).outgoing.find((ref) => ref.id === configId)?.document['entries'];
     }
 
     it('mirrors it as an opaque entry, and a malformed known kind the same way', async () => {
@@ -289,15 +289,12 @@ describe('ProjectHost WS-Security', () => {
 
     function setStored(service: ProjectHost, configId: string, entries: unknown[]): void {
       const open = (service as unknown as { open: { project: Project } }).open;
-      open.project = {
-        ...open.project,
-        wss: {
-          ...open.project.wss,
-          outgoing: open.project.wss.outgoing.map((ref) =>
-            ref.id === configId ? { ...ref, document: { ...ref.document, entries } } : ref,
-          ),
-        },
-      };
+      open.project = withWssConfigs(open.project, {
+        ...wssConfigsOf(open.project),
+        outgoing: wssConfigsOf(open.project).outgoing.map((ref) =>
+          ref.id === configId ? { ...ref, document: { ...ref.document, entries } } : ref,
+        ),
+      });
     }
 
     function wireOf(service: ProjectHost, configId: string): WssEntryWire[] {
@@ -383,7 +380,7 @@ describe('ProjectHost WS-Security', () => {
       const first = await readFile(file, 'utf8');
       const reopened = newService();
       await reopened.openProject(dir);
-      const doc = (reopened as unknown as { open: { project: Project } }).open.project.wss.outgoing.find(
+      const doc = wssConfigsOf((reopened as unknown as { open: { project: Project } }).open.project).outgoing.find(
         (ref) => ref.id === configId,
       )?.document['entries'] as unknown[];
       // The YAML writer orders keys, so compare the content, then require a stable second save.
@@ -399,10 +396,12 @@ describe('ProjectHost WS-Security', () => {
       const open = (service as unknown as { open: { project: Project } }).open;
       open.project = projectWithRequest(open.project, configId);
       await expect(
-        service.previewOutgoingWss(
-          'r1',
-          '<e:Envelope xmlns:e="http://schemas.xmlsoap.org/soap/envelope/"><e:Body/></e:Envelope>',
-        ),
+        service
+          .kind('soap')
+          .previewOutgoingWss(
+            'r1',
+            '<e:Envelope xmlns:e="http://schemas.xmlsoap.org/soap/envelope/"><e:Body/></e:Envelope>',
+          ),
       ).rejects.toMatchObject({ code: 'wss-entry-unsupported' });
     });
   });
@@ -423,21 +422,18 @@ describe('ProjectHost WS-Security', () => {
       const added = await service.mutate({ kind: 'add-wss-outgoing', name: 'Future' });
       const configId = added.createdWssOutgoingId as string;
       const open = (service as unknown as { open: { project: Project } }).open;
-      open.project = {
-        ...open.project,
-        wss: {
-          ...open.project.wss,
-          outgoing: open.project.wss.outgoing.map((ref) =>
-            ref.id === configId ? { ...ref, document: { ...ref.document, entries } } : ref,
-          ),
-        },
-      };
+      open.project = withWssConfigs(open.project, {
+        ...wssConfigsOf(open.project),
+        outgoing: wssConfigsOf(open.project).outgoing.map((ref) =>
+          ref.id === configId ? { ...ref, document: { ...ref.document, entries } } : ref,
+        ),
+      });
       return { service, configId };
     }
 
     function storedEntries(service: ProjectHost, configId: string): unknown[] {
       const open = (service as unknown as { open: { project: Project } }).open;
-      return open.project.wss.outgoing.find((ref) => ref.id === configId)?.document['entries'] as unknown[];
+      return wssConfigsOf(open.project).outgoing.find((ref) => ref.id === configId)?.document['entries'] as unknown[];
     }
 
     it('mirrors it as an opaque entry that needs a newer version', async () => {
@@ -633,7 +629,7 @@ describe('ProjectHost WS-Security', () => {
     ];
     const first = await service.mutate({ kind: 'update-wss-outgoing', configId, patch: { entries } });
     const openOf = () => (service as unknown as { open: { project: Project } }).open.project;
-    const stored = toWssOutgoingConfig(openOf().wss.outgoing[0] as never).entries;
+    const stored = toWssOutgoingConfig(wssConfigsOf(openOf()).outgoing[0] as never).entries;
 
     const wire = first.project.wssOutgoing[0]?.entries ?? [];
     expect(wire).toHaveLength(entries.length);
@@ -644,14 +640,14 @@ describe('ProjectHost WS-Security', () => {
 
     // And back: the renderer sends the mirrored entries again.
     await service.mutate({ kind: 'update-wss-outgoing', configId, patch: { entries: [...wire] } });
-    const reread = toWssOutgoingConfig(openOf().wss.outgoing[0] as never).entries;
+    const reread = toWssOutgoingConfig(wssConfigsOf(openOf()).outgoing[0] as never).entries;
     expect(reread).toEqual(stored);
     expect(reread).toMatchObject(entries);
   });
 
   it('builds the send-time WS-Security input, resolving the password inside main', async () => {
     const { service, requestId } = await openWithConfig();
-    const wss = await service.wssFor(requestId);
+    const wss = await service.kind('soap').wssFor(requestId);
     expect(wss?.outgoing?.entries).toHaveLength(2);
     expect(await wss?.ctx.secrets('secret:pw')).toBe('hunter2');
   });
@@ -662,7 +658,7 @@ describe('ProjectHost WS-Security', () => {
     // The reducer clears the ref, so re-point the request at the now-missing id.
     const open = (service as unknown as { open: { project: Project } }).open;
     open.project = projectWithRequest(open.project, configId);
-    await expect(service.wssFor(requestId)).rejects.toThrow(/no longer has/);
+    await expect(service.kind('soap').wssFor(requestId)).rejects.toThrow(/no longer has/);
   });
 
   it('applies, previews and removes the header on the editor text', async () => {
@@ -670,16 +666,14 @@ describe('ProjectHost WS-Security', () => {
     const envelope =
       '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">' +
       '<soapenv:Body><Ping/></soapenv:Body></soapenv:Envelope>';
-    const applied = await service.previewOutgoingWss(requestId, envelope);
+    const applied = await service.kind('soap').previewOutgoingWss(requestId, envelope);
     expect(applied).toContain('wsse:Security');
     expect(applied).toContain('wsu:Timestamp');
-    expect(service.removeOutgoingWssFrom(requestId, applied)).toBe(envelope);
+    expect(service.kind('soap').removeOutgoingWssFrom(requestId, applied)).toBe(envelope);
 
-    const inserted = await service.insertWssEntry(
-      requestId,
-      { kind: 'timestamp', timeToLiveSeconds: 60, millisecondPrecision: true },
-      envelope,
-    );
+    const inserted = await service
+      .kind('soap')
+      .insertWssEntry(requestId, { kind: 'timestamp', timeToLiveSeconds: 60, millisecondPrecision: true }, envelope);
     expect(inserted).toContain('<wsu:Expires>');
   });
 
@@ -712,7 +706,7 @@ describe('ProjectHost WS-Security', () => {
       });
       mkdirSync(join(dir, 'tokens'));
       writeFileSync(join(dir, 'tokens', 'a.xml'), assertion('urn:from-file'));
-      const secured = await service.previewOutgoingWss('r1', envelope);
+      const secured = await service.kind('soap').previewOutgoingWss('r1', envelope);
       expect(secured).toContain('urn:from-file');
     });
 
@@ -725,7 +719,7 @@ describe('ProjectHost WS-Security', () => {
       });
       writeFileSync(join(dir, '..', 'outside.xml'), assertion('urn:outside'));
       dirs.push(join(dir, '..', 'outside.xml'));
-      await expect(service.previewOutgoingWss('r1', envelope)).rejects.toMatchObject({
+      await expect(service.kind('soap').previewOutgoingWss('r1', envelope)).rejects.toMatchObject({
         code: 'saml-token-file-missing',
         details: { file: '../outside.xml' },
       });
@@ -738,7 +732,7 @@ describe('ProjectHost WS-Security', () => {
         file: 'tokens/none.xml',
         expandProperties: false,
       });
-      await expect(service.previewOutgoingWss('r1', envelope)).rejects.toMatchObject({
+      await expect(service.kind('soap').previewOutgoingWss('r1', envelope)).rejects.toMatchObject({
         code: 'saml-token-file-missing',
         details: { file: 'tokens/none.xml' },
       });
@@ -751,7 +745,7 @@ describe('ProjectHost WS-Security', () => {
         xml: assertion('${#Project#issuer}'),
         expandProperties: true,
       });
-      const secured = await service.previewOutgoingWss('r1', envelope);
+      const secured = await service.kind('soap').previewOutgoingWss('r1', envelope);
       expect(secured).toContain('urn:expanded');
       expect(secured).not.toContain('${');
     });
@@ -763,7 +757,7 @@ describe('ProjectHost WS-Security', () => {
         xml: assertion('${#Project#nope}'),
         expandProperties: true,
       });
-      await expect(service.previewOutgoingWss('r1', envelope)).rejects.toMatchObject({
+      await expect(service.kind('soap').previewOutgoingWss('r1', envelope)).rejects.toMatchObject({
         code: 'unresolved-properties',
         details: { unresolved: ['${#Project#nope}'] },
       });
@@ -777,11 +771,13 @@ describe('ProjectHost WS-Security', () => {
       });
       mkdirSync(join(dir, 'tokens'));
       writeFileSync(join(dir, 'tokens', 'b.xml'), assertion('${#Project#issuer}'));
-      const inserted = await service.insertWssEntry(
-        'r1',
-        { kind: 'saml-token', source: 'xml', file: 'tokens/b.xml', expandProperties: true },
-        envelope,
-      );
+      const inserted = await service
+        .kind('soap')
+        .insertWssEntry(
+          'r1',
+          { kind: 'saml-token', source: 'xml', file: 'tokens/b.xml', expandProperties: true },
+          envelope,
+        );
       expect(inserted).toContain('urn:expanded');
     });
   });
@@ -800,16 +796,16 @@ describe('incoming WS-Security mutations', () => {
 
   it("creates a configuration with this build's defaults and an id-based file", () => {
     const first = addWssIncoming(base, {});
-    expect(first.project.wss.incoming[0]?.name).toBe('Incoming WSS');
-    expect(first.project.wss.incoming[0]?.file).toBe(`wss/incoming/${first.configId}.yaml`);
-    expect(first.project.wss.incoming[0]?.document).toMatchObject({
+    expect(wssConfigsOf(first.project).incoming[0]?.name).toBe('Incoming WSS');
+    expect(wssConfigsOf(first.project).incoming[0]?.file).toBe(`wss/incoming/${first.configId}.yaml`);
+    expect(wssConfigsOf(first.project).incoming[0]?.document).toMatchObject({
       requireSignature: false,
       requireTimestamp: false,
       timestampSkewSeconds: 300,
       verifyChain: true,
     });
-    expect(addWssIncoming(first.project, {}).project.wss.incoming[1]?.name).toBe('Incoming WSS 2');
-    expect(addWssIncoming(base, { name: '  Gateway ' }).project.wss.incoming[0]?.name).toBe('Gateway');
+    expect(wssConfigsOf(addWssIncoming(first.project, {}).project).incoming[1]?.name).toBe('Incoming WSS 2');
+    expect(wssConfigsOf(addWssIncoming(base, { name: '  Gateway ' }).project).incoming[0]?.name).toBe('Gateway');
   });
 
   it('patches fields and clears the optional refs', () => {
@@ -824,7 +820,7 @@ describe('incoming WS-Security mutations', () => {
       timestampSkewSeconds: 60,
       verifyChain: false,
     });
-    expect(patched.wss.incoming[0]?.document).toMatchObject({
+    expect(wssConfigsOf(patched).incoming[0]?.document).toMatchObject({
       name: 'Gateway in',
       decryptKeystoreRef: 'k1',
       decryptAlias: 'client',
@@ -841,7 +837,7 @@ describe('incoming WS-Security mutations', () => {
       signatureKeystoreRef: '',
     });
     for (const key of ['decryptKeystoreRef', 'decryptAlias', 'decryptKeyPasswordRef', 'signatureKeystoreRef']) {
-      expect(cleared.wss.incoming[0]?.document[key]).toBeUndefined();
+      expect(wssConfigsOf(cleared).incoming[0]?.document[key]).toBeUndefined();
     }
   });
 
@@ -853,8 +849,8 @@ describe('incoming WS-Security mutations', () => {
   it('clears wssIncomingRef on every request that selected the removed configuration', () => {
     const { project, configId } = addWssIncoming(base, {});
     const removed = removeWssIncoming(projectWithRequest(project, undefined, configId), configId);
-    expect(removed.wss.incoming).toHaveLength(0);
-    expect(removed.interfaces[0]?.operations[0]?.requests[0]?.wssIncomingRef).toBeUndefined();
+    expect(wssConfigsOf(removed).incoming).toHaveLength(0);
+    expect(soapInterfacesOf(removed)[0]?.operations[0]?.requests[0]?.wssIncomingRef).toBeUndefined();
   });
 });
 
@@ -879,7 +875,7 @@ describe('ProjectHost incoming WS-Security', () => {
     expect(project.wssIncoming[0]).toMatchObject({ name: 'Gateway in', requireSignature: true });
     expect(project.requests[0]?.wssIncomingRef).toBe(added.configId);
 
-    const wss = await service.wssFor('r1');
+    const wss = await service.kind('soap').wssFor('r1');
     expect(wss?.outgoing).toBeUndefined();
     expect(wss?.incoming).toMatchObject({ signatureKeystoreRef: 'trust', requireSignature: true });
 
@@ -894,6 +890,6 @@ describe('ProjectHost incoming WS-Security', () => {
     await service.create({ dir, name: 'Demo' });
     const open = (service as unknown as { open: { project: Project } }).open;
     open.project = projectWithRequest(open.project, undefined, 'gone');
-    await expect(service.wssFor('r1')).rejects.toThrow(/no longer has/);
+    await expect(service.kind('soap').wssFor('r1')).rejects.toThrow(/no longer has/);
   });
 });

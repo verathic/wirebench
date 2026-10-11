@@ -45,7 +45,7 @@ async function discoverInto(host: ProjectHost): Promise<string> {
   if (run.kind !== 'reflection') {
     throw new Error('expected a reflection run');
   }
-  const added = await host.addGrpcApi({
+  const added = await host.kind('grpc').addGrpcApi({
     api: run.imported.api,
     roots: run.roots,
     source: run.sourceLabel,
@@ -89,12 +89,12 @@ describe('a gRPC API discovered from a running server', () => {
 
     const reopened = new ProjectHost(new EngineService(), {});
     await reopened.openProject(dir);
-    const definition = await reopened.grpcDefinition(apiId);
+    const definition = await reopened.kind('grpc').grpcDefinition(apiId);
     expect(definition.kind).toBe('reflection');
     expect(definition.reflectionVersion).toBe('v1');
     expect(definition.services.map((service) => service.fullName)).toEqual(['wirebench.greet.Greeter']);
     expect(definition.files.map((file) => file.path)).toEqual(['descriptors.binpb']);
-    expect(await reopened.grpcSample(apiId, 'wirebench.greet.HelloRequest')).toContain('"name"');
+    expect(await reopened.kind('grpc').grpcSample(apiId, 'wirebench.greet.HelloRequest')).toContain('"name"');
     await reopened.close();
   });
 
@@ -124,7 +124,7 @@ describe('a gRPC API discovered from a running server', () => {
     const cachePath = join(dir, 'apis', api.slug, 'definition', 'descriptors.binpb');
     const before = await readFile(cachePath);
 
-    const refreshed = await host.refreshGrpcDefinition(apiId, { version: 'v1' });
+    const refreshed = await host.kind('grpc').refreshGrpcDefinition(apiId, { version: 'v1' });
     expect(refreshed.version).toBe('v1');
     expect(refreshed.summary.services).toBe(1);
     // The server describes the same schema, so nothing is added and nothing is orphaned.
@@ -151,14 +151,14 @@ describe('a gRPC API discovered from a running server', () => {
     if (run.kind !== 'proto') {
       throw new Error('expected a proto run');
     }
-    const added = await host.addGrpcApi({
+    const added = await host.kind('grpc').addGrpcApi({
       api: run.imported.api,
       roots: run.roots,
       source: run.sourceLabel,
       kind: 'proto',
       sources: run.sources,
     });
-    await expect(host.refreshGrpcDefinition(added.apiId)).rejects.toMatchObject({
+    await expect(host.kind('grpc').refreshGrpcDefinition(added.apiId)).rejects.toMatchObject({
       code: 'definition-not-discovered',
     });
     await host.close();

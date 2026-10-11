@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EngineService } from '../src/main/engine-service.js';
-import { registerXmlChannels } from '../src/main/ipc/xml.js';
+import { registerXmlChannels } from '../src/main/kinds/soap/channels/xml.js';
 import { readCraftedFixture, readPublicFixture } from './helpers/fixtures.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();

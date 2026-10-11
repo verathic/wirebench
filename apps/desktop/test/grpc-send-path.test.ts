@@ -10,7 +10,7 @@ import { createGrpcApi, createGrpcFolder, createGrpcRequest, createProject, entr
 import type { Project } from '@wirebench/engine';
 import { buildGrpcHistoryEntry } from '../src/main/history-service.js';
 import { previewGrpc, sendThroughEngine } from '../src/main/send/exchange.js';
-import type { GrpcRequestPatchWire } from '../src/shared/wire-types.js';
+import type { GrpcRequestPatchWire } from '../src/shared/kinds/grpc/wire.js';
 import { sendDepsFor } from './helpers/send-deps.js';
 
 let server: TestGrpcServer;
@@ -27,29 +27,31 @@ function project(): Project {
   return {
     ...createProject('Demo', { id: 'p1' }),
     properties: { who: 'Ada', tenant: 'acme' },
-    grpcApis: [
-      createGrpcApi('Greeter', {
-        id: 'g-1',
-        target: '${host}',
-        tls: false,
-        metadata: [entry('x-tenant', '${tenant}')],
-        auth: { type: 'bearer', tokenRef: 'sec_tok' },
-        folders: [
-          createGrpcFolder('Greeter', {
-            id: 'f-1',
-            requests: [
-              createGrpcRequest('SayHello', {
-                id: 'q-1',
-                service: 'wirebench.greet.Greeter',
-                method: 'SayHello',
-                message: '{"name": "${who}"}',
-                metadata: [entry('x-trace', 'abc')],
-              }),
-            ],
-          }),
-        ],
-      }),
-    ],
+    containers: {
+      grpc: [
+        createGrpcApi('Greeter', {
+          id: 'g-1',
+          target: '${host}',
+          tls: false,
+          metadata: [entry('x-tenant', '${tenant}')],
+          auth: { type: 'bearer', tokenRef: 'sec_tok' },
+          folders: [
+            createGrpcFolder('Greeter', {
+              id: 'f-1',
+              requests: [
+                createGrpcRequest('SayHello', {
+                  id: 'q-1',
+                  service: 'wirebench.greet.Greeter',
+                  method: 'SayHello',
+                  message: '{"name": "${who}"}',
+                  metadata: [entry('x-trace', 'abc')],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    },
   };
 }
 

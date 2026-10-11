@@ -7,7 +7,7 @@ import { SecretField } from '../../components/secret-field.js';
 import { useKerberosAvailability } from '../../lib/use-kerberos-availability.js';
 import { KeystorePicker, WSS_FIELD_CLASS } from './outgoing-entry-fields.js';
 import { IssuedTokenStatus } from './issued-token-status.js';
-import type { WssEntryWire } from '../../../shared/wire-types.js';
+import type { WssEntryWire } from '../../../shared/kinds/soap/wire.js';
 
 type IssuedEntry = Extract<WssEntryWire, { kind: 'issued-token' }>;
 type Credential = IssuedEntry['credential'];

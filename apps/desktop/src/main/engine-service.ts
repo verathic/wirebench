@@ -25,12 +25,12 @@ import {
 } from '@wirebench/engine';
 import type {
   DefinitionImportRequest,
-  EngineProgressEvent,
   ImportSourceWire,
   InterfaceSummary,
   RequestGenerateRequest,
   RequestGenerateResponse,
-} from '../shared/wire-types.js';
+} from '../shared/kinds/soap/wire.js';
+import type { EngineProgressEvent } from '../shared/wire-base.js';
 import { toGenerateResponse, toInterfaceSummary } from './engine-wire.js';
 import { ExchangeCache } from './exchange-cache.js';
 

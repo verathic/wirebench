@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createInterface, createProject, createRequest } from '@wirebench/engine';
 import type { Project, PropertyScopes, WsaConfig } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
-import { registerRequestChannels, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { type RequestChannelDeps } from '../src/main/ipc/request.js';
 import type { PreflightResult } from '../src/main/expansion-preflight.js';
-import type { ProjectChange, SoapSendInputWire } from '../src/shared/wire-types.js';
+import type { ProjectChange } from '../src/shared/wire-types.js';
+import type { SoapSendInputWire } from '../src/shared/kinds/soap/wire.js';
 import { readPublicFixture } from './helpers/fixtures.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -112,7 +114,10 @@ class FakeProject {
       cacheDefinition: false,
       operations: [{ name: 'Add', bindingName: `{${TEM}}CalculatorSoap`, slug: 'add', order: 0, requests: [request] }],
     });
-    return { project: { ...createProject('Demo', { id: 'proj-1' }), interfaces: [iface] }, projectDir: '/tmp/none' };
+    return {
+      project: { ...createProject('Demo', { id: 'proj-1' }), containers: { soap: [iface] } },
+      projectDir: '/tmp/none',
+    };
   }
   defaultWsaActionFor(): string {
     return this.wsa?.defaultAction ?? '';
@@ -174,7 +179,7 @@ describe('request.recreate / curl / importCurl', () => {
       operationName: 'Add',
     });
     project.envelopeXml = generated.envelopeXml.replace(/<tem:intA>[^<]*<\/tem:intA>/, '<tem:intA>5</tem:intA>');
-    registerRequestChannels(engine, {
+    registerRequestChannelsWithKinds(engine, {
       project: project as unknown as RequestChannelDeps['project'],
       showSecrets: { get: () => showSecrets },
     });

@@ -10,7 +10,8 @@ import { useSyncStore } from '../../src/renderer/state/sync.js';
 import { useUiStore } from '../../src/renderer/state/ui.js';
 import { useWebhooksStore } from '../../src/renderer/state/webhooks.js';
 import { useWorkspaceStore } from '../../src/renderer/state/workspace.js';
-import type { InterfaceWire, WorkspaceProjectWire, WorkspaceWire } from '../../src/shared/wire-types.js';
+import type { InterfaceWire } from '../../src/shared/kinds/soap/wire.js';
+import type { WorkspaceProjectWire, WorkspaceWire } from '../../src/shared/wire-base.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
 import {
   REQUEST_PROPERTIES,

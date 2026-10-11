@@ -16,7 +16,7 @@ import type {
   WorkspaceEnvironmentPatchWire,
   WorkspaceSummaryWire,
   WorkspaceWire,
-} from '../../shared/wire-types.js';
+} from '../../shared/wire-base.js';
 import { queueEnvironmentPatch } from '../features/environments/environment-queue.js';
 import { useInterfaceEditorStore } from '../features/interface-editor/interface-editor-state.js';
 import { useHostsStore } from '../features/ssh/hosts-store.js';

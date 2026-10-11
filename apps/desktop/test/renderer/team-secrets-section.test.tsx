@@ -8,7 +8,7 @@ import type {
   TeamSecretsKeyWire,
   TeamSecretsStatusWire,
   TeamSecretsUntrustedWire,
-} from '../../src/shared/wire-types.js';
+} from '../../src/shared/wire-base.js';
 
 const ADA: TeamSecretsKeyWire = {
   keyId: 'AAAAAAAAAAAAAAAAAAAAAAAAAA',

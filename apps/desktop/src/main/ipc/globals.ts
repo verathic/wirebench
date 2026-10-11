@@ -1,5 +1,5 @@
 import { channels } from '../../shared/ipc.js';
-import type { GlobalsState } from '../../shared/wire-types.js';
+import type { GlobalsState } from '../../shared/wire-base.js';
 import type { GlobalProperties } from '../global-properties.js';
 import { registerHandler } from './register.js';
 

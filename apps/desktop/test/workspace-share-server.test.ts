@@ -68,7 +68,7 @@ import type {
   ShareDeps,
 } from '../src/main/workspace-share.js';
 import { WorkspaceState } from '../src/main/workspace-state.js';
-import type { SyncConflictWire, WorkspaceWire } from '../src/shared/wire-types.js';
+import type { SyncConflictWire, WorkspaceWire } from '../src/shared/wire-base.js';
 
 const WAIT = { timeout: 15_000, interval: 50 };
 const URL_A = 'https://wirebench.example.test';

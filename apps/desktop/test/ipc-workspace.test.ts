@@ -16,7 +16,8 @@ import { registerProjectChannels } from '../src/main/ipc/project.js';
 import { registerWorkspaceChannels } from '../src/main/ipc/workspace.js';
 import type { ServerShareRequest } from '../src/main/workspace-share.js';
 import { channels } from '../src/shared/ipc.js';
-import type { ProjectWire, TeamWorkspaceWire, WorkspaceSummaryWire, WorkspaceWire } from '../src/shared/wire-types.js';
+import type { ProjectWire } from '../src/shared/wire-types.js';
+import type { TeamWorkspaceWire, WorkspaceSummaryWire, WorkspaceWire } from '../src/shared/wire-base.js';
 import { NO_REST, PROJECT_SETTINGS } from './helpers/wire-defaults.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();

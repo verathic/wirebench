@@ -23,15 +23,16 @@ import { EngineService } from '../src/main/engine-service.js';
 import { toWsFrameWire } from '../src/main/engine-wire.js';
 import { ProjectHost } from '../src/main/project-host.js';
 import { OpenApiImportService } from '../src/main/openapi-import.js';
-import { updateWsRequest } from '../src/main/project-ws-mutations.js';
+import { updateWsRequest } from '../src/main/kinds/ws/mutations.js';
+import { apiImportAsyncApiResponseSchema, type ProjectWire } from '../src/shared/wire-types.js';
 import {
-  apiImportAsyncApiResponseSchema,
   wsFrameWireSchema,
   wsRequestWireSchema,
   wsSavedMessageWireSchema,
-  type ProjectWire,
   type WsRequestWire,
-} from '../src/shared/wire-types.js';
+} from '../src/shared/kinds/ws/wire.js';
+import { wsApisOf } from '@wirebench/engine';
+import type { WsApi } from '@wirebench/engine';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -43,8 +44,8 @@ vi.mock('electron', () => ({
   },
 }));
 
-const { registerApiChannels } = await import('../src/main/ipc/api.js');
-type ApiChannelDeps = Parameters<typeof registerApiChannels>[0];
+const { registerApiChannelsWithKinds } = await import('./helpers/kind-channels.js');
+type ApiChannelDeps = Parameters<typeof registerApiChannelsWithKinds>[0];
 
 const fixtures = fileURLToPath(new URL('../../../packages/engine/test/fixtures/asyncapi/', import.meta.url));
 
@@ -146,10 +147,10 @@ beforeEach(async () => {
     router: {
       addApi: unused,
       addGrpcApi: unused,
-      importAsyncApi: (projectId, input) => hostFor(projectId).importAsyncApi(input),
-      asyncApiSource: (apiId) => hostFor('p1').asyncApiSource(apiId),
-      asyncApiPlanUpdate: (apiId, next) => hostFor('p1').planAsyncApiUpdate(apiId, next),
-      asyncApiApplyUpdate: (apiId, next) => hostFor('p1').applyAsyncApiUpdate(apiId, next),
+      importAsyncApi: (projectId, input) => hostFor(projectId).kind('websocket').importAsyncApi(input),
+      asyncApiSource: (apiId) => hostFor('p1').kind('websocket').asyncApiSource(apiId),
+      asyncApiPlanUpdate: (apiId, next) => hostFor('p1').kind('websocket').planAsyncApiUpdate(apiId, next),
+      asyncApiApplyUpdate: (apiId, next) => hostFor('p1').kind('websocket').applyAsyncApiUpdate(apiId, next),
       restSource: unused,
       restPlanUpdate: unused,
       restApplyUpdate: unused,
@@ -192,7 +193,7 @@ beforeEach(async () => {
     history: { open: unused, recordImportedRestBatch: unused },
     onHistoryChanged: unused,
   };
-  registerApiChannels(deps);
+  registerApiChannelsWithKinds(deps);
 });
 
 afterEach(() => {
@@ -448,13 +449,13 @@ describe('contract on the wire', () => {
       .project;
     type Folder = {
       readonly folders: readonly Folder[];
-      readonly requests: (typeof project.wsApis)[number]['requests'];
+      readonly requests: WsApi['requests'];
     };
     const all = (container: Folder): Folder['requests'] => [
       ...container.requests,
       ...container.folders.flatMap((folder) => all(folder)),
     ];
-    const api = project.wsApis[0];
+    const api = wsApisOf(project)[0];
     const request =
       api === undefined ? undefined : all(api).find((candidate) => candidate.messages.some((m) => m.contract));
     if (request === undefined) throw new Error('no request with a contract message');
@@ -467,7 +468,7 @@ describe('contract on the wire', () => {
         content: m.content,
       })),
     });
-    const patchedApi = patched.project.wsApis[0];
+    const patchedApi = wsApisOf(patched.project)[0];
     const after =
       patchedApi === undefined ? undefined : all(patchedApi).find((candidate) => candidate.id === request.id);
     expect(after?.messages.map((m) => m.contract)).toEqual(request.messages.map((m) => m.contract));
@@ -494,11 +495,13 @@ describe('the contract a live session is checked against', () => {
     const imported = await importNext();
     const host = hostFor('p1');
     const typing = requestFor(imported.apiId, 'typing');
-    const messages = await host.wsContractFor(typing?.id ?? '');
+    const messages = await host.kind('websocket').wsContractFor(typing?.id ?? '');
     expect(messages?.sent.map((m) => m.name)).toEqual(['typing']);
     // Memoised: a second ask is the same parse.
-    expect(host.asyncApiContractFor(imported.apiId)).toBe(host.asyncApiContractFor(imported.apiId));
-    expect(host.wsContractFor('no-such-request')).toBeUndefined();
+    expect(host.kind('websocket').asyncApiContractFor(imported.apiId)).toBe(
+      host.kind('websocket').asyncApiContractFor(imported.apiId),
+    );
+    expect(host.kind('websocket').wsContractFor('no-such-request')).toBeUndefined();
   });
 
   it('a broken cache rejects the contract, and is read again once fixed', async () => {
@@ -508,15 +511,15 @@ describe('the contract a live session is checked against', () => {
     const cached = join(projectDir, 'project', 'apis', slug, 'definition', 'asyncapi.yaml');
     const good = await readFile(cached, 'utf8');
     await writeFile(cached, 'tampered');
-    await expect(host.asyncApiContractFor(imported.apiId)).rejects.toThrow();
+    await expect(host.kind('websocket').asyncApiContractFor(imported.apiId)).rejects.toThrow();
     await writeFile(cached, good);
-    await expect(host.asyncApiContractFor(imported.apiId)).resolves.toBeDefined();
+    await expect(host.kind('websocket').asyncApiContractFor(imported.apiId)).resolves.toBeDefined();
   });
 
   it('plans an update against the cached document, then applies it: orphans, rewrites the cache, drops the memo', async () => {
     const imported = await importNext();
     const host = hostFor('p1');
-    const before = await host.asyncApiContractFor(imported.apiId);
+    const before = await host.kind('websocket').asyncApiContractFor(imported.apiId);
     expect(before?.channels.some((c) => c.key === 'typing')).toBe(true);
 
     // The source now holds the original document.
@@ -550,7 +553,7 @@ describe('the contract a live session is checked against', () => {
     const slug = applied.project.wsApis[0]?.slug ?? '';
     const cached = await readFile(join(projectDir, 'project', 'apis', slug, 'definition', 'asyncapi.yaml'), 'utf8');
     expect(cached).toBe(original);
-    const after = await host.asyncApiContractFor(imported.apiId);
+    const after = await host.kind('websocket').asyncApiContractFor(imported.apiId);
     expect(after).not.toBe(before);
     expect(after?.channels.some((c) => c.key === 'typing')).toBe(false);
   });

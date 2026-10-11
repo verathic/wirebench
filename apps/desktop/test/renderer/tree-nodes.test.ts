@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { InterfaceSummary } from '../../src/shared/wire-types.js';
+import type { InterfaceSummary } from '../../src/shared/kinds/soap/wire.js';
 import type { RequestDraft } from '../../src/renderer/state/project.js';
 import type { ExplorerNode } from '../../src/renderer/features/explorer/tree-nodes.js';
 import { buildExplorerTree, nodeProjectId, restEntityId } from '../../src/renderer/features/explorer/tree-nodes.js';
@@ -471,7 +471,7 @@ describe('buildExplorerTree with gRPC APIs', () => {
 
     const folderNode = grpcApi?.children?.[0];
     expect(folderNode?.kind).toBe('folder');
-    expect(folderNode?.grpc).toBe(true);
+    expect(folderNode?.ownerKind).toBe('grpc');
     expect(folderNode?.children?.[0]).toMatchObject({
       id: 'grpc:grpc-2',
       kind: 'grpc-request',
@@ -537,7 +537,7 @@ describe('buildExplorerTree with WebSocket APIs', () => {
 
     const folderNode = wsApi?.children?.[0];
     expect(folderNode?.kind).toBe('folder');
-    expect(folderNode?.ws).toBe(true);
+    expect(folderNode?.ownerKind).toBe('websocket');
     expect(folderNode?.children?.[0]).toMatchObject({
       id: 'ws:ws-2',
       kind: 'ws-request',

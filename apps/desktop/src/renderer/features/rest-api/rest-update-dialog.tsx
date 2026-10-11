@@ -25,7 +25,8 @@ import { showToast } from '../../components/toast.js';
 import { ipc } from '../../state/ipc-client.js';
 import { useProjectStore } from '../../state/project.js';
 import { useWebhookItemsDialogs } from '../webhook-items/webhook-items-state.js';
-import type { ApiRestPlanUpdateResponse, AuthConfigWire, RestUpdateSourceWire } from '../../../shared/wire-types.js';
+import type { ApiRestPlanUpdateResponse, RestUpdateSourceWire } from '../../../shared/kinds/rest/wire.js';
+import type { AuthConfigWire } from '../../../shared/wire-base.js';
 
 export interface RestUpdateDialogProps {
   readonly apiId: string;

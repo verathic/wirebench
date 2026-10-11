@@ -10,7 +10,8 @@ import { useExchangesStore } from '../../src/renderer/state/exchanges.js';
 import type { LogEntry } from '../../src/renderer/state/exchanges.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
 import { resetKerberosAvailability } from '../../src/renderer/lib/use-kerberos-availability.js';
-import type { ProjectWire, WssEntryWire } from '../../src/shared/wire-types.js';
+import type { ProjectWire } from '../../src/shared/wire-types.js';
+import type { WssEntryWire } from '../../src/shared/kinds/soap/wire.js';
 
 type IssuedEntry = Extract<WssEntryWire, { kind: 'issued-token' }>;
 

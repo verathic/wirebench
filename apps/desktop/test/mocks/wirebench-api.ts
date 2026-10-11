@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { DEFAULT_PREFERENCES_WIRE } from '../../src/renderer/state/preferences-defaults.js';
-import type { PreferencesWire } from '../../src/shared/wire-types.js';
+import type { PreferencesWire } from '../../src/shared/wire-base.js';
 import type { WirebenchApi } from '../../src/preload/build-api.js';
 
 /** A deep-partial of the preload API: every channel may be replaced with a mock. */
@@ -31,6 +31,7 @@ export function stubWirebenchApi(overrides: ApiOverrides = {}): WirebenchApi {
     app: {
       version: fail('app.version'),
       areas: fail('app.areas'),
+      kinds: fail('app.kinds'),
       registerMenu: vi.fn().mockResolvedValue({ ok: true, value: { items: 0 } }),
     },
     auth: {

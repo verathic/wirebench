@@ -82,6 +82,14 @@ describe('app.* IPC', () => {
     });
   });
 
+  it('app.kinds answers the kinds this run has switched on', async () => {
+    registerAppChannels(undefined, undefined, undefined, undefined, ['soap', 'rest']);
+    expect(await invoke('app.kinds', undefined, webContents())).toEqual({
+      ok: true,
+      value: { enabled: ['soap', 'rest'] },
+    });
+  });
+
   it('falls back to the registering window when nothing is focused', async () => {
     let template: unknown;
     registerAppChannels({

@@ -9,11 +9,13 @@ import type { ProtocolMocking } from '../mock/contract.js';
 import type { FsLike } from '../project/fs.js';
 import type { ProjectProblem } from '../project/load.js';
 import type { Project } from '../project/model.js';
+import type { RequestFileLocation } from '../project/request-tree.js';
 import type { RunContext } from '../run/context.js';
 import type { ExchangeHandle, ExchangeOptions } from '../run/exchange.js';
 import type { SendHost } from '../run/host.js';
 import type { ScriptSession } from '../run/script-support.js';
 import type { SecretNeed } from '../secrets/env-names.js';
+import type { ScanTarget, SecretRewriter } from '../secrets/scan/support.js';
 import type { HeaderPair, RequestScripts, ScriptFailure, ScriptPhase } from '../script/model.js';
 import type { RequestScriptTypes } from '../script/request-scripts.js';
 import type { SecretPlaceholders } from '../script/send.js';
@@ -75,6 +77,54 @@ export interface ProtocolStorage<C extends ContainerBase = ContainerBase> {
   containers(project: Project): readonly C[];
   /** The project with its containers of this kind replaced. */
   withContainers(project: Project, containers: readonly C[]): Project;
+  /**
+   * Where the request with `requestId` is written, when `container` holds it. A kind that leaves it
+   * out has no request files a host places a sidecar beside.
+   */
+  requestLocation?(container: C, requestId: string): RequestFileLocation | undefined;
+  /**
+   * Every entity id in `container`, its own first, for a copy that takes fresh ids
+   * (`reidentifyProject`). A kind that leaves it out keeps its ids in a copy.
+   */
+  entityIds?(container: C): readonly string[];
+  /** `container` with every id it holds, and every reference to one, passed through `mapId`. */
+  withEntityIds?(container: C, mapId: (id: string) => string): C;
+}
+
+/**
+ * What a protocol keeps for the whole project rather than in a container (spec §3): REST's webhook
+ * collection under `webhooks/`, SOAP's WS-Security configurations under `wss/`. The data lives in
+ * `Project.protocols` under the module's kind.
+ *
+ * @internal Exported for the engine's own hosts; not yet a plugin API (ADR-0017).
+ */
+export interface ProtocolProjectFiles {
+  /** `project` with the protocol's project-level files read in; called after every container is loaded. */
+  load(ctx: LoadContext, project: Project): Promise<Project>;
+  /** Every project-level file the protocol writes: path relative to the project root, to its text. */
+  files(project: Project): ReadonlyMap<string, string>;
+  /** The project-level files a save may delete when it no longer writes them. */
+  managed(fs: FsLike, root: string): Promise<readonly string[]>;
+  /** Where the request with `requestId` is written, when the project-level files hold it. */
+  requestLocation?(project: Project, requestId: string): RequestFileLocation | undefined;
+  /** Every entity id the project-level files hold, for a copy that takes fresh ids (`reidentifyProject`). */
+  entityIds?(project: Project): readonly string[];
+  /** `project` with every id its project-level files hold, and every reference to one, passed through `mapId`. */
+  withEntityIds?(project: Project, mapId: (id: string) => string): Project;
+}
+
+/**
+ * Where the secret scanner looks in what a protocol stores, and how a move to a secret rewrites it
+ * (docs/specs/2026-09-22-secret-scanning-design.md). Each location it yields and rewrites is one of
+ * its own `SecretLocation` kinds.
+ *
+ * @internal Exported for the engine's own hosts; not yet a plugin API (ADR-0017).
+ */
+export interface ProtocolSecrets {
+  /** Every stored text of the protocol's in `project` worth scanning, in explorer order. */
+  scanTargets(project: Project): Iterable<ScanTarget>;
+  /** `project` with each move at one of the protocol's texts applied; `project` itself when none applied. */
+  applyMoves(project: Project, rw: SecretRewriter): Project;
 }
 
 /**
@@ -242,12 +292,16 @@ export interface ProtocolModule {
   readonly feature: FeatureDescriptor;
   /** How its containers are read from and written to a project folder. */
   readonly storage: ProtocolStorage;
+  /** Absent: the protocol keeps nothing outside its containers. */
+  readonly projectFiles?: ProtocolProjectFiles;
   /** Absent: the protocol's requests cannot be run. */
   readonly run?: ProtocolRun;
   /** Absent: the protocol's requests cannot have scripts. */
   readonly scripting?: ProtocolScripting;
   /** Absent: the protocol's containers cannot be mocked (mock services spec §The protocol facet). */
   readonly mock?: ProtocolMocking;
+  /** Absent: the secret scanner does not look in the protocol's containers. */
+  readonly secrets?: ProtocolSecrets;
 }
 
 function assertKind(module: string, item: { readonly kind: string }): void {
@@ -267,9 +321,11 @@ export function defineProtocol<S extends SelectedBase>(module: {
   readonly kind: string;
   readonly feature: FeatureDescriptor;
   readonly storage: ProtocolStorage;
+  readonly projectFiles?: ProtocolProjectFiles;
   readonly run?: ProtocolRun<S>;
   readonly scripting?: ProtocolScripting;
   readonly mock?: ProtocolMocking;
+  readonly secrets?: ProtocolSecrets;
 }): ProtocolModule {
   const { run } = module;
   if (module.feature.id !== module.kind) {
@@ -279,8 +335,10 @@ export function defineProtocol<S extends SelectedBase>(module: {
     kind: module.kind,
     feature: module.feature,
     storage: module.storage,
+    ...(module.projectFiles !== undefined ? { projectFiles: module.projectFiles } : {}),
     ...(module.scripting !== undefined ? { scripting: module.scripting } : {}),
     ...(module.mock !== undefined ? { mock: module.mock } : {}),
+    ...(module.secrets !== undefined ? { secrets: module.secrets } : {}),
     ...(run !== undefined
       ? {
           run: {

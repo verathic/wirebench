@@ -7,7 +7,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDefaultFetchDocument, importOpenApi } from '@wirebench/engine';
+import { createDefaultFetchDocument, importOpenApi, restApisOf } from '@wirebench/engine';
 import type { RestApi, RestRequestDef } from '@wirebench/engine';
 import { DialogPicks } from '../src/main/dialog-picks.js';
 import { EngineService } from '../src/main/engine-service.js';
@@ -58,14 +58,14 @@ async function importPets(cache: boolean): Promise<{ api: RestApi; apiId: string
     { kind: 'text', text: DOCUMENT, location: 'https://pets.example.test/openapi.yaml' },
     { fetchDocument: createDefaultFetchDocument() },
   );
-  const { apiId } = await host.addApi({
+  const { apiId } = await host.kind('rest').addApi({
     api: imported.api,
     documents: imported.documents,
     source: 'https://pets.example.test/openapi.yaml',
     declaredVersion: '3.0.3',
     cache,
   });
-  const api = host.model()?.apis.find((candidate) => candidate.id === apiId) as RestApi;
+  const api = restApisOf(host.model()!).find((candidate) => candidate.id === apiId) as RestApi;
   return { api, apiId };
 }
 
@@ -89,7 +89,7 @@ describe('ProjectHost.restBodySchema', () => {
   it("answers a linked request's JSON body schema, acyclic and serialisable", async () => {
     const { api } = await importPets(true);
     const post = requestNamed(api, 'POST');
-    const found = await host.restBodySchema(post.id);
+    const found = await host.kind('rest').restBodySchema(post.id);
     expect(found?.mediaType).toBe('application/json');
     expect(found?.schema.required).toEqual(['name']);
     expect(found?.schema.properties?.['name']).toEqual({ type: 'string' });
@@ -102,7 +102,7 @@ describe('ProjectHost.restBodySchema', () => {
     const { createdId } = await host.mutate({ kind: 'add-rest-request', apiId });
     const addedId =
       createdId ??
-      allRequests(host.model()?.apis.find((candidate) => candidate.id === apiId) as RestApi).find(
+      allRequests(restApisOf(host.model()!).find((candidate) => candidate.id === apiId) as RestApi).find(
         (request) => !before.has(request.id),
       )?.id ??
       '';
@@ -111,7 +111,7 @@ describe('ProjectHost.restBodySchema', () => {
       requestId: addedId,
       patch: { method: 'POST', url: 'https://pets.example.test/v1/pets' },
     });
-    const found = await host.restBodySchema(addedId);
+    const found = await host.kind('rest').restBodySchema(addedId);
     expect(found?.mediaType).toBe('application/json');
     expect(found?.schema.required).toEqual(['name']);
   });
@@ -120,35 +120,35 @@ describe('ProjectHost.restBodySchema', () => {
     const { api } = await importPets(true);
     const post = requestNamed(api, 'POST');
     // The POST request is linked to `POST /pets`; an unsaved switch to PATCH leaves the link behind.
-    const patched = await host.restBodySchema(post.id, {
+    const patched = await host.kind('rest').restBodySchema(post.id, {
       method: 'PATCH',
       url: 'https://pets.example.test/v1/pets/7',
     });
     expect(patched?.mediaType).toBe('application/vnd.x+json');
     expect(patched?.schema.properties?.['tag']).toEqual({ type: 'string' });
     expect(
-      await host.restBodySchema(post.id, { method: 'PUT', url: 'https://pets.example.test/v1/pets/7' }),
+      await host.kind('rest').restBodySchema(post.id, { method: 'PUT', url: 'https://pets.example.test/v1/pets/7' }),
     ).toBeUndefined();
     // And back to what was saved: the link again.
-    const saved = await host.restBodySchema(post.id, { method: 'POST', url: post.url });
+    const saved = await host.kind('rest').restBodySchema(post.id, { method: 'POST', url: post.url });
     expect(saved?.schema.required).toEqual(['name']);
   });
 
   it('has nothing for an operation whose only body is XML', async () => {
     const { api } = await importPets(true);
-    expect(await host.restBodySchema(requestNamed(api, 'PUT').id)).toBeUndefined();
+    expect(await host.kind('rest').restBodySchema(requestNamed(api, 'PUT').id)).toBeUndefined();
   });
 
   it('accepts a vendor +json media type', async () => {
     const { api } = await importPets(true);
-    const found = await host.restBodySchema(requestNamed(api, 'PATCH').id);
+    const found = await host.kind('rest').restBodySchema(requestNamed(api, 'PATCH').id);
     expect(found?.mediaType).toBe('application/vnd.x+json');
     expect(found?.schema.properties?.['tag']).toEqual({ type: 'string' });
   });
 
   it('has nothing for an API without a cached definition, or no request at all', async () => {
     const { api } = await importPets(false);
-    expect(await host.restBodySchema(requestNamed(api, 'POST').id)).toBeUndefined();
-    expect(await host.restBodySchema('no-such-request')).toBeUndefined();
+    expect(await host.kind('rest').restBodySchema(requestNamed(api, 'POST').id)).toBeUndefined();
+    expect(await host.kind('rest').restBodySchema('no-such-request')).toBeUndefined();
   });
 });

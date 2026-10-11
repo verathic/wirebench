@@ -1,5 +1,6 @@
 import type { Draft } from 'immer';
 import { AREAS } from '@shared/area-module.js';
+import { KINDS, type KindId } from '@shared/kinds/kind-module.js';
 import type { AreaId } from '@shared/area-module.js';
 import { produce } from 'immer';
 import { create } from 'zustand';
@@ -12,7 +13,8 @@ import type {
   ThemePreference,
   UiSnapshot,
 } from './ui-state.js';
-import type { PreferencesSectionWire, RequestImportCurlTarget } from '../../shared/wire-types.js';
+import type { RequestImportCurlTarget } from '../../shared/kinds/rest/wire.js';
+import type { PreferencesSectionWire } from '../../shared/wire-base.js';
 import { DEFAULT_UI_STATE, readUi, writeUi } from './ui-state.js';
 
 /** A selected node in the explorer tree, read by the request inspectors and explorer actions. */
@@ -109,6 +111,9 @@ export interface UiStore extends UiSnapshot {
   /** The sidebar areas this run has switched on (`WIREBENCH_AREAS`). Transient — answered by main. */
   readonly enabledAreas: readonly AreaId[];
   readonly setEnabledAreas: (ids: readonly AreaId[]) => void;
+  /** The protocol kinds this run has switched on (`WIREBENCH_KINDS`). Transient — answered by main. */
+  readonly enabledKinds: readonly KindId[];
+  readonly setEnabledKinds: (ids: readonly KindId[]) => void;
   /** Whether the title bar's workspace dropdown is open. Transient — never persisted. */
   readonly workspaceSwitcherOpen: boolean;
   /** Whether the Manage workspaces dialog is open. Transient — never persisted. */
@@ -258,6 +263,10 @@ export const useUiStore = create<UiStore>((set, get) => {
     confirmDeleteRequestId: undefined,
     confirmDeleteNode: undefined,
     envSwitcherOpen: false,
+    enabledKinds: KINDS.map((kind) => kind.kind),
+    setEnabledKinds: (ids) => {
+      set({ enabledKinds: ids });
+    },
     enabledAreas: AREAS.map((area) => area.id),
     setEnabledAreas: (ids) => {
       set({ enabledAreas: ids });

@@ -12,6 +12,7 @@ import {
   createWebhookCollection,
   createWebhookFolder,
   entry,
+  webhooksOf,
 } from '@wirebench/engine';
 import type { HistoryService } from '../src/main/history-service.js';
 import type { Project } from '@wirebench/engine';
@@ -24,56 +25,60 @@ function project(): Project {
   return {
     ...createProject('P', { id: 'p1' }),
     properties: { webhookTarget: 'https://receiver.test/hooks' },
-    apis: [
-      createApi('Petstore', {
-        id: 'api-1',
-        baseUrl: 'https://api.test',
-        requests: [
-          createRestRequest('Subscribe', {
-            id: 'parent',
-            method: 'POST',
-            url: '/subscriptions',
-            contract: { method: 'post', path: '/subscriptions' },
-          }),
-        ],
-      }),
-    ],
-    webhooks: createWebhookCollection({
-      requests: [
-        createRestRequest('Ping', {
-          id: 'w1',
-          method: 'POST',
-          url: '/ping',
-          headers: [entry('X-Id', '${webhookTarget}')],
-        }),
-      ],
-      folders: [
-        createWebhookFolder('Petstore', {
-          id: 'g1',
-          target: 'https://group.test',
-          source: { apiId: 'api-1' },
+    containers: {
+      rest: [
+        createApi('Petstore', {
+          id: 'api-1',
+          baseUrl: 'https://api.test',
           requests: [
-            createRestRequest('newPet', {
-              id: 'w2',
+            createRestRequest('Subscribe', {
+              id: 'parent',
               method: 'POST',
-              url: '/newPet',
-              hook: { kind: 'webhook', name: 'newPet' },
-            }),
-            createRestRequest('onPetEvent', {
-              id: 'w3',
-              method: 'POST',
-              url: '/onPetEvent',
-              hook: {
-                kind: 'callback',
-                operation: 'post /subscriptions',
-                name: 'onPetEvent',
-                expression: '{$request.body#/callbackUrl}',
-              },
+              url: '/subscriptions',
+              contract: { method: 'post', path: '/subscriptions' },
             }),
           ],
         }),
       ],
-    }),
+    },
+    protocols: {
+      rest: createWebhookCollection({
+        requests: [
+          createRestRequest('Ping', {
+            id: 'w1',
+            method: 'POST',
+            url: '/ping',
+            headers: [entry('X-Id', '${webhookTarget}')],
+          }),
+        ],
+        folders: [
+          createWebhookFolder('Petstore', {
+            id: 'g1',
+            target: 'https://group.test',
+            source: { apiId: 'api-1' },
+            requests: [
+              createRestRequest('newPet', {
+                id: 'w2',
+                method: 'POST',
+                url: '/newPet',
+                hook: { kind: 'webhook', name: 'newPet' },
+              }),
+              createRestRequest('onPetEvent', {
+                id: 'w3',
+                method: 'POST',
+                url: '/onPetEvent',
+                hook: {
+                  kind: 'callback',
+                  operation: 'post /subscriptions',
+                  name: 'onPetEvent',
+                  expression: '{$request.body#/callbackUrl}',
+                },
+              }),
+            ],
+          }),
+        ],
+      }),
+    },
   };
 }
 
@@ -162,7 +167,7 @@ describe('resolving a webhook item (previewRest)', () => {
 describe('callbackUrlFor', () => {
   it('explains each fallback', () => {
     const p = project();
-    const request = p.webhooks!.folders[0]!.requests[1]!;
+    const request = webhooksOf(p)!.folders[0]!.requests[1]!;
     expect(callbackUrlFor(p, request, () => undefined)).toEqual({
       url: undefined,
       source: 'callback-fallback',

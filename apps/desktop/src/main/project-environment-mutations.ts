@@ -7,7 +7,7 @@
 
 import { generateId, ProjectError, removeEnvironment, uniqueSlug, upsertEnvironment } from '@wirebench/engine';
 import type { Environment, Project } from '@wirebench/engine';
-import type { EnvironmentPatchWire } from '../shared/wire-types.js';
+import type { EnvironmentPatchWire } from '../shared/wire-base.js';
 
 function notFound(environmentId: string): never {
   throw new ProjectError('not-found', `No environment with id "${environmentId}"`, {

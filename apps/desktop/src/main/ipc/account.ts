@@ -4,7 +4,7 @@
  */
 import type { ServerAccount } from '@wirebench/engine';
 import { channels } from '../../shared/ipc.js';
-import type { AccountWire } from '../../shared/wire-types.js';
+import type { AccountWire } from '../../shared/wire-base.js';
 import type { AccountService } from '../account-service.js';
 import { registerHandler } from './register.js';
 

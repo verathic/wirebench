@@ -7,7 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApi, createProject, createRestRequest } from '@wirebench/engine';
 import type { Project } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
-import { registerRequestChannels, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -29,7 +30,11 @@ async function invoke(payload: unknown): Promise<{ ok: boolean; value?: unknown 
 function model(): Project {
   const request = createRestRequest('Add pet', { id: 'rest-1', method: 'POST', url: '/pets' });
   const api = createApi('Pets', { id: 'api-1', baseUrl: 'https://pets.example.test/v1', requests: [request] });
-  return { ...createProject('Demo', { id: 'p1' }), properties: { base: 'https://pets.example.test/v1' }, apis: [api] };
+  return {
+    ...createProject('Demo', { id: 'p1' }),
+    properties: { base: 'https://pets.example.test/v1' },
+    containers: { rest: [api] },
+  };
 }
 
 function setup(
@@ -37,7 +42,7 @@ function setup(
   located?: Project,
 ): void {
   handlers.clear();
-  registerRequestChannels(new EngineService(), {
+  registerRequestChannelsWithKinds(new EngineService(), {
     project: {
       projectId: () => 'p1',
       runContextFor: () => (located === undefined ? undefined : { project: located, projectDir: '/tmp/none' }),

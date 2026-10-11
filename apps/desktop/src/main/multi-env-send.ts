@@ -12,11 +12,8 @@
 import { isWirebenchError, WirebenchError } from '@wirebench/engine';
 import type { RequestChannelDeps } from './ipc/request.js';
 import { sendThroughEngine, type ExchangeRegistry, type SendThroughEngineDeps } from './send/exchange.js';
-import type {
-  EnvSendResult,
-  RequestSendToEnvironmentsRequest,
-  RequestSendToEnvironmentsResponse,
-} from '../shared/wire-types.js';
+import type { EnvSendResult, RequestSendToEnvironmentsResponse } from '../shared/wire-types.js';
+import type { RequestSendToEnvironmentsRequest } from '../shared/kinds/rest/wire.js';
 
 /** The child send ids of every fan-out still running, keyed by its batch id. */
 const batches = new Map<string, readonly string[]>();

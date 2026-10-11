@@ -7,7 +7,8 @@ import { installWirebenchApi } from '../mocks/wirebench-api.js';
 import { useGlobalsStore } from '../../src/renderer/state/globals.js';
 import { useProjectStore } from '../../src/renderer/state/project.js';
 import { useWorkspaceStore } from '../../src/renderer/state/workspace.js';
-import type { EnvironmentWire, ProjectWire, WorkspaceEnvironmentWire } from '../../src/shared/wire-types.js';
+import type { ProjectWire } from '../../src/shared/wire-types.js';
+import type { EnvironmentWire, WorkspaceEnvironmentWire } from '../../src/shared/wire-base.js';
 import { workspaceWire } from '../helpers/workspace-wire.js';
 
 function renderPage(target: Parameters<typeof EnvironmentPage>[0]['target']) {

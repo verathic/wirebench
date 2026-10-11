@@ -22,7 +22,14 @@ import { findStepRequest, selectRequests } from '../../src/run/select.js';
 import { createScriptChecker } from '../../src/script/check/host.js';
 import { RequestScripting } from '../../src/script/request-scripts.js';
 import { createScriptSandbox } from '../../src/script/sandbox/host.js';
-import { echoApi, echoProtocol, echoRequest, withEchoApis } from '../helpers/echo-protocol.js';
+import {
+  echoApi,
+  echoNotesOf,
+  echoProtocol,
+  echoRequest,
+  withEchoApis,
+  withEchoNotes,
+} from '../helpers/echo-protocol.js';
 import type { EchoApi } from '../helpers/echo-protocol.js';
 import { startTestRestServer } from '../helpers/test-rest-server.js';
 import type { TestRestServer } from '../helpers/test-rest-server.js';
@@ -46,19 +53,21 @@ function project(): Project {
   const base: Project = {
     ...createProject('Echo', { id: 'proj-echo' }),
     properties: { greeting: 'hello' },
-    apis: [
-      createApi('Api', {
-        id: 'api-1',
-        slug: 'api',
-        order: 1,
-        requests: [
-          {
-            ...createRestRequest('Ping', { id: 'req-ping', url: `${rest.url}/echo` }),
-            assertions: [{ type: 'status', equals: 200 }],
-          },
-        ],
-      }),
-    ],
+    containers: {
+      rest: [
+        createApi('Api', {
+          id: 'api-1',
+          slug: 'api',
+          order: 1,
+          requests: [
+            {
+              ...createRestRequest('Ping', { id: 'req-ping', url: `${rest.url}/echo` }),
+              assertions: [{ type: 'status', equals: 200 }],
+            },
+          ],
+        }),
+      ],
+    },
   };
   return withEchoApis(base, [
     echoApi('Mirror', 0, [
@@ -178,7 +187,7 @@ describe('an echo API in a project folder', () => {
   };
   const onDisk: Project = {
     ...createProject('Echo on disk', { id: 'echo-project' }),
-    extraContainers: { echo: [mirror] },
+    containers: { echo: [mirror] },
   };
   const sandbox = createScriptSandbox();
   const checker = createScriptChecker();
@@ -228,7 +237,7 @@ describe('an echo API in a project folder', () => {
 
       const loaded = await loadProject(folder, { registry });
       expect(loaded.problems).toEqual([]);
-      expect(loaded.project.extraContainers).toEqual({ echo: [mirror] });
+      expect(loaded.project.containers).toEqual({ echo: [mirror] });
 
       const { selected, unmatched } = selectRequests(loaded.project, [], registry);
       expect(unmatched).toEqual([]);
@@ -264,7 +273,7 @@ describe('an echo API in a project folder', () => {
   it('removes the file of a request that is gone, and nothing else', async () => {
     await saveProject(onDisk, folder, { registry });
     const shorterMirror: EchoApi = { ...mirror, requests: mirror.requests.slice(0, 1) };
-    const shorter: Project = { ...onDisk, extraContainers: { echo: [shorterMirror] } };
+    const shorter: Project = { ...onDisk, containers: { echo: [shorterMirror] } };
 
     const result = await saveProject(shorter, folder, { registry });
 
@@ -278,7 +287,7 @@ describe('an echo API in a project folder', () => {
     const before = await readFile(apiFile);
 
     const loaded = await loadProject(folder);
-    expect(loaded.project.extraContainers).toBeUndefined();
+    expect(loaded.project.containers).toEqual({});
     expect(unsupportedOf(loaded.project)).toEqual([
       { dir: 'apis', slug: 'Mirror', kind: 'echo', reason: 'unknown-kind', name: 'Mirror', order: 0 },
     ]);
@@ -288,5 +297,53 @@ describe('an echo API in a project folder', () => {
     expect(saved.written).toEqual([]);
     expect(saved.removed).toEqual([]);
     expect((await readFile(apiFile)).equals(before)).toBe(true);
+  });
+});
+
+describe('the echo protocol’s project-level file', () => {
+  const withNotes = withEchoNotes(createProject('Echo notes', { id: 'echo-notes' }), { text: 'remember' });
+  let folder: string;
+
+  beforeEach(async () => {
+    folder = await mkdtemp(join(tmpdir(), 'wirebench-echo-notes-'));
+  });
+
+  afterEach(async () => {
+    await rm(folder, { recursive: true, force: true });
+  });
+
+  it('is written, loaded into project.protocols and saved again unchanged', async () => {
+    const first = await saveProject(withNotes, folder, { registry });
+    expect(first.written).toEqual(['echo/notes.yaml', 'wirebench.yaml']);
+    expect(await readFile(join(folder, 'echo', 'notes.yaml'), 'utf8')).toBe('text: remember\n');
+
+    const loaded = await loadProject(folder, { registry });
+    expect(loaded.problems).toEqual([]);
+    expect(loaded.project.protocols).toEqual({ echo: { text: 'remember' } });
+
+    const second = await saveProject(loaded.project, folder, { registry });
+    expect(second.written).toEqual([]);
+    expect(second.removed).toEqual([]);
+  });
+
+  it('is removed when the protocol keeps nothing any more', async () => {
+    await saveProject(withNotes, folder, { registry });
+
+    const result = await saveProject(withEchoNotes(withNotes, undefined), folder, { registry });
+
+    expect(result.removed).toContain('echo/notes.yaml');
+  });
+
+  it('is not read by a registry with no echo module, and a save leaves it as it is', async () => {
+    await saveProject(withNotes, folder, { registry });
+    const before = await readFile(join(folder, 'echo', 'notes.yaml'));
+
+    const loaded = await loadProject(folder);
+    expect(echoNotesOf(loaded.project)).toBeUndefined();
+
+    const saved = await saveProject(loaded.project, folder);
+    expect(saved.written).toEqual([]);
+    expect(saved.removed).toEqual([]);
+    expect((await readFile(join(folder, 'echo', 'notes.yaml'))).equals(before)).toBe(true);
   });
 });

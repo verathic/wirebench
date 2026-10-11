@@ -2,11 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   apiImportOpenApiRequestSchema,
   apiImportPostmanRequestSchema,
-  MAX_IMPORT_NAME_CHARS,
-  MAX_IMPORT_TEXT_CHARS,
-  openApiSourceSchema,
   postmanSourceSchema,
-} from '../src/shared/wire-types.js';
+} from '../src/shared/kinds/rest/wire.js';
+import { MAX_IMPORT_NAME_CHARS, MAX_IMPORT_TEXT_CHARS, openApiSourceSchema } from '../src/shared/wire-base.js';
 
 describe('import request limits', () => {
   it('caps pasted text for OpenAPI and Postman sources alike', () => {

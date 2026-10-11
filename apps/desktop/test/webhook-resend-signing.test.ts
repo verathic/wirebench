@@ -23,11 +23,11 @@ import {
   type HistoryService,
   type RecordRestSendInput,
 } from '../src/main/history-service.js';
-import { registerHistoryChannels } from '../src/main/ipc/history.js';
 import { registerLogChannels } from '../src/main/ipc/log.js';
 import { toSendDeps, type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { sendThroughEngine } from '../src/main/send/exchange.js';
 import type { HistoryEntryWire } from '../src/shared/wire-types.js';
+import { registerHistoryChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -69,23 +69,25 @@ afterAll(async () => {
 function project(target: string, signing: WebhookSigning = SIGNING): Project {
   return {
     ...createProject('P', { id: 'p1' }),
-    webhooks: createWebhookCollection({
-      target,
-      folders: [
-        createWebhookFolder('Orders', {
-          id: 'g1',
-          signing,
-          requests: [
-            createRestRequest('Paid', {
-              id: 'w1',
-              method: 'POST',
-              url: '/echo',
-              body: { kind: 'raw', language: 'json', text: BODY },
-            }),
-          ],
-        }),
-      ],
-    }),
+    protocols: {
+      rest: createWebhookCollection({
+        target,
+        folders: [
+          createWebhookFolder('Orders', {
+            id: 'g1',
+            signing,
+            requests: [
+              createRestRequest('Paid', {
+                id: 'w1',
+                method: 'POST',
+                url: '/echo',
+                body: { kind: 'raw', language: 'json', text: BODY },
+              }),
+            ],
+          }),
+        ],
+      }),
+    },
   };
 }
 
@@ -119,7 +121,7 @@ function harness(model: Project, keychain: Record<string, string>) {
     secretsFor: () => secrets,
   };
   const sendDeps = toSendDeps(engine, requestDeps);
-  registerHistoryChannels(history as never, {
+  registerHistoryChannelsWithKinds(history as never, {
     project: { projectId: () => 'p1', endpointFor: () => undefined },
     send: sendDeps,
   });

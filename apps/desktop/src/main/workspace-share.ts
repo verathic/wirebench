@@ -79,7 +79,7 @@ import { TEAM_SECRETS_LOCAL_FILE } from './team-secrets-service.js';
 import type { TreeFile } from './sync/server-state.js';
 import { copyProjectPayload, isEmptyDir, requireWorkspaceId, resolveWorkspaceTree } from './workspace-files.js';
 import type { WorkspaceState } from './workspace-state.js';
-import type { WorkspaceWire } from '../shared/wire-types.js';
+import type { WorkspaceWire } from '../shared/wire-base.js';
 
 /** The folder pickers these operations run (`native-dialogs.ts` in the app; injected in tests). */
 export interface WorkspaceDialogs {
@@ -1235,6 +1235,8 @@ export async function copyProjectIntoWorkspace(
   const projectDir = workspaceProjectDir(tree, slug);
   try {
     await mkdir(projectDir, { recursive: true });
+    // A new, empty folder: nothing of a switched-off kind is on disk there to keep, so the built-in
+    // registry writes the model as it is.
     await saveProject(copy, projectDir, deps.fsOption);
     await copyProjectPayload(source.dir, projectDir, copy);
     await keepLegacyActiveEnvironment(targetDir, workspace, legacy, deps.fsOption);

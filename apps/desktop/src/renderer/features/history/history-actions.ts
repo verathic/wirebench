@@ -9,9 +9,12 @@
 import { showToast } from '../../components/toast.js';
 import { useEditorsStore, type EditorTab } from '../../state/editors.js';
 import { useHistoryStore } from '../../state/history.js';
+import { rendererKindOf } from '../../kinds/index.js';
+import { useUiStore } from '../../state/ui.js';
 import { ipc } from '../../state/ipc-client.js';
 import { formatClockTime } from '../../lib/format-size.js';
-import type { HistoryEntryWire, RestExchangeSummary } from '../../../shared/wire-types.js';
+import type { HistoryEntryWire } from '../../../shared/wire-types.js';
+import type { RestExchangeSummary } from '../../../shared/kinds/rest/wire.js';
 import { restEntryTexts, restExchangeTexts, type RestDiffTexts } from './rest-diff-text.js';
 
 /** The response body a history entry is best compared by, falling back to what was sent. */
@@ -25,8 +28,13 @@ function comparableXml(entry: HistoryEntryWire): string {
  * request. An entry with no kind predates the other protocols and is SOAP.
  */
 export function canResendHistoryEntry(entry: Pick<HistoryEntryWire, 'kind' | 'sse'>): boolean {
-  const kind = entry.kind ?? 'soap';
-  return kind === 'soap' || kind === 'grpc' || (kind === 'rest' && entry.sse === undefined);
+  const kind = rendererKindOf(entry.kind);
+  // An entry of a kind this run switched off keeps its saved text, with no re-send (spec §7.2).
+  return (
+    kind?.history.resend !== undefined &&
+    useUiStore.getState().enabledKinds.includes(kind.kind) &&
+    kind.history.canResend(entry)
+  );
 }
 
 /** The toast for a failed re-send: main's message, or the code when there is no message. */
@@ -36,12 +44,11 @@ function resendFailure(error: { readonly code: string; readonly message: string 
 
 /** Re-sends one history entry through its protocol's channel, toasting why on failure. */
 export async function resendHistoryEntry(entry: Pick<HistoryEntryWire, 'id' | 'kind'>): Promise<void> {
-  const result =
-    entry.kind === 'grpc'
-      ? await ipc().history.resendGrpc({ id: entry.id })
-      : entry.kind === 'rest'
-        ? await ipc().history.resendRest({ id: entry.id })
-        : await ipc().history.resend({ id: entry.id });
+  const resend = rendererKindOf(entry.kind)?.history.resend;
+  if (resend === undefined) {
+    return;
+  }
+  const result = await resend(entry.id);
   if (!result.ok) {
     showToast(resendFailure(result.error));
   }

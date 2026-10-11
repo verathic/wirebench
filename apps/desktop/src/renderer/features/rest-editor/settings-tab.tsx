@@ -7,7 +7,7 @@
  * it would freeze today's inherited value into the request.
  */
 import { BooleanSetting, NumberSetting, SettingsGroup, TextSetting } from '../../components/settings-grid.js';
-import type { RestRequestPatchWire, RestSettingsWire } from '../../../shared/wire-types.js';
+import type { RestRequestPatchWire, RestSettingsWire } from '../../../shared/kinds/rest/wire.js';
 
 /** The values a request falls back to, for the hints. */
 export interface InheritedRestSettings {

@@ -62,7 +62,7 @@ describe('a SOAP send signing with a picked keystore', () => {
       picks,
     );
     await host.create({ dir: tempDir('proj'), name: 'Demo' });
-    const imported = await host.addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
+    const imported = await host.kind('soap').addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
     await host.whenHydrated();
     const requestId = imported.project.requests[0]?.id as string;
 

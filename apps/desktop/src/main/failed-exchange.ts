@@ -11,7 +11,7 @@
  */
 
 import { isWirebenchError, type FailedRequest } from '@wirebench/engine';
-import type { FailedExchangeWire } from '../shared/wire-types.js';
+import type { FailedExchangeWire } from '../shared/wire-base.js';
 import { redactHeaders, redactRawHttp, redactSecretValues, redactUrl } from './redact.js';
 
 /** What a catch block has at hand for one failed send. */

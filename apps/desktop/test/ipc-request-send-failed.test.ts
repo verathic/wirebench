@@ -8,8 +8,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApi, createProject, createRestRequest } from '@wirebench/engine';
 import type { AuthConfig, Project } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
-import { registerRequestChannels, type RequestChannelDeps } from '../src/main/ipc/request.js';
-import type { FailedExchangeWire } from '../src/shared/wire-types.js';
+import { type RequestChannelDeps } from '../src/main/ipc/request.js';
+import type { FailedExchangeWire } from '../src/shared/wire-base.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -52,7 +53,7 @@ function resolution(options: { readonly auth?: AuthConfig; readonly baseUrl?: st
     ...(options.auth !== undefined ? { auth: options.auth } : {}),
     requests: [request],
   });
-  return { ...createProject('Demo', { id: 'p1' }), apis: [api] };
+  return { ...createProject('Demo', { id: 'p1' }), containers: { rest: [api] } };
 }
 
 /** The send's run context: the project `resolution` builds, for a REST id. */
@@ -80,7 +81,7 @@ describe('request.sendRest → onSendFailed', () => {
 
   it('emits a rest failure row with the joined URL and redacted headers, and still fails the call', async () => {
     const onSendFailed = vi.fn<(failure: FailedExchangeWire) => void>();
-    registerRequestChannels(new EngineService(), {
+    registerRequestChannelsWithKinds(new EngineService(), {
       project: project(),
       adHocScopes: () => ({ project: {}, global: {}, system: {} }),
       showSecrets: { get: () => true },
@@ -115,7 +116,7 @@ describe('request.sendRest → onSendFailed', () => {
   it("masks a header API key by the name the request's auth gives it, whatever that is", async () => {
     const onSendFailed = vi.fn<(failure: FailedExchangeWire) => void>();
     const auth = { type: 'api-key', name: 'Ocp-Apim-Subscription-Key', in: 'header', valueRef: 'sec_key' } as const;
-    registerRequestChannels(new EngineService(), {
+    registerRequestChannelsWithKinds(new EngineService(), {
       project: project(auth),
       getSecret: (ref) => Promise.resolve(ref === 'sec_key' ? 'hdr-key' : undefined),
       adHocScopes: () => ({ project: {}, global: {}, system: {} }),

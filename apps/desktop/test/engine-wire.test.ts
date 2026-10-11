@@ -11,7 +11,7 @@ import {
   toRestExchangeSummary,
 } from '../src/main/engine-wire.js';
 import * as redact from '../src/main/redact.js';
-import type { ExchangeSummary } from '../src/shared/wire-types.js';
+import type { ExchangeSummary } from '../src/shared/kinds/soap/wire.js';
 import { fixturePath, readPublicFixture } from './helpers/fixtures.js';
 
 const CALCULATOR_URL = 'http://example.test/calculator/service.wsdl';

@@ -3,9 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { importWsdl } from '@wirebench/engine';
 import type { WsdlImportResult } from '@wirebench/engine';
-import { registerValidateChannels } from '../src/main/ipc/validate.js';
+import { registerValidateChannels } from '../src/main/kinds/soap/channels/validate.js';
 import type { EngineService } from '../src/main/engine-service.js';
-import type { ValidateChannelProject } from '../src/main/ipc/validate.js';
+import type { ValidateChannelProject } from '../src/main/kinds/soap/channels/validate.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 

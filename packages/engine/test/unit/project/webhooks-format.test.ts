@@ -13,52 +13,55 @@ import {
 } from '../../../src/index.js';
 import type { Project } from '../../../src/index.js';
 import { tempProjectDir } from './fixture.js';
+import { webhooksOf, withWebhooks } from '../../../src/webhooks/model.js';
 
 function webhookProject(): Project {
   return {
     ...createProject('Hooks', { id: 'p1' }),
     properties: { webhookTarget: '' },
-    webhooks: createWebhookCollection({
-      target: '${webhookTarget}',
-      requests: [
-        createRestRequest('order.created', {
-          id: 'r1',
-          slug: 'order-created',
-          method: 'POST',
-          url: '/orders',
-          body: { kind: 'raw', language: 'json', text: '{ "event": "order.created" }' },
-        }),
-      ],
-      folders: [
-        createWebhookFolder('Petstore API', {
-          id: 'f1',
-          slug: 'petstore-api',
-          target: '${petstoreTarget}',
-          source: { apiId: 'api-1' },
-          requests: [
-            createRestRequest('newPet', {
-              id: 'r2',
-              slug: 'new-pet',
-              method: 'POST',
-              url: '/newPet',
-              hook: { kind: 'webhook', name: 'newPet' },
-            }),
-            createRestRequest('onPetEvent', {
-              id: 'r3',
-              slug: 'on-pet-event',
-              method: 'POST',
-              url: '/onPetEvent',
-              hook: {
-                kind: 'callback',
-                operation: 'post /subscriptions',
-                name: 'onPetEvent',
-                expression: '{$request.body#/callbackUrl}',
-              },
-            }),
-          ],
-        }),
-      ],
-    }),
+    protocols: {
+      rest: createWebhookCollection({
+        target: '${webhookTarget}',
+        requests: [
+          createRestRequest('order.created', {
+            id: 'r1',
+            slug: 'order-created',
+            method: 'POST',
+            url: '/orders',
+            body: { kind: 'raw', language: 'json', text: '{ "event": "order.created" }' },
+          }),
+        ],
+        folders: [
+          createWebhookFolder('Petstore API', {
+            id: 'f1',
+            slug: 'petstore-api',
+            target: '${petstoreTarget}',
+            source: { apiId: 'api-1' },
+            requests: [
+              createRestRequest('newPet', {
+                id: 'r2',
+                slug: 'new-pet',
+                method: 'POST',
+                url: '/newPet',
+                hook: { kind: 'webhook', name: 'newPet' },
+              }),
+              createRestRequest('onPetEvent', {
+                id: 'r3',
+                slug: 'on-pet-event',
+                method: 'POST',
+                url: '/onPetEvent',
+                hook: {
+                  kind: 'callback',
+                  operation: 'post /subscriptions',
+                  name: 'onPetEvent',
+                  expression: '{$request.body#/callbackUrl}',
+                },
+              }),
+            ],
+          }),
+        ],
+      }),
+    },
   };
 }
 
@@ -92,7 +95,7 @@ describe('the webhooks/ tree', () => {
     await saveProject(webhookProject(), dir);
     const { project, problems } = await loadProject(dir);
     expect(problems).toEqual([]);
-    expect(project.webhooks).toEqual(webhookProject().webhooks);
+    expect(webhooksOf(project)).toEqual(webhooksOf(webhookProject()));
     const again = await saveProject(project, dir);
     expect(again.written).toEqual([]);
     expect(again.removed).toEqual([]);
@@ -102,9 +105,7 @@ describe('the webhooks/ tree', () => {
   it('removes the files when the collection goes', async () => {
     const dir = await tempProjectDir();
     await saveProject(webhookProject(), dir);
-    const { webhooks, ...rest } = webhookProject();
-    void webhooks;
-    const result = await saveProject(rest, dir);
+    const result = await saveProject(withWebhooks(webhookProject(), undefined), dir);
     expect(
       [
         'webhooks/requests/order-created.body.json',

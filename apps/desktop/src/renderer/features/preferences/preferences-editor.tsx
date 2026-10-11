@@ -3,7 +3,7 @@ import { detectPlatform } from '../../lib/platform.js';
 import type { CommandContext } from '../../lib/commands.js';
 import { isLockedByPolicy, usePreferencesStore } from '../../state/preferences.js';
 import { useUiStore } from '../../state/ui.js';
-import type { PreferencesSectionWire } from '../../../shared/wire-types.js';
+import type { PreferencesSectionWire } from '../../../shared/wire-base.js';
 import { HttpSection } from './sections/http-section.js';
 import { WsiSection } from './sections/connection-sections.js';
 import { ProxySection, SslSection } from './network-section.js';

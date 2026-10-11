@@ -4,7 +4,8 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { KeystoresView } from '../../src/renderer/features/wss/keystores-view.js';
 import { useProjectStore } from '../../src/renderer/state/project.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
-import type { KeystoreWire, ProjectWire } from '../../src/shared/wire-types.js';
+import type { ProjectWire } from '../../src/shared/wire-types.js';
+import type { KeystoreWire } from '../../src/shared/wire-base.js';
 
 const corp: KeystoreWire = {
   id: 'k1',

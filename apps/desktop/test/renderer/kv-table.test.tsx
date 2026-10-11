@@ -12,7 +12,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { KvTable } from '../../src/renderer/components/kv-table.js';
-import type { KeyValueWire } from '../../src/shared/wire-types.js';
+import type { KeyValueWire } from '../../src/shared/wire-base.js';
 
 afterEach(() => {
   cleanup();

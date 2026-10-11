@@ -5,7 +5,7 @@ import type {
   AttachmentTypeWire,
   AttachmentWire,
   MimePartWire,
-} from '../../../../shared/wire-types.js';
+} from '../../../../shared/kinds/soap/wire.js';
 import { formatBytes } from '../../../lib/format-size.js';
 import { useGridNavigation } from '../../../lib/grid-navigation.js';
 import { InspectorIconButton } from './inspector-strip.js';

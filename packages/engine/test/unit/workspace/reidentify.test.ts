@@ -3,11 +3,13 @@ import { reidentifyProject } from '../../../src/workspace/reidentify.js';
 import { projectFiles } from '../../../src/project/serialize.js';
 import type { Project, SoapOwnerAuth } from '../../../src/project/model.js';
 import { fixedIds, sampleProject } from '../project/fixture.js';
+import { soapInterfacesOf } from '../../../src/soap/model.js';
+import { wssConfigsOf, withWssConfigs } from '../../../src/wss/project.js';
 
 /** Every entity id in `project`, in the order `reidentifyProject` visits them. */
 function allIds(project: Project): string[] {
   const ids: string[] = [project.id];
-  for (const iface of project.interfaces) {
+  for (const iface of soapInterfacesOf(project)) {
     ids.push(iface.id);
     for (const endpoint of iface.endpoints) {
       ids.push(endpoint.id);
@@ -24,7 +26,7 @@ function allIds(project: Project): string[] {
   for (const environment of project.environments) {
     ids.push(environment.id);
   }
-  for (const ref of [...project.wss.outgoing, ...project.wss.incoming, ...project.wss.keystores]) {
+  for (const ref of [...wssConfigsOf(project).outgoing, ...wssConfigsOf(project).incoming, ...project.keystores]) {
     ids.push(ref.id);
   }
   return ids;
@@ -38,7 +40,7 @@ function passwordRefOf(auth: SoapOwnerAuth | undefined): string | undefined {
 /** Every string value that looks like a `secretRef`/`passwordRef`/sha256 attachment source, by path, for before/after comparison. */
 function secretValues(project: Project): string[] {
   const values: string[] = [];
-  for (const iface of project.interfaces) {
+  for (const iface of soapInterfacesOf(project)) {
     const ifaceRef = passwordRefOf(iface.auth);
     if (ifaceRef !== undefined) {
       values.push(ifaceRef);
@@ -63,7 +65,7 @@ function secretValues(project: Project): string[] {
       }
     }
   }
-  for (const ref of project.wss.keystores) {
+  for (const ref of project.keystores) {
     const passwordSecretRef = ref.document['passwordSecretRef'];
     if (typeof passwordSecretRef === 'string') {
       values.push(passwordSecretRef);
@@ -137,26 +139,28 @@ describe('reidentifyProject', () => {
     expect(new Set(allIds(reidentified)).size).toBe(allIds(reidentified).length);
     expect(new Set(allIds(reidentified))).not.toContain(project.id);
 
-    const endpointIdsBefore = new Set(project.interfaces.flatMap((iface) => iface.endpoints.map((e) => e.id)));
-    const endpointIdsAfter = new Set(reidentified.interfaces.flatMap((iface) => iface.endpoints.map((e) => e.id)));
-    for (let i = 0; i < project.interfaces.length; i += 1) {
-      const before = project.interfaces[i]!;
-      const after = reidentified.interfaces[i]!;
+    const endpointIdsBefore = new Set(soapInterfacesOf(project).flatMap((iface) => iface.endpoints.map((e) => e.id)));
+    const endpointIdsAfter = new Set(
+      soapInterfacesOf(reidentified).flatMap((iface) => iface.endpoints.map((e) => e.id)),
+    );
+    for (let i = 0; i < soapInterfacesOf(project).length; i += 1) {
+      const before = soapInterfacesOf(project)[i]!;
+      const after = soapInterfacesOf(reidentified)[i]!;
       expect(after.defaultEndpointId !== undefined && endpointIdsAfter.has(after.defaultEndpointId)).toBe(
         before.defaultEndpointId !== undefined && endpointIdsBefore.has(before.defaultEndpointId),
       );
     }
 
-    const wssOutgoingIdsBefore = new Set(project.wss.outgoing.map((r) => r.id));
-    const wssOutgoingIdsAfter = new Set(reidentified.wss.outgoing.map((r) => r.id));
-    const wssIncomingIdsBefore = new Set(project.wss.incoming.map((r) => r.id));
-    const wssIncomingIdsAfter = new Set(reidentified.wss.incoming.map((r) => r.id));
-    const keystoreIdsBefore = new Set(project.wss.keystores.map((r) => r.id));
-    const keystoreIdsAfter = new Set(reidentified.wss.keystores.map((r) => r.id));
+    const wssOutgoingIdsBefore = new Set(wssConfigsOf(project).outgoing.map((r) => r.id));
+    const wssOutgoingIdsAfter = new Set(wssConfigsOf(reidentified).outgoing.map((r) => r.id));
+    const wssIncomingIdsBefore = new Set(wssConfigsOf(project).incoming.map((r) => r.id));
+    const wssIncomingIdsAfter = new Set(wssConfigsOf(reidentified).incoming.map((r) => r.id));
+    const keystoreIdsBefore = new Set(project.keystores.map((r) => r.id));
+    const keystoreIdsAfter = new Set(reidentified.keystores.map((r) => r.id));
 
-    for (let i = 0; i < project.interfaces.length; i += 1) {
-      const beforeIface = project.interfaces[i]!;
-      const afterIface = reidentified.interfaces[i]!;
+    for (let i = 0; i < soapInterfacesOf(project).length; i += 1) {
+      const beforeIface = soapInterfacesOf(project)[i]!;
+      const afterIface = soapInterfacesOf(reidentified)[i]!;
       for (let o = 0; o < beforeIface.operations.length; o += 1) {
         for (let r = 0; r < beforeIface.operations[o]!.requests.length; r += 1) {
           const before = beforeIface.operations[o]!.requests[r]!;
@@ -184,10 +188,10 @@ describe('reidentifyProject', () => {
     const project = sampleProject();
     const reidentified = reidentifyProject(project, fixedIds('NEW'));
 
-    const oldAttachments = project.interfaces.flatMap((i) =>
+    const oldAttachments = soapInterfacesOf(project).flatMap((i) =>
       i.operations.flatMap((o) => o.requests.flatMap((r) => r.attachments)),
     );
-    const newAttachments = reidentified.interfaces.flatMap((i) =>
+    const newAttachments = soapInterfacesOf(reidentified).flatMap((i) =>
       i.operations.flatMap((o) => o.requests.flatMap((r) => r.attachments)),
     );
     expect(newAttachments).toHaveLength(oldAttachments.length);
@@ -211,29 +215,26 @@ describe('reidentifyProject', () => {
 
   it('rewrites a keystore id buried inside a WssRef.document bag, at any depth, arrays included', () => {
     const project = sampleProject();
-    const keystoreId = project.wss.keystores[0]!.id;
-    const withDocumentRef: Project = {
-      ...project,
-      wss: {
-        ...project.wss,
-        incoming: project.wss.incoming.map((ref, index) =>
-          index === 0
-            ? {
-                ...ref,
-                document: {
-                  ...ref.document,
-                  decryptKeystoreRef: keystoreId,
-                  nested: { entries: [{ signatureKeystoreRef: keystoreId }] },
-                },
-              }
-            : ref,
-        ),
-      },
-    };
+    const keystoreId = project.keystores[0]!.id;
+    const withDocumentRef: Project = withWssConfigs(project, {
+      ...wssConfigsOf(project),
+      incoming: wssConfigsOf(project).incoming.map((ref, index) =>
+        index === 0
+          ? {
+              ...ref,
+              document: {
+                ...ref.document,
+                decryptKeystoreRef: keystoreId,
+                nested: { entries: [{ signatureKeystoreRef: keystoreId }] },
+              },
+            }
+          : ref,
+      ),
+    });
 
     const reidentified = reidentifyProject(withDocumentRef, fixedIds('NEW'));
-    const newKeystoreId = reidentified.wss.keystores[0]!.id;
-    const document = reidentified.wss.incoming[0]!.document as {
+    const newKeystoreId = reidentified.keystores[0]!.id;
+    const document = wssConfigsOf(reidentified).incoming[0]!.document as {
       decryptKeystoreRef: string;
       nested: { entries: [{ signatureKeystoreRef: string }] };
     };
@@ -243,42 +244,45 @@ describe('reidentifyProject', () => {
 
   it('rewrites a wssOutgoingRef/wssIncomingRef/sslKeystoreRef that actually resolves to a config id', () => {
     const project = sampleProject();
-    const outgoingRefId = project.wss.outgoing[0]!.id;
-    const incomingRefId = project.wss.incoming[0]!.id;
-    const keystoreRefId = project.wss.keystores[0]!.id;
+    const outgoingRefId = wssConfigsOf(project).outgoing[0]!.id;
+    const incomingRefId = wssConfigsOf(project).incoming[0]!.id;
+    const keystoreRefId = project.keystores[0]!.id;
     const withRealRefs: Project = {
       ...project,
-      interfaces: project.interfaces.map((iface, index) =>
-        index === 0
-          ? {
-              ...iface,
-              operations: iface.operations.map((operation, opIndex) =>
-                opIndex === 0
-                  ? {
-                      ...operation,
-                      requests: operation.requests.map((request, reqIndex) =>
-                        reqIndex === 0
-                          ? {
-                              ...request,
-                              wssOutgoingRef: outgoingRefId,
-                              wssIncomingRef: incomingRefId,
-                              properties: { ...request.properties, sslKeystoreRef: keystoreRefId },
-                            }
-                          : request,
-                      ),
-                    }
-                  : operation,
-              ),
-            }
-          : iface,
-      ),
+      containers: {
+        ...project.containers,
+        soap: soapInterfacesOf(project).map((iface, index) =>
+          index === 0
+            ? {
+                ...iface,
+                operations: iface.operations.map((operation, opIndex) =>
+                  opIndex === 0
+                    ? {
+                        ...operation,
+                        requests: operation.requests.map((request, reqIndex) =>
+                          reqIndex === 0
+                            ? {
+                                ...request,
+                                wssOutgoingRef: outgoingRefId,
+                                wssIncomingRef: incomingRefId,
+                                properties: { ...request.properties, sslKeystoreRef: keystoreRefId },
+                              }
+                            : request,
+                        ),
+                      }
+                    : operation,
+                ),
+              }
+            : iface,
+        ),
+      },
     };
 
     const reidentified = reidentifyProject(withRealRefs, fixedIds('NEW'));
-    const request = reidentified.interfaces[0]?.operations[0]?.requests[0];
-    expect(request?.wssOutgoingRef).toBe(reidentified.wss.outgoing[0]!.id);
-    expect(request?.wssIncomingRef).toBe(reidentified.wss.incoming[0]!.id);
-    expect(request?.properties.sslKeystoreRef).toBe(reidentified.wss.keystores[0]!.id);
+    const request = soapInterfacesOf(reidentified)[0]?.operations[0]?.requests[0];
+    expect(request?.wssOutgoingRef).toBe(wssConfigsOf(reidentified).outgoing[0]!.id);
+    expect(request?.wssIncomingRef).toBe(wssConfigsOf(reidentified).incoming[0]!.id);
+    expect(request?.properties.sslKeystoreRef).toBe(reidentified.keystores[0]!.id);
     expect(request?.wssOutgoingRef).not.toBe(outgoingRefId);
   });
 
@@ -286,27 +290,30 @@ describe('reidentifyProject', () => {
     const project = sampleProject();
     const withDangling: Project = {
       ...project,
-      interfaces: project.interfaces.map((iface, index) =>
-        index === 0
-          ? {
-              ...iface,
-              operations: iface.operations.map((operation, opIndex) =>
-                opIndex === 0
-                  ? {
-                      ...operation,
-                      requests: operation.requests.map((request, reqIndex) =>
-                        reqIndex === 0 ? { ...request, wssOutgoingRef: 'no-such-config' } : request,
-                      ),
-                    }
-                  : operation,
-              ),
-            }
-          : iface,
-      ),
+      containers: {
+        ...project.containers,
+        soap: soapInterfacesOf(project).map((iface, index) =>
+          index === 0
+            ? {
+                ...iface,
+                operations: iface.operations.map((operation, opIndex) =>
+                  opIndex === 0
+                    ? {
+                        ...operation,
+                        requests: operation.requests.map((request, reqIndex) =>
+                          reqIndex === 0 ? { ...request, wssOutgoingRef: 'no-such-config' } : request,
+                        ),
+                      }
+                    : operation,
+                ),
+              }
+            : iface,
+        ),
+      },
     };
 
     const reidentified = reidentifyProject(withDangling, fixedIds('NEW'));
-    const dangling = reidentified.interfaces[0]?.operations[0]?.requests[0];
+    const dangling = soapInterfacesOf(reidentified)[0]?.operations[0]?.requests[0];
     expect(dangling?.wssOutgoingRef).toBe('no-such-config');
   });
 

@@ -22,14 +22,14 @@ import {
   wsApiWire,
   wsRequestWire,
 } from '../helpers/wire-defaults.js';
+import type { ProjectWire } from '../../src/shared/wire-types.js';
 import type {
   CatchUrlWire,
-  ProjectWire,
   SequenceRunResultWire,
   SequenceStepResultWire,
   SequenceStepWire,
   SequenceWire,
-} from '../../src/shared/wire-types.js';
+} from '../../src/shared/wire-base.js';
 
 const updateSequence = vi.fn();
 

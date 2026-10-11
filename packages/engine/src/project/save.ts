@@ -24,19 +24,11 @@ import { SEQUENCES_DIR } from '../sequence/file.js';
 import { readSequences } from '../sequence/load.js';
 import type { FsLike } from './fs.js';
 import { nodeFs, readFileIfExists, readdirIfExists, writeFileAtomic } from './fs.js';
-import { listApiTreeFiles, toAbsolute } from './managed-files.js';
-import { takenContainerSlugs, unsupportedOf } from './model.js';
+import { toAbsolute } from './managed-files.js';
+import { takenContainerSlugs } from './container-slugs.js';
+import { unsupportedOf } from './model.js';
 import type { Project } from './model.js';
-import {
-  APIS_DIR,
-  ENVIRONMENTS_DIR,
-  INTERFACES_DIR,
-  REQUESTS_DIR,
-  WEBHOOKS_DIR,
-  WEBHOOKS_FEATURE,
-  WEBHOOKS_FILE,
-  WSS_DIR,
-} from './paths.js';
+import { APIS_DIR, ENVIRONMENTS_DIR, INTERFACES_DIR } from './paths.js';
 import type { ProjectFiles } from './serialize.js';
 import { KEYSTORES_PATH, MANIFEST_PATH, projectFiles } from './serialize.js';
 
@@ -98,19 +90,17 @@ export interface SaveProjectOptions {
  *
  * - `wirebench.yaml`
  * - `environments/*.yaml`
- * - `wss/{outgoing,incoming}/*.yaml`
  * - `wss/keystores.yaml`
- * - `webhooks/webhooks.yaml`, while the `rest` feature is on
- * - `webhooks/requests/**` (the collection's own request tree, same layout as an API's), while the
- *   `rest` feature is on
  * - the `sequences/*.sequence.yaml` this build loaded
  * - the files under `mocks/` of every mock, operation and response this build loaded
  *
- * A container's files are its protocol's to list (`storage.managed`). Anything else on disk — a
+ * A container's files are its protocol's to list (`storage.managed`), and so are the files a protocol
+ * keeps for the whole project (`projectFiles.managed`: REST's `webhooks/`, SOAP's `wss/outgoing/` and
+ * `wss/incoming/`). Anything else on disk — a
  * README, a `.gitkeep`, notes — is a foreign file and is never a deletion candidate, even when it
  * sits inside a directory Wirebench otherwise manages.
  */
-async function listCoreManagedFiles(fs: FsLike, root: string, registry: ProtocolRegistry): Promise<string[]> {
+async function listCoreManagedFiles(fs: FsLike, root: string): Promise<string[]> {
   const managed: string[] = [];
   if ((await readFileIfExists(fs, toAbsolute(root, MANIFEST_PATH))) !== undefined) {
     managed.push(MANIFEST_PATH);
@@ -122,27 +112,8 @@ async function listCoreManagedFiles(fs: FsLike, root: string, registry: Protocol
     }
   }
 
-  for (const direction of ['outgoing', 'incoming'] as const) {
-    const dir = `${WSS_DIR}/${direction}`;
-    for (const entry of await readdirIfExists(fs, toAbsolute(root, dir))) {
-      if (entry.isFile && entry.name.endsWith('.yaml')) {
-        managed.push(`${dir}/${entry.name}`);
-      }
-    }
-  }
   if ((await readFileIfExists(fs, toAbsolute(root, KEYSTORES_PATH))) !== undefined) {
     managed.push(KEYSTORES_PATH);
-  }
-
-  // The request tree is managed only beside its `webhooks.yaml`, as an API's is beside its `api.yaml`,
-  // and only while REST is on: with it off the collection was not loaded, and is not this save's.
-  const webhooksFile = `${WEBHOOKS_DIR}/${WEBHOOKS_FILE}`;
-  if (
-    registry.features.isEnabled(WEBHOOKS_FEATURE) &&
-    (await readFileIfExists(fs, toAbsolute(root, webhooksFile))) !== undefined
-  ) {
-    managed.push(webhooksFile);
-    managed.push(...(await listApiTreeFiles(fs, root, `${WEBHOOKS_DIR}/${REQUESTS_DIR}`)));
   }
 
   // Only the sequence files this build loaded: one it refused (too new, malformed, a duplicate id) is
@@ -290,11 +261,12 @@ export async function saveProject(project: Project, root: string, options?: Save
   // What this save may delete: core's own files, then each module's word on each of its containers
   // (spec §5.2). A placeholder, and a container no enabled module answers for, has no managed file,
   // so nothing under its directory is removed or touched (spec §6).
-  const existing = await listCoreManagedFiles(fs, root, registry);
-  for (const { storage } of registry.modules) {
+  const existing = await listCoreManagedFiles(fs, root);
+  for (const { storage, projectFiles: facet } of registry.modules) {
     for (const container of storage.containers(project)) {
       existing.push(...(await storage.managed(fs, root, container.slug)));
     }
+    if (facet !== undefined) existing.push(...(await facet.managed(fs, root)));
   }
   await refuseOverwritingForeignFiles(fs, root, desired, existing);
 

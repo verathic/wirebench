@@ -13,15 +13,9 @@ import { createFileAttachmentResolver } from '../project/attachments-cache.js';
 import { effectiveAuth } from '../project/endpoints.js';
 import { resolveAuthEndpoint, resolveEndpoint } from '../project/environments.js';
 import type { EndpointSource } from '../project/environments.js';
-import type {
-  Attachment,
-  Endpoint,
-  Interface,
-  OperationDef,
-  Project,
-  SoapOwnerAuth,
-  SoapRequestDef,
-} from '../project/model.js';
+import type { Project, SoapOwnerAuth, WssRef } from '../project/model.js';
+import { wssConfigsOf } from '../wss/project.js';
+import type { Attachment, Endpoint, Interface, OperationDef, SoapRequestDef } from './model.js';
 import { definitionCacheDir } from '../project/paths.js';
 import { expandSendInput } from './expand.js';
 import { expand } from '../project/properties.js';
@@ -48,7 +42,13 @@ import {
   withSecrets,
 } from '../run/send-helpers.js';
 import type { Resolved } from '../run/send-helpers.js';
-import type { IssuedToken, WssIssuedTokenEntry } from '../wss/model.js';
+import type {
+  IssuedToken,
+  WssContext,
+  WssIncomingConfig,
+  WssIssuedTokenEntry,
+  WssOutgoingConfig,
+} from '../wss/model.js';
 import type { IssuedTokenTarget, KerberosTokenFn } from '../wss/trust/client.js';
 import { kerberosToken } from '../http/auth/kerberos-token.js';
 import type { AttemptedRequest } from '../run/host.js';
@@ -72,10 +72,10 @@ import { parseWsdlBundle } from '../wsdl/merge.js';
 import type { WsdlDefinition } from '../wsdl/model.js';
 import type { DefinitionBundle } from '../wsdl/resolver.js';
 import { createWssContext } from '../wss/model.js';
-import type { WssContext, WssIncomingConfig, WssOutgoingConfig } from '../wss/model.js';
 import { buildSchemaSet } from '../xsd/schema-set.js';
 import type { SchemaSet } from '../xsd/schema-set.js';
 import { dropRejectedIssuedToken, issuedTokenSourceOf, soapHostOf, withSoapHost } from './host.js';
+import { soapInterfacesOf } from './model.js';
 
 /** The editor's unsent envelope, endpoint and headers. A send uses them in place of the saved ones. */
 export interface SoapOverride {
@@ -256,7 +256,7 @@ function wssFor(
   if (outgoingId === undefined && incomingId === undefined) {
     return undefined;
   }
-  const find = <T>(refs: Project['wss']['outgoing'], id: string, convert: (ref: (typeof refs)[number]) => T): T => {
+  const find = <T>(refs: readonly WssRef[], id: string, convert: (ref: (typeof refs)[number]) => T): T => {
     const ref = refs.find((candidate) => candidate.id === id);
     if (ref !== undefined) {
       try {
@@ -272,9 +272,13 @@ function wssFor(
     );
   };
   const outgoing =
-    outgoingId === undefined ? undefined : find(context.project.wss.outgoing, outgoingId, toWssOutgoingConfig);
+    outgoingId === undefined
+      ? undefined
+      : find(wssConfigsOf(context.project).outgoing, outgoingId, toWssOutgoingConfig);
   const incoming =
-    incomingId === undefined ? undefined : find(context.project.wss.incoming, incomingId, toWssIncomingConfig);
+    incomingId === undefined
+      ? undefined
+      : find(wssConfigsOf(context.project).incoming, incomingId, toWssIncomingConfig);
   const { properties } = request;
   const used: IssuedToken[] = [];
   const source = issuedTokenSourceOf(context);
@@ -538,7 +542,7 @@ function soapSubject(
 
 /** Parses a WS-Security configuration by id; missing or unreadable is resolve's error, not a need. */
 function findConfig<T>(
-  refs: Project['wss']['outgoing'],
+  refs: readonly WssRef[],
   id: string | undefined,
   convert: (ref: (typeof refs)[number]) => T,
 ): T | undefined {
@@ -801,7 +805,7 @@ async function prepareSoap(
  * request has that id.
  */
 export function soapItemFor(project: Project, requestId: string): SoapSelected | undefined {
-  for (const iface of project.interfaces) {
+  for (const iface of soapInterfacesOf(project)) {
     for (const operation of iface.operations) {
       const request = operation.requests.find((candidate) => candidate.id === requestId);
       if (request !== undefined) {
@@ -816,7 +820,7 @@ export function soapItemFor(project: Project, requestId: string): SoapSelected |
 /** SOAP's run facet. */
 export const soapRun: ProtocolRun<SoapSelected> = {
   groups(project) {
-    return project.interfaces.map((iface) => ({
+    return soapInterfacesOf(project).map((iface) => ({
       order: iface.order,
       name: iface.name,
       candidates: [...iface.operations].sort(byOrder).flatMap((operation) => {
@@ -833,7 +837,7 @@ export const soapRun: ProtocolRun<SoapSelected> = {
   },
 
   whyNotRunnable(project, requestId) {
-    for (const iface of project.interfaces) {
+    for (const iface of soapInterfacesOf(project)) {
       for (const operation of iface.operations) {
         const request = operation.requests.find((candidate) => candidate.id === requestId);
         if (request !== undefined) {
@@ -873,8 +877,9 @@ export const soapRun: ProtocolRun<SoapSelected> = {
 
   secretNeeds(selected, project) {
     const { request } = selected;
-    const outgoing = findConfig(project.wss.outgoing, request.wssOutgoingRef, toWssOutgoingConfig);
-    const incoming = findConfig(project.wss.incoming, request.wssIncomingRef, toWssIncomingConfig);
+    const configs = wssConfigsOf(project);
+    const outgoing = findConfig(configs.outgoing, request.wssOutgoingRef, toWssOutgoingConfig);
+    const incoming = findConfig(configs.incoming, request.wssIncomingRef, toWssIncomingConfig);
     return [
       ...secretNeedsOfAuth(soapEffectiveAuth(selected)),
       ...keystoreNeeds(project, request.properties.sslKeystoreRef),

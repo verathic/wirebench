@@ -5,7 +5,7 @@
  */
 import { assertionsSchema, ProjectError } from '@wirebench/engine';
 import type { Assertion, Project } from '@wirebench/engine';
-import type { RequestAssertionWire } from '../shared/wire-types.js';
+import type { RequestAssertionWire } from '../shared/wire-base.js';
 import { mapRequests } from './project-request-map.js';
 import type { Identified } from './project-request-map.js';
 

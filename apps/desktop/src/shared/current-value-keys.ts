@@ -1,4 +1,4 @@
-import type { ScopeKeyWire } from './wire-types.js';
+import type { ScopeKeyWire } from './wire-base.js';
 
 /** One string per scope, for maps keyed by scope; main and the renderer key alike. */
 export function scopeKeyString(key: ScopeKeyWire): string {
