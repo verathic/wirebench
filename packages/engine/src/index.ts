@@ -349,7 +349,7 @@ export { isSoapFault, parseFault } from './soap/fault.js';
 export type { FaultReason, SoapFault } from './soap/fault.js';
 export { recreateRequest } from './soap/recreate.js';
 export type { RecreateOptions, RecreateResult } from './soap/recreate.js';
-export { toCurl } from './http/curl.js';
+export { quoteForShell, toCurl } from './http/curl.js';
 export type { CurlBody, CurlCommand, CurlHeader, CurlPart, ToCurlOptions } from './http/curl.js';
 export {
   CODE_TARGETS,
