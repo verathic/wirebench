@@ -151,6 +151,7 @@ export function ScriptsTab({ requestId, scripts, level }: ScriptsTabProps) {
           api={api}
           value={scripts?.[phase] ?? ''}
           blocked={blockedBy(level)}
+          {...(level !== undefined ? { owner: `this ${level}` } : {})}
           onCommit={async (text) => {
             const next = text === '' ? null : text;
             await write(phase === 'pre' ? { pre: next } : { post: next });
@@ -208,6 +209,8 @@ export interface ScriptEditorProps {
   readonly value: string;
   /** What an error stops, as a clause: `the request will not send`. */
   readonly blocked?: string;
+  /** Whose script it is, for a level's (#334): `this API`, so its editor's name differs from a request's. */
+  readonly owner?: string;
   /** Writes the text; resolves once main has it. */
   readonly onCommit: (text: string) => Promise<void>;
 }
@@ -224,6 +227,7 @@ export function ScriptEditor({
   api,
   value,
   blocked = 'the request will not send',
+  owner,
   onCommit,
 }: ScriptEditorProps) {
   const [local, setLocal] = useState(value);
@@ -302,7 +306,7 @@ export function ScriptEditor({
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1">
         <CodeEditor
-          ariaLabel={`${phase === 'pre' ? 'Pre-request' : 'Post-response'} script`}
+          ariaLabel={`${phase === 'pre' ? 'Pre-request' : 'Post-response'} script${owner === undefined ? '' : ` for ${owner}`}`}
           language={api === 'postman' ? 'javascript' : 'typescript'}
           path={scriptModelPath(requestId, phase, api)}
           value={local}

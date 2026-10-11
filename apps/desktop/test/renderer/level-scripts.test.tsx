@@ -114,6 +114,8 @@ describe('a level’s Scripts editor', () => {
       />,
     );
     expect(screen.getByTestId('scripts-level-hint').textContent).toContain('Runs for every request in this API');
+    // Its editor's name differs from a request's, so both can be open at once.
+    expect(screen.getByLabelText('Pre-request script for this API')).toBeTruthy();
     expect(screen.getByTestId('scripts-problem-pre').textContent).toContain(
       'no request in this API will send until it is fixed',
     );

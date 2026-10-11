@@ -53,7 +53,7 @@ test('an API’s and a folder’s scripts run around a request in the folder, AP
   await expect(dialog).toBeVisible({ timeout: 20_000 });
   await setMonacoText(
     page,
-    'Pre-request script',
+    'Pre-request script for this folder',
     "request.headers.set('X-Order', request.headers.get('X-Order') + ',folder');\nlog(request.headers.get('X-Order'));",
   );
   await page.getByTestId('folder-scripts-done').click();
@@ -61,7 +61,7 @@ test('an API’s and a folder’s scripts run around a request in the folder, AP
 
   // The API's script, on its tab.
   await openApiTab(page, 'Shop API');
-  await setMonacoText(page, 'Pre-request script', "request.headers.set('X-Order', 'api');");
+  await setMonacoText(page, 'Pre-request script for this API', "request.headers.set('X-Order', 'api');");
 
   // A request in the folder, with no scripts of its own.
   await chooseContextMenuItem(page, folderRow(page, 'Folder 1'), 'New request');
