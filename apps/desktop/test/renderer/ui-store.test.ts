@@ -372,3 +372,25 @@ describe('the SSH area keeps its own sidebar width', () => {
     expect(readUi(storage).sidebar).toMatchObject({ size: SSH_SIDEBAR_SIZE, parkedSize: 24 });
   });
 });
+
+describe('the right slide-over width', () => {
+  const stored = (width: number): Storage => {
+    const storage = fakeStorage();
+    storage.setItem(
+      UI_STORAGE_KEY,
+      JSON.stringify({
+        version: UI_STORAGE_VERSION,
+        state: { ...DEFAULT_UI_STATE, slideOver: { open: false, width, codeShell: 'posix' } },
+      }),
+    );
+    return storage;
+  };
+
+  it('defaults to 294px, and a width left at the old 420px default takes the new one', () => {
+    expect(DEFAULT_UI_STATE.slideOver.width).toBe(294);
+    expect(readUi(stored(420)).slideOver.width).toBe(294);
+  });
+  it('keeps a width the user dragged to', () => {
+    expect(readUi(stored(500)).slideOver.width).toBe(500);
+  });
+});

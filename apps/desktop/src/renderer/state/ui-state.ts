@@ -134,7 +134,7 @@ const PRIOR_UI_STORAGE_VERSION = 3;
 export const DEFAULT_UI_STATE: UiSnapshot = {
   sidebar: { visible: true, view: 'explorer', size: 20, lastSize: 20 },
   console: { visible: true, activeTab: 'http-log', size: 25, lastSize: 25 },
-  slideOver: { open: false, width: 420, codeShell: 'posix' },
+  slideOver: { open: false, width: 294, codeShell: 'posix' },
   theme: 'dark',
   editorLineNumbers: true,
   editorLayout: { orientation: 'side-by-side', mode: 'split' },
@@ -182,6 +182,9 @@ function mergeEditorLayout(stored: unknown): EditorLayoutSnapshot {
  * `legacyCodeShell` — the v3 blob's `details.codeShell`, when there is one — before the default,
  * so a version-3 payload's shell preference survives the v3 → v4 migration.
  */
+/** The slide-over's default width before it was narrowed by 30%; a width still at it was never dragged. */
+const PREVIOUS_SLIDE_OVER_WIDTH = 420;
+
 function mergeSlideOver(stored: unknown, legacyCodeShell: unknown): UiSnapshot['slideOver'] {
   const record = asRecord(stored);
   const open = record?.['open'];
@@ -189,7 +192,7 @@ function mergeSlideOver(stored: unknown, legacyCodeShell: unknown): UiSnapshot['
   const codeShell = record?.['codeShell'] ?? legacyCodeShell;
   return {
     open: typeof open === 'boolean' ? open : DEFAULT_UI_STATE.slideOver.open,
-    width: typeof width === 'number' ? width : DEFAULT_UI_STATE.slideOver.width,
+    width: typeof width === 'number' && width !== PREVIOUS_SLIDE_OVER_WIDTH ? width : DEFAULT_UI_STATE.slideOver.width,
     codeShell: codeShell === 'posix' || codeShell === 'powershell' ? codeShell : DEFAULT_UI_STATE.slideOver.codeShell,
   };
 }
