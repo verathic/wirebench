@@ -28,7 +28,15 @@ function invokeAs(sender: object, channel: string, payload?: unknown): Promise<u
 }
 
 const NO_SECRETS = { names: vi.fn(), set: vi.fn() };
-const NO_SSH = { connect: vi.fn(), write: vi.fn(), resize: vi.fn(), close: vi.fn(), trust: vi.fn() };
+const NO_SSH = {
+  connect: vi.fn(),
+  write: vi.fn(),
+  resize: vi.fn(),
+  close: vi.fn(),
+  trust: vi.fn(),
+  knownHosts: vi.fn(),
+  forgetHostKey: vi.fn(),
+};
 const NO_HOSTS = { list: vi.fn(), save: vi.fn() };
 const NO_IMPORT = { preview: vi.fn(), apply: vi.fn() };
 const EMPTY = { file: { version: 1, groups: [], hosts: [] }, resolved: [], problems: [] };
@@ -143,6 +151,8 @@ describe('ssh channels', () => {
         resize: vi.fn(),
         close: vi.fn(),
         trust: vi.fn().mockResolvedValue(undefined),
+        knownHosts: vi.fn(),
+        forgetHostKey: vi.fn(),
       };
       registerSshChannels({ hosts: NO_HOSTS, secrets: NO_SECRETS, ssh, importer: NO_IMPORT });
       return ssh;
@@ -186,6 +196,29 @@ describe('ssh channels', () => {
       expect(answer.ok).toBe(false);
       expect(answer.error).toMatchObject({ code: 'ssh-host-key-new', details });
     });
+  });
+});
+
+describe('known hosts channels', () => {
+  it('list the trusted keys and forget one by host and key type', async () => {
+    const entry = { host: 'box:22', keyType: 'ssh-ed25519', fingerprint: 'SHA256:abc' };
+    const ssh = { ...NO_SSH, knownHosts: vi.fn().mockResolvedValue([entry]), forgetHostKey: vi.fn() };
+    registerSshChannels({ hosts: NO_HOSTS, secrets: NO_SECRETS, ssh, importer: NO_IMPORT });
+    expect(await invoke('ssh.knownHosts', undefined)).toEqual({ ok: true, value: { entries: [entry] } });
+    expect(await invoke('ssh.forgetHostKey', { host: 'box:22', keyType: 'ssh-ed25519' })).toEqual({
+      ok: true,
+      value: {},
+    });
+    expect(ssh.forgetHostKey).toHaveBeenCalledWith({ host: 'box:22', keyType: 'ssh-ed25519' });
+  });
+
+  it('refuse a forget request with anything beyond host and key type', async () => {
+    const ssh = { ...NO_SSH, forgetHostKey: vi.fn() };
+    registerSshChannels({ hosts: NO_HOSTS, secrets: NO_SECRETS, ssh, importer: NO_IMPORT });
+    expect(
+      await invoke('ssh.forgetHostKey', { host: 'box:22', keyType: 'ssh-ed25519', fingerprint: 'x' }),
+    ).toMatchObject({ ok: false });
+    expect(ssh.forgetHostKey).not.toHaveBeenCalled();
   });
 });
 

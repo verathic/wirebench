@@ -60,6 +60,17 @@ test('connect to a host, trust its key, type, see the echo, end the session', as
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
 
+  // Picking the card shows its details on the right; Escape puts them away.
+  await page.getByTestId('host-row-box').click();
+  await expect(page.getByTestId('host-details')).toContainText(`ssh -p ${String(fixture.port)} tester@127.0.0.1`);
+  // Edit opens the host's form in the same panel; Cancel returns to the details.
+  await page.getByTestId('host-details').getByRole('button', { name: 'Edit' }).click();
+  await expect(page.getByTestId('host-edit').getByLabel('Name', { exact: true })).toHaveValue('box');
+  await page.getByTestId('host-edit').getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByTestId('host-details')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('host-details')).toBeHidden();
+
   await page.getByTestId('host-row-box').dblclick();
   const trust = page.getByTestId('trust-dialog');
   await expect(trust).toBeVisible({ timeout: 30_000 });
@@ -86,6 +97,15 @@ test('connect to a host, trust its key, type, see the echo, end the session', as
   await expect(connected).toHaveCount(0);
   await expect(page.getByTestId('editor-empty')).toBeVisible();
   await page.getByTestId('activity-hosts').click();
+  await expect(connected).toBeVisible();
+
+  // The menu shows its pick in the area's fixed first tab, here the key just trusted; the session
+  // stays open behind it.
+  await page.getByTestId('ssh-nav-known-hosts').click();
+  await expect(page.getByTestId(`known-host-127.0.0.1:${String(fixture.port)}`)).toContainText(
+    fixture.hostKey.fingerprint,
+  );
+  await page.getByRole('tab', { name: /box/ }).click();
   await expect(connected).toBeVisible();
   await terminal.click();
 
