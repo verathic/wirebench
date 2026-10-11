@@ -8,6 +8,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Scripts on APIs, interfaces and folders.** An API, a SOAP interface and each REST or gRPC folder
+  can have a pre-request and a post-response script, which run around every request inside it: the
+  API's, then each folder's outermost first, then the request's own, in both phases. A pre-request
+  failure stops the send; a post-response failure lets the later scripts run and reports the first.
+  Each level lists its own secrets, is typed from its protocol's request and response, and is
+  type-checked by `wirebench run` before anything is sent. The API tab has a **Scripts** section, the
+  interface viewer a **Scripts** tab, and a folder **Scripts…** in its explorer menu; the response's
+  **Script** tab lists each script that ran under its level. The Postman importer puts a collection's
+  and its folders' scripts on the API and folders instead of copying them into each request. Project
+  format 9 (#334).
+
 - **A container of a kind this build cannot open stays in the explorer.** It shows as a dimmed row,
   at its place among the project's containers, whose tooltip and only menu item say why: the kind
   is switched off, or this version of Wirebench does not know it. Its files are never rewritten, a
@@ -22,6 +33,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Breaking
 
+- **Project format 9.** `api.yaml`, `interface.yaml` and `folder.yaml` can carry `scripts`; a project
+  saved by this version cannot be opened by an older one, which would drop them and send without
+  them (#334).
+- **`@wirebench/engine`: a protocol's scripting facet has `levelTypes()`,** the generic types an API's,
+  interface's or folder's script is checked against. `ScriptedRequest` gains `outer` (its levels'
+  scripts, outermost first) and its own `scripts` is optional; `SentScripts` gains `levels` (#334).
 - **`@wirebench/engine`: `SendHost.issuedTokens` is `SendHost.protocols.soap.issuedTokens`.** A host
   lends each protocol what only it reads under its kind; `soapHostOf` and `withSoapHost` read and
   set SOAP's entry. History's WebSocket frames, event-stream rows and contract results are typed with
