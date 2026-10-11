@@ -28,6 +28,7 @@ import type { BaselineCheck, BaselineReport } from './baseline.js';
 import { scopesFor } from './context.js';
 import type { RunContext } from './context.js';
 import type { SendHost } from './host.js';
+import type { Pacer } from './iterate.js';
 import { openExchange } from './open.js';
 import { createRunTokenSource } from './oauth2-token.js';
 import { createRunScope, scopeWith } from './scope.js';
@@ -84,6 +85,8 @@ export interface RequestResult {
   readonly scriptLog?: readonly string[];
   /** True when the request has scripts and they are switched off, so none ran. */
   readonly scriptsOff?: boolean;
+  /** Which iteration of a data-driven run sent it (0-based), of how many, and its data row (#336). */
+  readonly iteration?: { readonly index: number; readonly count: number; readonly row?: number };
 }
 
 export interface RunSummary {
@@ -103,6 +106,8 @@ export interface RunSummary {
     readonly skipped: number;
     readonly refused: number;
   };
+  /** Set for a data-driven run (#336): the iterations planned, and how many ran before a bail or a stop. */
+  readonly iterations?: { readonly planned: number; readonly run: number };
 }
 
 export interface RunResult {
@@ -136,6 +141,14 @@ export interface RunOptions {
    * History) reads the exchange here.
    */
   readonly onSent?: (item: SelectedRequest, sent: SentRequest) => void;
+  /**
+   * Sends each request; `createRunSender(context)` when absent. A data-driven run passes one sender
+   * to every iteration so a definition loads once and an OAuth2 token is shared; a host with its own
+   * send path (the desktop) passes that.
+   */
+  readonly send?: RunRequestSender;
+  /** Waited on before each send: a data-driven run's delay between requests (#336). */
+  readonly pace?: Pacer;
 }
 
 /** A request's own assertions; a gRPC request that never had any, and a protocol without them, carry none. */
@@ -191,7 +204,7 @@ export interface SentRequest {
 }
 
 /** What a run's sender may change for one request. */
-export type RunSendOverrides = Pick<RunContext, 'sequence' | 'timeoutMs'>;
+export type RunSendOverrides = Pick<RunContext, 'sequence' | 'timeoutMs' | 'data' | 'iteration'>;
 
 /** Sends one selected request as a run does. Throws what preparing or sending throws. */
 export type RunRequestSender = (item: SelectedRequest, overrides?: RunSendOverrides) => Promise<SentRequest>;
@@ -297,6 +310,8 @@ export function createRunSender(context: RunContext): RunRequestSender {
       ...scope.context,
       ...(overrides.sequence !== undefined ? { sequence: overrides.sequence } : {}),
       ...(overrides.timeoutMs !== undefined ? { timeoutMs: overrides.timeoutMs } : {}),
+      ...(overrides.data !== undefined ? { data: overrides.data } : {}),
+      ...(overrides.iteration !== undefined ? { iteration: overrides.iteration } : {}),
     };
     const itemScope = scopeWith(scope, itemContext);
     const run = runOf(registry, item);
@@ -524,13 +539,22 @@ export async function runRequests(
 ): Promise<RunResult> {
   const started = performance.now();
   const startedAt = new Date().toISOString();
-  const send = createRunSender(context);
+  const send = options.send ?? createRunSender(context);
   const results: RequestResult[] = [];
   // Values scripts set, which later requests of the run read as `${#Sequence#name}` (#63).
   const runValues = new Map<string, string>(Object.entries(context.sequence ?? {}));
   let stopped = false;
   for (const item of selected) {
     let result: RequestResult;
+    const willSend =
+      !stopped &&
+      context.signal?.aborted !== true &&
+      !(
+        assertionsOf(item).length === 0 &&
+        activeScripts(scriptsOf(item))?.post === undefined &&
+        options.requireAssertions === true
+      );
+    if (willSend) await options.pace?.wait();
     if (stopped || context.signal?.aborted === true) {
       result = {
         ...identity(item),
@@ -545,7 +569,17 @@ export async function runRequests(
     ) {
       result = erroredResult(item, { code: 'assertions-required', message: 'This request has no assertions.' });
     } else {
-      const ran = await runOne(item, send, options, { sequence: Object.fromEntries(runValues) }, context);
+      const ran = await runOne(
+        item,
+        send,
+        options,
+        {
+          sequence: Object.fromEntries(runValues),
+          ...(context.data !== undefined ? { data: context.data } : {}),
+          ...(context.iteration !== undefined ? { iteration: context.iteration } : {}),
+        },
+        context,
+      );
       result = ran.result;
       mergeScriptValues(
         runValues,
