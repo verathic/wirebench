@@ -64,9 +64,15 @@ An ad-hoc send has no environment, so it is never guarded. A send with no `confi
   `warning: "Production" is a protected environment` to stderr before anything is sent.
   `--refuse-protected` turns that into a usage error with code `environment-protected`, and nothing
   is sent.
-- **The MCP `send` and `call` tools** refuse a protected environment with `environment-protected`
-  unless the call passes `allowProtected: true`, so an agent cannot hit production silently.
-  `wirebench call` gains `--allow-protected` for the same op.
+- **`wirebench mcp`** refuses a protected environment with `environment-protected` unless the call
+  passes `allowProtected: true`, so an agent cannot hit production silently. This applies to `send`
+  and to every contract tool. Contract tools get `allowProtected` as a schema property, or
+  `wirebench_allowProtected` when the operation already has an argument of that name, as
+  `environment` does.
+- **`wirebench call`** runs with open gates, as its terminal `send` does, so it is not refused: the
+  person typing it chose the environment.
+- A workspace environment also counts as protected when the project environment linked to it, the
+  one with the same slug, is protected.
 
 ## 4. Out of scope
 

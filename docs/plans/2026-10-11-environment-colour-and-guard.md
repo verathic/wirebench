@@ -17,9 +17,8 @@ issue #345. One commit per task. Each commit goes in only after
 ## Task 2: CLI and MCP
 
 - `wirebench run` warns on a protected environment, and `--refuse-protected` refuses it.
-- `environmentFor` refuses a protected environment unless allowed.
-- The `send` and `call` ops gain `allowProtected`.
-- `wirebench call` gains `--allow-protected`.
+- MCP gates gain `refuseProtected`, and `checkProtected` uses it.
+- The `send` op and the contract tool schemas gain `allowProtected`.
 - Tests cover the args, a `run` integration test, and the op refusal.
 
 ## Task 3: desktop wire and guard
