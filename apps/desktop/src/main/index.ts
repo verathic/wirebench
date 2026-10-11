@@ -38,7 +38,7 @@ import { routeWorkspaces, scoped, WindowScopes } from './window-scope.js';
 import { safeStorageBackend, SecretStore, ShowSecretsFlag } from './secrets.js';
 import { recordSecretValue, redactSecretText } from './redact.js';
 import { SecretSourcesService } from './secret-sources-service.js';
-import { projectSecretGetter } from './secret-resolver.js';
+import { projectSecretGetter, secretStoreLabel } from './secret-resolver.js';
 import { SshSecretsService } from './ssh-secrets.js';
 import { SecretScanSessions } from './secret-scan-session.js';
 import { TeamSecretsService } from './team-secrets-service.js';
@@ -871,6 +871,14 @@ void app.whenReady().then(() => {
     getSecret: secretsFor(undefined),
     storeSecret: (value, label) => secretStore.set(value, { label }),
     secretsFor,
+    // Names only: the store's labels for this project's `${secret:name}` tokens (#340).
+    secretNamesFor: async (projectId) => {
+      const prefix = secretStoreLabel(projectId ?? '', '');
+      return (await secretStore.list())
+        .map((entry) => entry.label)
+        .filter((label): label is string => label?.startsWith(prefix) === true)
+        .map((label) => label.slice(prefix.length));
+    },
     scripts,
     registry: exchanges,
     // Queued to the outbox of the window whose workspace it happened in; that reporter drops it unless

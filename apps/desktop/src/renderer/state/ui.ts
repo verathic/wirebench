@@ -110,6 +110,8 @@ export interface UiStore extends UiSnapshot {
   readonly importPostmanDialogOpen: boolean;
   /** The folder whose credentials dialog is open, if any. A folder has no tab to put them on. */
   readonly folderAuthId: string | undefined;
+  /** The folder whose scripts dialog is open, if any (#334). */
+  readonly folderScriptsId: string | undefined;
   /**
    * Where an Import cURL… opened from the palette or the explorer should land, if it is open.
    *
@@ -176,6 +178,7 @@ export interface UiStore extends UiSnapshot {
   readonly setImportOpenApiDialogOpen: (open: boolean) => void;
   readonly setImportPostmanDialogOpen: (open: boolean) => void;
   readonly setFolderAuthId: (folderId: string | undefined) => void;
+  readonly setFolderScriptsId: (folderId: string | undefined) => void;
   readonly setImportCurlTarget: (target: RequestImportCurlTarget | undefined) => void;
   readonly setNewProjectDialogOpen: (open: boolean) => void;
   readonly closeImportDialog: () => void;
@@ -280,6 +283,7 @@ export const useUiStore = create<UiStore>((set, get) => {
     importOpenApiDialogOpen: false,
     importPostmanDialogOpen: false,
     folderAuthId: undefined,
+    folderScriptsId: undefined,
     importCurlTarget: undefined,
     newProjectDialogOpen: false,
     confirmRemoveInterfaceId: undefined,
@@ -345,6 +349,9 @@ export const useUiStore = create<UiStore>((set, get) => {
     },
     setFolderAuthId: (folderId) => {
       set({ folderAuthId: folderId });
+    },
+    setFolderScriptsId: (folderId) => {
+      set({ folderScriptsId: folderId });
     },
     setImportCurlTarget: (target) => {
       set({ importCurlTarget: target });

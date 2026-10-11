@@ -142,6 +142,8 @@ import {
   requestCancelResponseSchema,
   requestCurlResponseSchema,
   requestPreflightRequestSchema,
+  requestVariablesRequestSchema,
+  requestVariablesResponseSchema,
   scriptCloseModelRequestSchema,
   scriptCloseModelResponseSchema,
   scriptCompletionsResponseSchema,
@@ -395,6 +397,11 @@ export const channels = {
     cancel: defineChannel('request.cancel', requestCancelRequestSchema, requestCancelResponseSchema),
     preflight: defineChannel('request.preflight', requestPreflightRequestSchema, requestPreflightResponseSchema),
     curl: defineChannel('request.curl', requestCurlRequestSchema, requestCurlResponseSchema),
+    /**
+     * The variables one request can reference, as its send resolves them, for the editor's completion,
+     * hover and unresolved marks (#340). A value reaching a secret comes back masked, without it.
+     */
+    variables: defineChannel('request.variables', requestVariablesRequestSchema, requestVariablesResponseSchema),
     code: defineChannel('request.code', requestCodeRequestSchema, requestCurlResponseSchema),
     ...soapChannels.request,
     ...restChannels.request,

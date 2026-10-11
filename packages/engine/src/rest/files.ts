@@ -129,6 +129,8 @@ export const apiFileSchema = z.looseObject({
   baseUrl: z.string(),
   servers: z.array(z.looseObject({ url: z.string(), description: z.string().optional() })).default([]),
   auth: authConfigSchema.optional(),
+  /** The API's scripts (format 9, #334), in `api.pre.ts` and `api.post.ts` beside `api.yaml`. */
+  scripts: scriptsSchema.optional(),
   definition: z
     .looseObject({
       source: nonEmpty,
