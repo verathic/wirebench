@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Dynamic values.** `${$guid}` (or `${#Dynamic#guid}`) sends a fresh value with every request: UUIDs,
+  Unix and ISO timestamps with offsets (`${$isoTimestamp(+1d)}`), random numbers
+  (`${$randomInt(1,100)}`), and fake names, emails, addresses, phone numbers, companies, lorem text,
+  dates, IP and MAC addresses, URLs, colours, currencies, file names and MIME types. Each reference is
+  generated once per send, so a value used twice matches, and the HTTP Log and History show what was
+  sent. The desktop app, `wirebench run` and the MCP `send` resolve them alike. Imported `{{$guid}}`,
+  `{{$timestamp}}`, `{{$randomInt}}` and the other common names now map onto them; a name with no
+  generator keeps the import warning. Type `${$` in a body editor, or use **Get Data…**, to list them
+  (#333).
 - **Variables in the editor.** Typing `${` in a request's URL, parameters, headers, auth fields or
   body completes the names in scope, with each one's scope. Hovering a reference shows its value
   (masked when it reads a secret) and scope, with a link to edit it. A name that resolves to

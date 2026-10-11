@@ -163,13 +163,13 @@ describe('ui-state v4 migration', () => {
       UI_STORAGE_KEY,
       JSON.stringify({
         version: 4,
-        state: { ...DEFAULT_UI_STATE, slideOver: { open: false, width: 420, codeShell: 'powershell' } },
+        state: { ...DEFAULT_UI_STATE, slideOver: { open: false, width: 360, codeShell: 'powershell' } },
       }),
     );
 
     expect(readUi(storage).slideOver).toEqual({
       open: false,
-      width: 420,
+      width: 360,
       codeShell: 'powershell',
       codeLanguage: 'curl',
       codeSettings: {},
