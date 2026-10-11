@@ -265,6 +265,43 @@ export const requestAuthSourceSchema = z.object({
 });
 export type RequestAuthSourceWire = z.infer<typeof requestAuthSourceSchema>;
 
+/** Where the editor's "Edit" link for a variable goes: the tab that edits its scope (#340). */
+export const variableEditTargetWireSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('environment'), id: z.string() }),
+  z.object({ kind: z.literal('project'), projectId: z.string() }),
+  z.object({ kind: z.literal('workspace') }),
+  z.object({ kind: z.literal('globals') }),
+]);
+export type VariableEditTargetWire = z.infer<typeof variableEditTargetWireSchema>;
+
+/**
+ * One variable a request can reference, as its send would resolve it (#340). `value` is the value
+ * with its own references expanded, and is absent when `masked`: a value that reaches a
+ * `${secret:…}` token or a `${#System#…}` variable never crosses to the renderer.
+ */
+export const requestVariableWireSchema = z.object({
+  name: z.string(),
+  scope: z.enum(['Env', 'Project', 'Workspace', 'Global', 'System']),
+  value: z.string().optional(),
+  masked: z.boolean(),
+  /** The secret a masked value reads, when it reads one directly. */
+  secretName: z.string().optional(),
+  /** A nearer scope defines the same name, so the shorthand `${name}` does not reach this one. */
+  shadowed: z.boolean(),
+  edit: variableEditTargetWireSchema.optional(),
+});
+export type RequestVariableWire = z.infer<typeof requestVariableWireSchema>;
+
+/** Request payload for `request.variables`. */
+export const requestVariablesRequestSchema = z.object({ requestId: z.string() });
+
+/** Response payload for `request.variables`: the variables in scope, and the secret names (never values). */
+export const requestVariablesResponseSchema = z.object({
+  entries: z.array(requestVariableWireSchema),
+  secretNames: z.array(z.string()),
+});
+export type RequestVariablesResponse = z.infer<typeof requestVariablesResponseSchema>;
+
 /** Request payload for `request.preflight`. */
 export const requestPreflightRequestSchema = z.object({ requestId: z.string() });
 

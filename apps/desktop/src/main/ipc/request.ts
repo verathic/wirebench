@@ -61,8 +61,14 @@ import type {
   RequestImportCurlResponse,
 } from '../../shared/kinds/rest/wire.js';
 import type { RequestPatchWire } from '../../shared/kinds/soap/wire.js';
-import type { UnresolvedRefWire, FailedExchangeWire, RequestCurlResponse } from '../../shared/wire-base.js';
+import type {
+  UnresolvedRefWire,
+  FailedExchangeWire,
+  RequestCurlResponse,
+  RequestVariablesResponse,
+} from '../../shared/wire-base.js';
 import { cancelEnvironmentBatch, sendToEnvironments } from '../multi-env-send.js';
+import { requestVariables } from '../request-variables.js';
 import { registerHandler } from './register.js';
 
 /** The `ProjectRouter` surface the `request.*` channels drive; a stub stands in for it in tests. */
@@ -206,6 +212,11 @@ export interface RequestChannelDeps {
    * that send no tokens, where a token then refuses the send as `secret-missing`.
    */
   readonly secretsFor?: (projectId: string | undefined) => GetSecret;
+  /**
+   * The `${secret:name}` names stored on this machine for one project — names only, never a value —
+   * for the editor's completion and unresolved marks (#340). Omitted in tests, which then list none.
+   */
+  readonly secretNamesFor?: (projectId: string | undefined) => Promise<readonly string[]>;
   /**
    * The app's script host (#63). Omitted in tests that send no scripted request; such a request is
    * then sent as if it had none.
@@ -797,6 +808,25 @@ export function nothingToWarnAbout(
   return secretsOnly === true && (secretSources === undefined || secretSourceContext(secretSources).sources.size === 0);
 }
 
+/**
+ * `request.variables`: what `requestId` can reference, from the scopes its send expands against, and
+ * the secret names it may read — those stored for its project and those mapped to a secret source.
+ */
+export async function variablesFor(deps: RequestChannelDeps, requestId: string): Promise<RequestVariablesResponse> {
+  const projectId = deps.project.projectId(requestId);
+  if (projectId === undefined) {
+    return { entries: [], secretNames: [] };
+  }
+  const stored = (await deps.secretNamesFor?.(projectId)) ?? [];
+  const snapshot = deps.secretSources?.();
+  const mapped = snapshot === undefined ? [] : [...secretSourceContext(snapshot).sources.keys()];
+  return requestVariables({
+    scopes: deps.project.scopesFor(requestId),
+    located: deps.project.runContextFor?.(requestId),
+    secretNames: [...new Set([...stored, ...mapped])].sort(),
+  });
+}
+
 /** What a preflight answers for a request no open project holds. */
 export const NO_PREFLIGHT: PreflightResult = {
   endpointSource: 'none',
@@ -983,6 +1013,8 @@ export function registerRequestChannels(service: EngineService, deps: RequestCha
   );
 
   registerHandler(channels.request.curl, (request) => curl(service, deps, sendDeps, request));
+
+  registerHandler(channels.request.variables, (request) => variablesFor(deps, request.requestId));
 
   registerHandler(channels.request.importCurl, (request) => importCurl(deps, request));
 }
