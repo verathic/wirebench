@@ -587,6 +587,7 @@ function createWindowScope(window: BrowserWindow, sweepJoining: boolean): Window
     userDataDir: app.getPath('userData'),
     state: workspaceState,
     sweepJoining,
+    enabledKinds,
     // One workspace, one window (design D5): the window holding it is brought forward instead.
     heldElsewhere: (workspaceId) => {
       const holder = scopes

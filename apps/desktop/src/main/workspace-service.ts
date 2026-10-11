@@ -112,6 +112,7 @@ import { ProjectHost } from './project-host.js';
 import { checkCertificates } from './certificate-expiry.js';
 import type { KindRouters } from './kinds/kind-main.js';
 import { KIND_ROUTES } from './kinds/kind-routes.js';
+import { requireKindEnabled } from './project-mutations.js';
 import type { KindId } from '../shared/kinds/kind-module.js';
 import type { ProjectRouter } from './project-router.js';
 import type { SecretScanSessions } from './secret-scan-session.js';
@@ -268,6 +269,8 @@ export interface WorkspaceServiceDeps {
    * window's must not delete a clone another window's join is making. Default true.
    */
   readonly sweepJoining?: boolean;
+  /** The kinds this run has on (`WIREBENCH_KINDS`), handed to each project host. Absent, all. */
+  readonly enabledKinds?: readonly KindId[];
   /**
    * Whether another window holds `workspaceId` open. Opening, renaming or deleting it from this one is
    * refused (`workspace-open-elsewhere`), so one workspace's files have one writer. Omitted, never.
@@ -1092,6 +1095,7 @@ export class WorkspaceService implements ProjectRouter {
           this.deps.hooks?.onProgress?.(event);
         },
         newestRest: (projectId, requestId) => this.deps.history.newestFor?.(projectId, requestId),
+        ...(this.deps.enabledKinds !== undefined ? { enabledKinds: this.deps.enabledKinds } : {}),
       },
       this.deps.fs,
       this.deps.globals,
@@ -3324,6 +3328,15 @@ export class WorkspaceService implements ProjectRouter {
     return this.hostOfEntity(args[0]).exportApiDefinitionTo(...args);
   }
 
+  /**
+   * Refuses a call through a kind this run switched off (`WIREBENCH_KINDS`).
+   *
+   * @throws ProjectError `feature-disabled`
+   */
+  requireKind(kind: KindId): void {
+    requireKindEnabled(kind, this.deps.enabledKinds);
+  }
+
   /** @inheritdoc */
   inspectKeystore(...args: Parameters<ProjectRouter['inspectKeystore']>): ReturnType<ProjectRouter['inspectKeystore']> {
     return this.hostOfEntity(args[0]).inspectKeystore(...args);
@@ -3338,6 +3351,8 @@ function routeKinds(): void {
   for (const [kind, routes] of Object.entries(KIND_ROUTES) as [KindId, (typeof KIND_ROUTES)[KindId]][]) {
     for (const [name, route] of Object.entries(routes)) {
       const forward = function (this: WorkspaceService, ...args: unknown[]): unknown {
+        // A kind this run switched off has no channels, but its host is refused here too.
+        this.requireKind(kind);
         const [id] = args as [string];
         const host = route.by === 'entity' ? this.hostOfEntity(id) : this.hostFor(id);
         const kindHost = host.kind(kind) as unknown as Record<string, (...rest: unknown[]) => unknown>;

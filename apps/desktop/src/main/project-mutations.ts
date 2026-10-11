@@ -14,6 +14,7 @@ import type { ProjectChange } from '../shared/wire-types.js';
 import type { ProjectSettingsPatchWire } from '../shared/wire-base.js';
 import type { ChangeReducer, KindTree } from './kinds/kind-main.js';
 import { MAIN_KINDS, mutationOwner } from './kinds/kind-main.js';
+import { kindById, type KindId } from '../shared/kinds/kind-module.js';
 import type { GeneratedEnvelope } from './kinds/soap/mutations.js';
 import { notFound } from './project-api-mutations.js';
 import {
@@ -74,6 +75,11 @@ export interface MutationDeps {
    * collection seeds `webhookTarget` only when neither the project nor these define it.
    */
   readonly workspaceProperties?: PropertyMap;
+  /**
+   * The kinds this run has on (`WIREBENCH_KINDS`). A change a kind that is off owns is refused: the
+   * engine neither loads nor saves what that kind keeps. Absent, every kind is on.
+   */
+  readonly enabledKinds?: readonly KindId[];
 }
 
 /** The outcome of one change: the next model, plus any entity the change created. */
@@ -281,31 +287,37 @@ export async function applyChange(
     // The folder changes serve every API kind: a folder is a folder, and the change names the
     // folder or its API, so the kind that owns the id applies it (spec §5.2).
     case 'add-folder':
-      return treeOwning((tree) => tree.ownsApi(project, change.apiId), 'API', change.apiId).addFolder(project, {
+      return treeOwning((tree) => tree.ownsApi(project, change.apiId), 'API', change.apiId, deps).addFolder(project, {
         apiId: change.apiId,
         ...(change.parentId !== undefined ? { parentId: change.parentId } : {}),
         name: change.name,
       });
 
     case 'update-folder':
-      return treeOwning((tree) => tree.ownsNode(project, change.folderId), 'folder', change.folderId).updateFolder(
-        project,
+      return treeOwning(
+        (tree) => tree.ownsNode(project, change.folderId),
+        'folder',
         change.folderId,
-        change.patch,
-      );
+        deps,
+      ).updateFolder(project, change.folderId, change.patch);
 
     case 'remove-folder':
-      return treeOwning((tree) => tree.ownsNode(project, change.folderId), 'folder', change.folderId).removeFolder(
-        project,
+      return treeOwning(
+        (tree) => tree.ownsNode(project, change.folderId),
+        'folder',
         change.folderId,
-      );
+        deps,
+      ).removeFolder(project, change.folderId);
 
     case 'move-node':
-      return treeOwning((tree) => tree.ownsNode(project, change.nodeId), 'node', change.nodeId).moveNode(project, {
-        nodeId: change.nodeId,
-        ...(change.parentId !== undefined ? { parentId: change.parentId } : {}),
-        index: change.index,
-      });
+      return treeOwning((tree) => tree.ownsNode(project, change.nodeId), 'node', change.nodeId, deps).moveNode(
+        project,
+        {
+          nodeId: change.nodeId,
+          ...(change.parentId !== undefined ? { parentId: change.parentId } : {}),
+          index: change.index,
+        },
+      );
 
     default:
       return applyKindChange(project, change, deps);
@@ -318,12 +330,14 @@ function applyKindChange(
   change: ProjectChange,
   deps: MutationDeps,
 ): MutationResult | Promise<MutationResult> {
-  const reducer = mutationOwner(change.kind)?.mutations[change.kind] as ChangeReducer | undefined;
-  if (reducer === undefined) {
+  const owner = mutationOwner(change.kind);
+  const reducer = owner?.mutations[change.kind] as ChangeReducer | undefined;
+  if (owner === undefined || reducer === undefined) {
     throw new ProjectError('unknown-change', `No kind applies the change "${change.kind}"`, {
       details: { kind: change.kind },
     });
   }
+  requireKindEnabled(owner.kind, deps.enabledKinds);
   return reducer(project, change, deps);
 }
 
@@ -332,13 +346,31 @@ function applyKindChange(
  *
  * @throws ProjectError `project-entity-not-found` when no kind does.
  */
-function treeOwning(owns: (tree: KindTree) => boolean, what: string, id: string): KindTree {
+function treeOwning(owns: (tree: KindTree) => boolean, what: string, id: string, deps: MutationDeps): KindTree {
   for (const kind of MAIN_KINDS) {
     if (kind.tree !== undefined && owns(kind.tree)) {
+      requireKindEnabled(kind.kind, deps.enabledKinds);
       return kind.tree;
     }
   }
   return notFound(what, id);
+}
+
+/**
+ * Refuses a write through a kind this run switched off, as the engine refuses a feature that is off:
+ * the write would alter the model and the save, whose registry has the kind off, would drop it.
+ * `enabledKinds` absent means every kind is on.
+ *
+ * @throws ProjectError `feature-disabled` with `details.feature`
+ */
+export function requireKindEnabled(kind: KindId, enabledKinds: readonly KindId[] | undefined): void {
+  if (enabledKinds === undefined || enabledKinds.includes(kind)) {
+    return;
+  }
+  const module = kindById(kind);
+  throw new ProjectError('feature-disabled', `${module.label} is switched off`, {
+    details: { feature: module.feature.id },
+  });
 }
 
 /** Derives a project's default name from its folder, the folder's last segment. */

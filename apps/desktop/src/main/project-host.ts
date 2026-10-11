@@ -99,6 +99,7 @@ import type { OpenProject } from './project-host-core.js';
 import type { KindApiDefinitions, KindHostHooks, KindHosts } from './kinds/kind-main.js';
 import type { ApiDefinitionDocuments } from './kinds/kind-main.js';
 import { MAIN_KINDS } from './kinds/kind-main.js';
+import type { KindId } from '../shared/kinds/kind-module.js';
 
 /** How long an edit sits before autosave writes it out. */
 export const AUTOSAVE_DEBOUNCE_MS = 500;
@@ -131,6 +132,8 @@ export interface ProjectHostHooks {
    * from. Omitted, a callback always falls back to its target.
    */
   readonly newestRest?: (projectId: string, requestId: string) => HistoryEntryWire | undefined;
+  /** The kinds this run has on (`WIREBENCH_KINDS`); a change through one that is off is refused. Absent, all. */
+  readonly enabledKinds?: readonly KindId[];
 }
 
 /** What {@link ProjectHost.openProject} did with an unsaved-changes record it was handed. */
@@ -858,6 +861,7 @@ export class ProjectHost {
     const workspaceProperties = this.workspaceContext?.()?.workspace.properties;
     const result = await applyChange(open.project, change, {
       ...(workspaceProperties !== undefined ? { workspaceProperties } : {}),
+      ...(this.hooks.enabledKinds !== undefined ? { enabledKinds: this.hooks.enabledKinds } : {}),
       reservedSequenceSlugs: refusedSequenceSlugs(open.problems),
       reservedMockSlugs: refusedMockSlugs(open.problems),
       generateMock: (containerId, name, binding) =>
