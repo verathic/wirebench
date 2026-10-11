@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Environment colour and a production guard.** An environment can have a colour: one of eight
+  palette swatches or a custom `#rrggbb`. The switcher shows it as a dot, and the active
+  environment's colour bands the editor tab strip. An environment can also be marked
+  **Protected**. Every send under it then asks first, with Cancel as the default: editor sends,
+  History re-sends and HTTP Log resends. A sequence run asks once, and **Send to environments…**
+  asks once per batch. `wirebench run` warns before sending under a protected environment, and
+  `--refuse-protected` exits 2 instead. `wirebench mcp` refuses one unless the call passes
+  `allowProtected: true`. Both settings are new optional keys in the environment file (`color`,
+  `protected`), which older builds still read (#345).
 - **The Code panel writes a request as code.** Besides `curl`, a SOAP or REST request can be shown
   as JavaScript fetch, Node.js axios, Python requests, Go net/http, Java HttpClient, Java OkHttp,
   C# HttpClient, PHP cURL, Ruby Net::HTTP, PowerShell Invoke-RestMethod or HTTPie, or as the
