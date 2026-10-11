@@ -20,7 +20,7 @@ import type {
   SyncStatusWire,
   WorkspaceChangedEvent,
   WorkspaceChangedOnDiskEvent,
-} from '../../shared/wire-types.js';
+} from '../../shared/wire-base.js';
 import { showToast } from '../components/toast.js';
 import { ipc } from './ipc-client.js';
 import { reviewSecrets } from './secret-review.js';

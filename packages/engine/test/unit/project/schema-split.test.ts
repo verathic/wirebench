@@ -9,6 +9,7 @@ import * as schema from '../../../src/project/schema.js';
 import * as restFiles from '../../../src/rest/files.js';
 import * as soapFiles from '../../../src/soap/files.js';
 import * as wsFiles from '../../../src/ws/files.js';
+import * as webhooksSchema from '../../../src/webhooks/schema.js';
 import * as wssSchema from '../../../src/wss/schema.js';
 
 type Exports = Readonly<Record<string, unknown>>;
@@ -18,6 +19,7 @@ const MOVED: readonly (readonly [string, Exports, readonly string[]])[] = [
   ['rest/files.ts', { ...restFiles }, ['apiFileSchema', 'restBodySchema', 'restRequestFileSchema']],
   ['grpc/files.ts', { ...grpcFiles }, ['grpcApiFileSchema', 'grpcMethodKindSchema', 'grpcRequestFileSchema']],
   ['ws/files.ts', { ...wsFiles }, ['wsApiFileSchema', 'wsRequestFileSchema']],
+  ['webhooks/schema.ts', { ...webhooksSchema }, ['webhookFolderFileSchema', 'webhooksFileSchema']],
   ['wss/schema.ts', { ...wssSchema }, ['wssEntrySchema', 'wssIssuedTokenEntrySchema', 'wssSamlTokenEntrySchema']],
   [
     'project/schema-parts.ts',
@@ -48,8 +50,6 @@ const CORE = [
   'keystoresFileSchema',
   'manifestSchema',
   'protoDefinitionCacheManifestSchema',
-  'webhookFolderFileSchema',
-  'webhooksFileSchema',
   'wssIncomingFileSchema',
   'wssOutgoingFileSchema',
 ];

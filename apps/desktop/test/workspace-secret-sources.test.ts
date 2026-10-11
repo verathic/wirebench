@@ -24,7 +24,7 @@ import { SecretSourcesService } from '../src/main/secret-sources-service.js';
 import { secretSourcesStateOf } from '../src/main/secret-sources-state.js';
 import { WorkspaceService } from '../src/main/workspace-service.js';
 import type { WorkspaceServiceDeps } from '../src/main/workspace-service.js';
-import type { WorkspaceWire } from '../src/shared/wire-types.js';
+import type { WorkspaceWire } from '../src/shared/wire-base.js';
 
 /** Copied from workspace-watch.test.ts: a short debounce over the real `fs.watch`. */
 const WATCH_DEBOUNCE_MS = 30;

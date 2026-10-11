@@ -6,15 +6,23 @@
 
 import {
   DEFAULT_WSS_TIMESTAMP_SKEW_SECONDS,
+  grpcApisOf,
   keystoreEntrySchema,
+  qnameToString,
+  restApisOf,
+  soapInterfacesOf,
   toKeystoreDef,
   toWssIncomingConfig,
   toWssOutgoingConfig,
-  wssIncomingFileSchema,
-  qnameToString,
+  webhooksOf,
+  wsApisOf,
+  wssConfigsOf,
   wssEntrySchema,
+  wssIncomingFileSchema,
   wssOutgoingFileSchema,
+  unsupportedOf,
 } from '@wirebench/engine';
+import { KINDS } from '../shared/kinds/kind-module.js';
 import { hasUnmirroredFields, KNOWN_WSS_ENTRY_KINDS, opaqueEntryFingerprint } from './wss-opaque.js';
 import type {
   Assertion,
@@ -40,35 +48,34 @@ import type {
   WssEntry,
   WssRef,
 } from '@wirebench/engine';
+import type { ProjectWire } from '../shared/wire-types.js';
+import type { GrpcApiWire, GrpcRequestWire } from '../shared/kinds/grpc/wire.js';
+import type { RestApiWire, RestBodyWire, RestRequestWire } from '../shared/kinds/rest/wire.js';
 import type {
-  RequestAssertionWire,
-  AuthConfigWire,
-  GrpcApiWire,
-  GrpcRequestWire,
-  KeyValueWire,
-  RestApiWire,
-  RestBodyWire,
-  RestFolderWire,
-  RestRequestWire,
   AttachmentWire,
   EndpointWire,
-  EnvironmentWire,
-  HydrationStatus,
   InterfaceSummary,
   UpdatePlanWire,
   InterfaceWire,
-  KeystoreWire,
-  WsApiWire,
-  WsRequestWire,
   WssEntryWire,
   WssIncomingWire,
   WssOutgoingWire,
   OperationSummaryWire,
-  ProjectProblemWire,
-  ProjectWire,
-  RequestScriptsWire,
   RequestWire,
-} from '../shared/wire-types.js';
+} from '../shared/kinds/soap/wire.js';
+import type { WsApiWire, WsRequestWire } from '../shared/kinds/ws/wire.js';
+import type {
+  UnsupportedContainerWire,
+  RequestAssertionWire,
+  AuthConfigWire,
+  KeyValueWire,
+  RestFolderWire,
+  EnvironmentWire,
+  HydrationStatus,
+  KeystoreWire,
+  ProjectProblemWire,
+  RequestScriptsWire,
+} from '../shared/wire-base.js';
 import { toMockWire } from './project-mock-mutations.js';
 import { toSequenceWire } from './project-sequence-mutations.js';
 import { webhookCollectionId } from './webhook-ids.js';
@@ -90,6 +97,8 @@ export interface ProjectWireContext {
   readonly runtime: ReadonlyMap<string, InterfaceRuntime>;
   /** What main has read from each AsyncAPI-imported API's cached document, keyed by API id. */
   readonly asyncApiInfo?: ReadonlyMap<string, AsyncApiDefinitionInfo>;
+  /** The project-level folders of kinds this run switched off, shown as placeholders. */
+  readonly switchedOff?: readonly UnsupportedContainerWire[];
 }
 
 /** The facts the Definition card shows that live in the cached document rather than the project. */
@@ -277,7 +286,7 @@ export function toUpdatePlanWire(plan: UpdatePlan): UpdatePlanWire {
 
 /** Every request of a project, in interface then operation then request order. */
 export function toRequestWires(project: Project): RequestWire[] {
-  return project.interfaces.flatMap((iface) =>
+  return soapInterfacesOf(project).flatMap((iface) =>
     iface.operations.flatMap((operation) =>
       operation.requests.map((request) => toRequestWire(iface, operation, request)),
     ),
@@ -568,7 +577,7 @@ function toRestTreeWires(apis: readonly RestApi[]): {
  * `webhooks:<projectId>` — never a real API id — or `undefined` when the project has none yet.
  */
 function toWebhookCollectionWire(project: Project): ProjectWire['webhooks'] {
-  const webhooks = project.webhooks;
+  const webhooks = webhooksOf(project);
   if (webhooks === undefined) {
     return undefined;
   }
@@ -795,27 +804,29 @@ function toWsTreeWires(apis: readonly WsApi[]): {
 
 /** Converts the whole open project into the snapshot the renderer mirrors. */
 export function toProjectWire(project: Project, context: ProjectWireContext): ProjectWire {
-  const restTree = toRestTreeWires(project.apis);
-  const grpcTree = toGrpcTreeWires(project.grpcApis);
-  const wsTree = toWsTreeWires(project.wsApis);
+  const restTree = toRestTreeWires(restApisOf(project));
+  const grpcTree = toGrpcTreeWires(grpcApisOf(project));
+  const wsTree = toWsTreeWires(wsApisOf(project));
+  const webhooks = webhooksOf(project);
   const webhookTree =
-    project.webhooks !== undefined ? toWebhookTreeWires(project.webhooks, webhookCollectionId(project.id)) : undefined;
+    webhooks !== undefined ? toWebhookTreeWires(webhooks, webhookCollectionId(project.id)) : undefined;
   const webhooksWire = toWebhookCollectionWire(project);
+  const unsupported = [...toUnsupportedWires(project), ...(context.switchedOff ?? [])];
   return {
     id: project.id,
     name: project.name,
     dir: context.dir,
     dirty: context.dirty,
     ...(context.lastSavedAt !== undefined ? { lastSavedAt: context.lastSavedAt } : {}),
-    interfaces: project.interfaces.map((iface) => toInterfaceWire(iface, context.runtime.get(iface.id))),
+    interfaces: soapInterfacesOf(project).map((iface) => toInterfaceWire(iface, context.runtime.get(iface.id))),
     requests: toRequestWires(project),
-    apis: project.apis.map(toApiWire),
+    apis: restApisOf(project).map(toApiWire),
     folders: [...restTree.folders, ...grpcTree.folders, ...wsTree.folders, ...(webhookTree?.folders ?? [])],
     restRequests: [...restTree.requests, ...(webhookTree?.requests ?? [])],
     ...(webhooksWire !== undefined ? { webhooks: webhooksWire } : {}),
-    grpcApis: project.grpcApis.map(toGrpcApiWire),
+    grpcApis: grpcApisOf(project).map(toGrpcApiWire),
     grpcRequests: grpcTree.requests,
-    wsApis: project.wsApis.map((api) => toWsApiWire(api, context.asyncApiInfo?.get(api.id))),
+    wsApis: wsApisOf(project).map((api) => toWsApiWire(api, context.asyncApiInfo?.get(api.id))),
     wsRequests: wsTree.requests,
     sequences: project.sequences.map(toSequenceWire),
     mocks: project.mocks.map(toMockWire),
@@ -825,10 +836,42 @@ export function toProjectWire(project: Project, context: ProjectWireContext): Pr
     ...(project.activeEnvironmentId !== undefined ? { activeEnvironmentId: project.activeEnvironmentId } : {}),
     problems: [...context.problems],
     settings: { ...project.settings },
-    keystores: project.wss.keystores.map(toKeystoreWire),
-    wssOutgoing: project.wss.outgoing.map(toWssOutgoingWire),
-    wssIncoming: project.wss.incoming.map(toWssIncomingWire),
+    keystores: project.keystores.map(toKeystoreWire),
+    wssOutgoing: wssConfigsOf(project).outgoing.map(toWssOutgoingWire),
+    wssIncoming: wssConfigsOf(project).incoming.map(toWssIncomingWire),
+    ...(unsupported.length > 0 ? { unsupported } : {}),
   };
+}
+
+/**
+ * The containers the explorer shows as placeholders (kind modules spec §7.1): what the engine loaded
+ * as unsupported (a kind that is off), and every container of a kind the engine knows and the desktop
+ * has no half of.
+ */
+function toUnsupportedWires(project: Project): UnsupportedContainerWire[] {
+  const desktop = new Set<string>(KINDS.map((kind) => kind.kind));
+  return [
+    ...unsupportedOf(project).map((placeholder) => ({
+      dir: placeholder.dir,
+      slug: placeholder.slug,
+      kind: placeholder.kind,
+      reason: placeholder.reason,
+      ...(placeholder.name !== undefined ? { name: placeholder.name } : {}),
+      ...(placeholder.order !== undefined ? { order: placeholder.order } : {}),
+    })),
+    ...Object.entries(project.containers)
+      .filter(([kind]) => !desktop.has(kind))
+      .flatMap(([kind, containers]) =>
+        containers.map((container) => ({
+          dir: 'apis' as const,
+          slug: container.slug,
+          kind,
+          reason: 'unknown-kind' as const,
+          name: container.name,
+          order: container.order,
+        })),
+      ),
+  ];
 }
 
 /**
@@ -871,7 +914,7 @@ export interface RequestLocation {
 
 /** Locates a request (and its owning interface/operation) by id, or `undefined` when unknown. */
 export function findRequest(project: Project, requestId: string): RequestLocation | undefined {
-  for (const iface of project.interfaces) {
+  for (const iface of soapInterfacesOf(project)) {
     for (const operation of iface.operations) {
       const request = operation.requests.find((candidate) => candidate.id === requestId);
       if (request !== undefined) {

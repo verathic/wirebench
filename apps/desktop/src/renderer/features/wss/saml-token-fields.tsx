@@ -7,7 +7,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { IconButton } from '../../components/icon-button.js';
 import { SecretField } from '../../components/secret-field.js';
 import { KeystorePicker, WSS_FIELD_CLASS } from './outgoing-entry-fields.js';
-import type { WssEntryWire } from '../../../shared/wire-types.js';
+import type { WssEntryWire } from '../../../shared/kinds/soap/wire.js';
 
 type SamlEntry = Extract<WssEntryWire, { kind: 'saml-token' }>;
 type SamlSign = NonNullable<SamlEntry['sign']>;

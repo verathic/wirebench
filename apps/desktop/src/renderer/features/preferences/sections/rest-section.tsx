@@ -5,7 +5,7 @@
  * which is why each hint says what it applies to rather than what it forbids.
  */
 import { NumberSetting, SettingsGroup, TextSetting, BooleanSetting } from '../../../components/settings-grid.js';
-import type { PreferencesWire } from '../../../../shared/wire-types.js';
+import type { PreferencesWire } from '../../../../shared/wire-base.js';
 import type { SectionProps } from './section-props.js';
 
 /** Bytes as a whole number of mebibytes, for the pretty-print threshold's field. */

@@ -2,76 +2,21 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CookieManager } from '../features/cookies/cookie-manager.js';
-import { EnvironmentPage } from '../features/environments/environment-page.js';
-import { targetFromId } from '../features/environments/environment-actions.js';
 import { ChangedOnDiskBanner } from '../features/project/changed-on-disk-banner.js';
-import { ProjectTab } from '../features/project/project-tab.js';
 import { useHostsStore } from '../features/ssh/hosts-store.js';
 import { sessionStatus } from '../features/ssh/session-status.js';
 import { SyncBanner } from '../features/sync/sync-banner.js';
+import { useShallow } from 'zustand/react/shallow';
+import { entityIdOf, TAB_KINDS, tabOwner, type TabTitleContext } from '../kinds/index.js';
+import { placeholderMessage } from '../kinds/placeholders.js';
+import { useUiStore } from '../state/ui.js';
 import { useDraftsStore } from '../state/drafts.js';
 import { tabsInSet, type TabSet } from '../state/tab-sets.js';
 import { useEditorsStore } from '../state/editors.js';
-import { useProjectStore } from '../state/project.js';
+import { useProjectStore, type ProjectStore } from '../state/project.js';
 import { useWebhooksStore } from '../state/webhooks.js';
 import { useWorkspaceStore } from '../state/workspace.js';
-import type { ProjectWire, WorkspaceEnvironmentWire } from '../../shared/wire-types.js';
-
-// Monaco is by far the heaviest thing the renderer loads, so the request editor — the only
-// thing that pulls it in — is split out and fetched the first time a request tab is opened.
-const RequestEditor = lazy(async () => {
-  const module = await import('../features/request-editor/request-editor.js');
-  return { default: module.RequestEditor };
-});
-
-// Split out for the same reason as the SOAP editor: its raw-body editor is Monaco.
-const RestEditor = lazy(async () => {
-  const module = await import('../features/rest-editor/rest-editor.js');
-  return { default: module.RestEditor };
-});
-
-const ApiTab = lazy(async () => {
-  const module = await import('../features/rest-api/api-tab.js');
-  return { default: module.ApiTab };
-});
-
-// Split out like the REST editor: its message editor is Monaco.
-const GrpcEditor = lazy(async () => {
-  const module = await import('../features/grpc-editor/grpc-editor.js');
-  return { default: module.GrpcEditor };
-});
-
-const GrpcApiTab = lazy(async () => {
-  const module = await import('../features/grpc-api/grpc-api-tab.js');
-  return { default: module.GrpcApiTab };
-});
-
-const WsApiTab = lazy(async () => {
-  const module = await import('../features/ws-api/ws-api-tab.js');
-  return { default: module.WsApiTab };
-});
-
-const SequenceTab = lazy(async () => {
-  const module = await import('../features/sequence/sequence-tab.js');
-  return { default: module.SequenceTab };
-});
-
-// Split out: its body and script editors are Monaco.
-const MockTab = lazy(async () => {
-  const module = await import('../features/mock/mock-tab.js');
-  return { default: module.MockTab };
-});
-
-// Split out like the gRPC editor: its saved-message editor and frame viewer are Monaco.
-const WsEditor = lazy(async () => {
-  const module = await import('../features/ws-editor/ws-editor.js');
-  return { default: module.WsEditor };
-});
-
-const HistoryEntryView = lazy(async () => {
-  const module = await import('../features/history/history-entry-view.js');
-  return { default: module.HistoryEntryView };
-});
+import type { WorkspaceEnvironmentWire } from '../../shared/wire-base.js';
 
 const DiffView = lazy(async () => {
   const module = await import('../features/history/diff-view.js');
@@ -81,11 +26,6 @@ const DiffView = lazy(async () => {
 const EnvCompareView = lazy(async () => {
   const module = await import('../features/multi-env/env-compare-view.js');
   return { default: module.EnvCompareView };
-});
-
-const InterfaceEditor = lazy(async () => {
-  const module = await import('../features/interface-editor/interface-editor.js');
-  return { default: module.InterfaceEditor };
 });
 
 // Split out so xterm loads only once a terminal is opened.
@@ -98,39 +38,6 @@ const TerminalTab = lazy(async () => {
   const module = await import('../features/ssh/terminal-tab.js');
   return { default: module.TerminalTab };
 });
-
-const CatchUrlTab = lazy(async () => {
-  const module = await import('../features/webhooks/catch-url-tab.js');
-  return { default: module.CatchUrlTab };
-});
-
-/**
- * One environment's name, wherever it lives — for a tab label. The workspace's own environments
- * come first: they are what the grid tab shows, and a rename has to reach the tab.
- */
-function environmentName(
-  projects: Readonly<Record<string, ProjectWire>>,
-  workspaceEnvironments: readonly WorkspaceEnvironmentWire[],
-  environmentId: string,
-): string | undefined {
-  if (environmentId === 'globals') {
-    return 'Globals';
-  }
-  if (environmentId === 'workspace') {
-    return 'Workspace';
-  }
-  const workspaceEnvironment = workspaceEnvironments.find((candidate) => candidate.id === environmentId);
-  if (workspaceEnvironment !== undefined) {
-    return workspaceEnvironment.name;
-  }
-  for (const project of Object.values(projects)) {
-    const match = project.environments.find((environment) => environment.id === environmentId);
-    if (match !== undefined) {
-      return match.name;
-    }
-  }
-  return undefined;
-}
 
 /** A stable empty list, so the editor area does not rerender while no workspace is open. */
 const NO_ENVIRONMENTS: readonly WorkspaceEnvironmentWire[] = [];
@@ -176,29 +83,50 @@ export function EditorArea() {
   // with nothing open shows its own hint.
   const fixedLabel = FIXED_TAB[displayedSet];
   const hasStart = fixedLabel !== undefined;
-  const dirtyRequests = useDraftsStore((state) => state.requests);
-  const dirtyRestRequests = useDraftsStore((state) => state.restRequests);
-  const dirtyGrpcRequests = useDraftsStore((state) => state.grpcRequests);
   const activeId = useEditorsStore((state) => state.activeId);
   const activate = useEditorsStore((state) => state.activate);
   const showStart = useEditorsStore((state) => state.showStart);
   const close = useEditorsStore((state) => state.close);
   const move = useEditorsStore((state) => state.move);
-  const requests = useProjectStore((state) => state.requests);
-  const projects = useProjectStore((state) => state.projects);
   const workspaceEnvironments = useWorkspaceStore((state) => state.workspace?.environments ?? NO_ENVIRONMENTS);
-  const interfaces = useProjectStore((state) => state.interfaces);
-  const apis = useProjectStore((state) => state.apis);
-  const restRequests = useProjectStore((state) => state.restRequests);
-  const grpcApis = useProjectStore((state) => state.grpcApis);
-  const grpcRequests = useProjectStore((state) => state.grpcRequests);
-  const wsApis = useProjectStore((state) => state.wsApis);
-  const wsRequests = useProjectStore((state) => state.wsRequests);
-  const sequences = useProjectStore((state) => state.sequences);
-  const mocks = useProjectStore((state) => state.mocks);
-  const dirtyWsRequests = useDraftsStore((state) => state.wsRequests);
+  const enabledKinds = useUiStore((state) => state.enabledKinds);
   const catchUrls = useWebhooksStore((state) => state.hooks);
-  const catchUrlNames = Object.fromEntries(catchUrls.map((hook) => [hook.id, hook.name]));
+  // Each tab's live name and unsaved state, read through its kind's row in `TAB_KINDS`: renames
+  // reach the strip before the tab's own stored title catches up.
+  const titleContext = (project: ProjectStore): TabTitleContext => ({
+    project,
+    workspaceEnvironments,
+    hookNames: Object.fromEntries(catchUrls.map((hook) => [hook.id, hook.name])),
+  });
+  const liveTitles = useProjectStore(
+    useShallow((project) => {
+      const context = titleContext(project);
+      return tabs.map((tab) => {
+        const contribution = TAB_KINDS[tab.kind];
+        const id = contribution === undefined ? undefined : entityIdOf(tab, contribution);
+        return id === undefined ? undefined : contribution?.title(id, context);
+      });
+    }),
+  );
+  const liveDetails = useProjectStore(
+    useShallow((project) => {
+      const context = titleContext(project);
+      return tabs.map((tab) => {
+        const contribution = TAB_KINDS[tab.kind];
+        const id = contribution === undefined ? undefined : entityIdOf(tab, contribution);
+        return id === undefined ? undefined : contribution?.detail?.(id, context);
+      });
+    }),
+  );
+  const dirtyTabs = useDraftsStore(
+    useShallow((drafts) =>
+      tabs.map((tab) => {
+        const contribution = TAB_KINDS[tab.kind];
+        const id = contribution === undefined ? undefined : entityIdOf(tab, contribution);
+        return id !== undefined && contribution?.dirty?.(id, drafts) === true;
+      }),
+    ),
+  );
   const hostSessions = useHostsStore((state) => state.sessions);
   const resolvedHosts = useHostsStore((state) => state.resolved);
   // Every terminal, whichever set is shown: they stay mounted so leaving Hosts never ends a session.
@@ -278,6 +206,10 @@ export function EditorArea() {
 
   const activeTab = tabs.find((t) => t.id === activeId);
   const showingStart = activeTab === undefined;
+  const activeContribution = activeTab === undefined ? undefined : TAB_KINDS[activeTab.kind];
+  const activeOwner = activeTab === undefined ? undefined : tabOwner(activeTab.kind);
+  const activeEntityId =
+    activeTab === undefined || activeContribution === undefined ? undefined : entityIdOf(activeTab, activeContribution);
   const selectedId = showingStart ? START_ID : (activeId ?? START_ID);
 
   // APG tabs: one tab stop for the whole list, Left/Right/Home/End move within it, and focus
@@ -291,31 +223,13 @@ export function EditorArea() {
     }
     activate(id);
   };
-  /** A tab's live name: renames reach the strip before the tab's own stored title catches up. */
+  /** A tab's live name, or the title it was opened with. */
   const labelFor = (tab: (typeof tabs)[number]): string =>
-    (tab.kind === 'interface' && tab.interfaceId !== undefined ? interfaces[tab.interfaceId]?.name : undefined) ??
-    (tab.kind === 'api' && tab.apiId !== undefined ? apis[tab.apiId]?.name : undefined) ??
-    (tab.restRequestId !== undefined ? restRequests[tab.restRequestId]?.name : undefined) ??
-    (tab.kind === 'grpc-api' && tab.grpcApiId !== undefined ? grpcApis[tab.grpcApiId]?.name : undefined) ??
-    (tab.grpcRequestId !== undefined ? grpcRequests[tab.grpcRequestId]?.name : undefined) ??
-    (tab.kind === 'ws-api' && tab.wsApiId !== undefined ? wsApis[tab.wsApiId]?.name : undefined) ??
-    (tab.wsRequestId !== undefined ? wsRequests[tab.wsRequestId]?.name : undefined) ??
-    (tab.kind === 'sequence' && tab.sequenceId !== undefined ? sequences[tab.sequenceId]?.name : undefined) ??
-    (tab.kind === 'mock' && tab.mockId !== undefined ? mocks[tab.mockId]?.name : undefined) ??
-    (tab.kind === 'project' && tab.projectId !== undefined ? projects[tab.projectId]?.name : undefined) ??
-    (tab.requestId !== undefined ? requests[tab.requestId]?.name : undefined) ??
-    (tab.environmentId !== undefined
-      ? environmentName(projects, workspaceEnvironments, tab.environmentId)
-      : undefined) ??
-    (tab.kind === 'catch-url' && tab.hookId !== undefined ? catchUrlNames[tab.hookId] : undefined) ??
+    liveTitles[tabs.indexOf(tab)] ??
     (tab.kind === 'ssh-terminal' ? resolvedHosts.find((host) => host.id === tab.hostId)?.name : undefined) ??
     tab.title;
   // Only the request kinds carry drafts; every other kind still autosaves.
-  const isDirty = (tab: (typeof tabs)[number]): boolean =>
-    (tab.requestId !== undefined && dirtyRequests[tab.requestId] !== undefined) ||
-    (tab.restRequestId !== undefined && dirtyRestRequests[tab.restRequestId] !== undefined) ||
-    (tab.grpcRequestId !== undefined && dirtyGrpcRequests[tab.grpcRequestId] !== undefined) ||
-    (tab.wsRequestId !== undefined && dirtyWsRequests[tab.wsRequestId] !== undefined);
+  const isDirty = (tab: (typeof tabs)[number]): boolean => dirtyTabs[tabs.indexOf(tab)] === true;
 
   const onTabsKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
     const current = order.indexOf(selectedId);
@@ -554,9 +468,8 @@ export function EditorArea() {
                   >
                     <span className="min-w-0 flex-1 truncate">
                       {labelFor(tab)}
-                      {/* Generated requests all start as "Request 1"; the operation tells them apart. */}
-                      {tab.requestId !== undefined && requests[tab.requestId] !== undefined && (
-                        <span className="text-fg-subtle"> · {requests[tab.requestId]?.operationName}</span>
+                      {liveDetails[tabs.indexOf(tab)] !== undefined && (
+                        <span className="text-fg-subtle"> · {liveDetails[tabs.indexOf(tab)]}</span>
                       )}
                     </span>
                     {isDirty(tab) && (
@@ -587,17 +500,21 @@ export function EditorArea() {
           >
             {EMPTY_HINT[displayedSet]}
           </div>
-        ) : activeTab.kind === 'interface' && activeTab.interfaceId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
-            <InterfaceEditor interfaceId={activeTab.interfaceId} />
-          </Suspense>
-        ) : activeTab.environmentId !== undefined ? (
-          <EnvironmentPage target={targetFromId(activeTab.environmentId)} />
-        ) : activeTab.kind === 'project' && activeTab.projectId !== undefined ? (
-          <ProjectTab projectId={activeTab.projectId} />
-        ) : activeTab.kind === 'history' && activeTab.historyId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
-            <HistoryEntryView historyId={activeTab.historyId} />
+        ) : activeOwner !== undefined && !enabledKinds.includes(activeOwner) ? (
+          <div
+            data-testid="editor-placeholder"
+            className="flex h-full items-center justify-center px-6 text-sm text-fg-subtle"
+          >
+            {placeholderMessage(activeOwner, 'feature-disabled')}
+          </div>
+        ) : activeContribution !== undefined && activeEntityId !== undefined ? (
+          <Suspense
+            fallback={<p className="p-4 text-sm text-fg-subtle">{activeContribution.loading ?? 'Loading editor…'}</p>}
+          >
+            <activeContribution.Component
+              {...(activeContribution.keyed === true ? { key: activeEntityId } : {})}
+              id={activeEntityId}
+            />
           </Suspense>
         ) : activeTab.kind === 'diff' && activeTab.diff !== undefined ? (
           <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
@@ -607,48 +524,8 @@ export function EditorArea() {
           <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
             <EnvCompareView {...activeTab.envCompare} />
           </Suspense>
-        ) : activeTab.kind === 'rest-request' && activeTab.restRequestId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
-            <RestEditor requestId={activeTab.restRequestId} />
-          </Suspense>
-        ) : activeTab.kind === 'api' && activeTab.apiId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
-            <ApiTab apiId={activeTab.apiId} />
-          </Suspense>
-        ) : activeTab.kind === 'grpc-request' && activeTab.grpcRequestId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
-            <GrpcEditor requestId={activeTab.grpcRequestId} />
-          </Suspense>
-        ) : activeTab.kind === 'grpc-api' && activeTab.grpcApiId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
-            <GrpcApiTab apiId={activeTab.grpcApiId} />
-          </Suspense>
-        ) : activeTab.kind === 'ws-api' && activeTab.wsApiId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
-            <WsApiTab apiId={activeTab.wsApiId} />
-          </Suspense>
-        ) : activeTab.kind === 'sequence' && activeTab.sequenceId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
-            <SequenceTab sequenceId={activeTab.sequenceId} />
-          </Suspense>
-        ) : activeTab.kind === 'mock' && activeTab.mockId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
-            <MockTab mockId={activeTab.mockId} />
-          </Suspense>
-        ) : activeTab.kind === 'ws-request' && activeTab.wsRequestId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
-            <WsEditor requestId={activeTab.wsRequestId} />
-          </Suspense>
-        ) : activeTab.kind === 'catch-url' && activeTab.hookId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading…</p>}>
-            <CatchUrlTab key={activeTab.hookId} hookId={activeTab.hookId} />
-          </Suspense>
-        ) : activeTab.kind === 'ssh-terminal' ? null : activeTab.kind === 'cookies' ? (
+        ) : activeTab.kind === 'cookies' ? (
           <CookieManager />
-        ) : activeTab.requestId !== undefined ? (
-          <Suspense fallback={<p className="p-4 text-sm text-fg-subtle">Loading editor…</p>}>
-            <RequestEditor requestId={activeTab.requestId} />
-          </Suspense>
         ) : null}
         {/* Terminals stay mounted behind other tabs, hidden, so switching away never ends a session. */}
         {terminalTabs.map((tab) => (

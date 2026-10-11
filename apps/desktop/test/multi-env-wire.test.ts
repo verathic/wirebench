@@ -5,11 +5,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { channels } from '../src/shared/ipc.js';
-import {
-  envSendResultSchema,
-  requestSendToEnvironmentsRequestSchema,
-  requestSendToEnvironmentsResponseSchema,
-} from '../src/shared/wire-types.js';
+import { envSendResultSchema, requestSendToEnvironmentsResponseSchema } from '../src/shared/wire-types.js';
+import { requestSendToEnvironmentsRequestSchema } from '../src/shared/kinds/rest/wire.js';
 
 const ids = (count: number): string[] => Array.from({ length: count }, (_, index) => `env-${index}`);
 

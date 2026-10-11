@@ -6,19 +6,25 @@ import { loadProject } from '../../../src/project/load.js';
 import { saveProject } from '../../../src/project/save.js';
 import { projectFiles } from '../../../src/project/serialize.js';
 import { stringifyYaml } from '../../../src/project/yaml.js';
-import type { Project, SoapRequestDef } from '../../../src/project/model.js';
+import type { Project } from '../../../src/project/model.js';
+import type { SoapRequestDef } from '../../../src/soap/model.js';
 import { CRLF_ENVELOPE, listTree, readBytes, sampleProject, tempProjectDir } from './fixture.js';
+import { soapInterfacesOf, withSoapInterfaces } from '../../../src/soap/model.js';
+import { wssConfigsOf, withWssConfigs } from '../../../src/wss/project.js';
 
 function withRequests(project: Project, map: (r: SoapRequestDef) => SoapRequestDef | undefined): Project {
   return {
     ...project,
-    interfaces: project.interfaces.map((i) => ({
-      ...i,
-      operations: i.operations.map((o) => ({
-        ...o,
-        requests: o.requests.map(map).filter((r): r is SoapRequestDef => r !== undefined),
+    containers: {
+      ...project.containers,
+      soap: soapInterfacesOf(project).map((i) => ({
+        ...i,
+        operations: i.operations.map((o) => ({
+          ...o,
+          requests: o.requests.map(map).filter((r): r is SoapRequestDef => r !== undefined),
+        })),
       })),
-    })),
+    },
   };
 }
 
@@ -195,9 +201,12 @@ describe('saveProject', () => {
     for (const badFile of ['../outside.yaml', '/etc/passwd', 'wss/../outside.yaml', 'other/x.yaml']) {
       const corrupted: Project = {
         ...project,
-        wss: {
-          ...project.wss,
-          outgoing: [{ id: 'W1', name: 'x', file: badFile, document: { id: 'W1', name: 'x' } }],
+        protocols: {
+          ...project.protocols,
+          soap: {
+            ...wssConfigsOf(project),
+            outgoing: [{ id: 'W1', name: 'x', file: badFile, document: { id: 'W1', name: 'x' } }],
+          },
         },
       };
       await expect(saveProject(corrupted, dir)).rejects.toMatchObject({ code: 'project-path-invalid' });
@@ -239,7 +248,10 @@ describe('saveProject', () => {
     await writeFile(join(dir, 'interfaces', 'Orders_ v2_legacy_', 'definition', 'orders.wsdl'), 'cached');
 
     const result = await saveProject(
-      { ...project, interfaces: project.interfaces.filter((i) => i.slug === 'CountryInfo') },
+      {
+        ...project,
+        containers: { ...project.containers, soap: soapInterfacesOf(project).filter((i) => i.slug === 'CountryInfo') },
+      },
       dir,
     );
 
@@ -258,9 +270,12 @@ describe('saveProject', () => {
 
     const emptied: Project = {
       ...project,
-      interfaces: project.interfaces.map((i) =>
-        i.slug === 'PlaceOrderHost' ? i : { ...i, operations: i.operations.map((o) => ({ ...o, requests: [] })) },
-      ),
+      containers: {
+        ...project.containers,
+        soap: soapInterfacesOf(project).map((i) =>
+          i.slug === 'PlaceOrderHost' ? i : { ...i, operations: i.operations.map((o) => ({ ...o, requests: [] })) },
+        ),
+      },
     };
     const result = await saveProject(emptied, dir);
 
@@ -333,7 +348,7 @@ describe('loadProject', () => {
     expect(problems[0]?.code).toBe('missing-envelope');
     expect(problems[0]?.file).toBe(xml);
     expect(problems[0]?.message).toContain('Request 1');
-    expect(loaded.interfaces[0]?.operations[0]?.requests[0]?.envelopeXml).toBe('');
+    expect(soapInterfacesOf(loaded)[0]?.operations[0]?.requests[0]?.envelopeXml).toBe('');
 
     await rm(dir, { recursive: true, force: true });
   });
@@ -359,7 +374,7 @@ describe('loadProject', () => {
 
     const { project: loaded, problems } = await loadProject(dir);
     expect(problems.map((p) => p.code)).toEqual(['missing-interface-file']);
-    expect(loaded.interfaces).toHaveLength(2);
+    expect(soapInterfacesOf(loaded)).toHaveLength(2);
 
     await rm(dir, { recursive: true, force: true });
   });
@@ -458,7 +473,7 @@ describe('loadProject', () => {
     expect(problems.map((p) => p.code)).toEqual(['orphan-request-file']);
     expect(problems[0]?.file).toBe(`${opDir}/Ghost.xml`);
     expect(loaded.environments.map((e) => e.slug)).toEqual(['dev', 'prod']);
-    expect(loaded.wss.outgoing.map((w) => w.name)).toEqual(['prod-signature']);
+    expect(wssConfigsOf(loaded).outgoing.map((w) => w.name)).toEqual(['prod-signature']);
 
     await rm(dir, { recursive: true, force: true });
   });
@@ -491,10 +506,12 @@ describe('loadProject', () => {
   it('loads a project with no wss directory at all', async () => {
     const dir = await tempProjectDir();
     const project = sampleProject();
-    await saveProject({ ...project, wss: { outgoing: [], incoming: [], keystores: [] } }, dir);
+    await saveProject(withWssConfigs({ ...project, keystores: [] }, { outgoing: [], incoming: [] }), dir);
 
     const { project: loaded } = await loadProject(dir);
-    expect(loaded.wss).toEqual({ outgoing: [], incoming: [], keystores: [] });
+    expect(wssConfigsOf(loaded)).toEqual({ outgoing: [], incoming: [] });
+    expect(loaded.keystores).toEqual([]);
+    expect(loaded.protocols).toBeUndefined();
 
     await rm(dir, { recursive: true, force: true });
   });
@@ -504,7 +521,7 @@ describe('SOAP owners with a token auth scheme', () => {
   it('round-trips bearer, api-key and oauth2 on an interface, endpoint and request', async () => {
     const dir = await tempProjectDir();
     const project = sampleProject();
-    const [countryIface, ...restIfaces] = project.interfaces;
+    const [countryIface, ...restIfaces] = soapInterfacesOf(project);
     if (countryIface === undefined) {
       throw new Error('sampleProject must have at least one interface');
     }
@@ -521,9 +538,11 @@ describe('SOAP owners with a token auth scheme', () => {
       throw new Error('sampleProject must have at least one request');
     }
 
-    const withTokenAuth: Project = {
-      ...project,
-      interfaces: [
+    const withTokenAuth: Project = withSoapInterfaces(
+      {
+        ...project,
+      },
+      [
         {
           ...countryIface,
           auth: { type: 'bearer', tokenRef: 'secret://country/iface-bearer', scheme: 'Bearer' },
@@ -559,7 +578,7 @@ describe('SOAP owners with a token auth scheme', () => {
         },
         ...restIfaces,
       ],
-    };
+    );
 
     await saveProject(withTokenAuth, dir);
     const { project: loaded, problems } = await loadProject(dir);

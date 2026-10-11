@@ -8,7 +8,8 @@
  * kind, the API's credentials).
  */
 import { KvTable } from '../../components/kv-table.js';
-import type { KeyValueWire, RestBodyWire, RestRequestPatchWire } from '../../../shared/wire-types.js';
+import type { RestBodyWire, RestRequestPatchWire } from '../../../shared/kinds/rest/wire.js';
+import type { KeyValueWire } from '../../../shared/wire-base.js';
 
 export interface HeadersTabProps {
   readonly headers: readonly KeyValueWire[];

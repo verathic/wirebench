@@ -3,16 +3,19 @@
  * session's show-secrets flag exactly as `EngineService` redacted its own live events.
  */
 import type { LiveEvent } from '@wirebench/engine';
-import { toGrpcResponseMessageWire, toSseRowWire, toWsFrameWire, toWsHandshakeWire } from '../engine-wire.js';
-import { redactHeaders } from '../redact.js';
-import type { GrpcLiveEvent, RestLiveEvent, WsLiveEvent } from '../../shared/wire-types.js';
+import { kindSend } from '../kinds/kind-send.js';
+import type { GrpcLiveEvent } from '../../shared/kinds/grpc/wire.js';
+import type { RestLiveEvent } from '../../shared/kinds/rest/wire.js';
+import type { WsLiveEvent } from '../../shared/kinds/ws/wire.js';
 
 /** A live event as the renderer receives it, of any protocol. */
 export type LiveEventWire = RestLiveEvent | GrpcLiveEvent | WsLiveEvent;
 
 /**
- * One live event on the wire. `keyParams` names the query parameters an API key travels in, which a
- * WebSocket handshake's URL masks whatever they are called.
+ * One live event on the wire, as its kind turns it. `keyParams` names the query parameters an API key
+ * travels in, which a WebSocket handshake's URL masks whatever they are called.
+ *
+ * @throws Error for a kind that reports no live events
  */
 export function toWireEvent(
   sendId: string,
@@ -20,48 +23,7 @@ export function toWireEvent(
   show: boolean,
   keyParams?: readonly string[],
 ): LiveEventWire {
-  switch (event.protocol) {
-    case 'rest':
-      return event.kind === 'open'
-        ? { kind: 'open', sendId, status: event.status, headers: redactHeaders(event.headers, { show }) }
-        : { kind: 'row', sendId, row: toSseRowWire(event.row, { show }) };
-    case 'grpc':
-      switch (event.kind) {
-        case 'open':
-          return { kind: 'open', sendId };
-        case 'headers':
-          // Redacted as the summary's `headers` are, so metadata looks the same live or after.
-          return {
-            kind: 'headers',
-            sendId,
-            httpStatus: event.httpStatus,
-            headers: redactHeaders(event.headers, { show }),
-          };
-        case 'message':
-          return {
-            kind: 'message',
-            sendId,
-            index: event.index,
-            message: toGrpcResponseMessageWire(event.message, { show }),
-          };
-        case 'closed':
-          return { kind: 'closed', sendId };
-      }
-    case 'websocket':
-      switch (event.kind) {
-        case 'handshake':
-          return {
-            kind: 'handshake',
-            sendId,
-            handshake: toWsHandshakeWire(event.handshake, {
-              show,
-              ...(keyParams !== undefined ? { keyParams } : {}),
-            }),
-          };
-        case 'frame':
-          return { kind: 'frame', sendId, frame: toWsFrameWire(event.frame, { show }) };
-        case 'closed':
-          return { kind: 'closed', sendId };
-      }
-  }
+  const send = kindSend(event.protocol);
+  if (send.liveEvent === undefined) throw new Error(`${event.protocol} sends report no live events`);
+  return send.liveEvent(sendId, event, show, keyParams);
 }

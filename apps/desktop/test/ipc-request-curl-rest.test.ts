@@ -11,9 +11,10 @@ import { createApi, createProject, createRestRequest } from '@wirebench/engine';
 import type { AuthConfig, KeyValueEntry, Project } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
 import { recordSecretValue } from '../src/main/redact.js';
-import { registerRequestChannels, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { type RequestChannelDeps } from '../src/main/ipc/request.js';
 import type { ProjectChange } from '../src/shared/wire-types.js';
 import { NO_REST, PROJECT_SETTINGS, restApiWire } from './helpers/wire-defaults.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -60,7 +61,7 @@ function resolution(
     ...(overrides.auth !== undefined ? { auth: overrides.auth } : {}),
   });
   const api = createApi('Petstore', { id: 'api-1', baseUrl: 'https://api.test', requests: [request] });
-  return { ...createProject('Demo', { id: 'p1' }), apis: [api] };
+  return { ...createProject('Demo', { id: 'p1' }), containers: { rest: [api] } };
 }
 
 /** The project surface these two channels touch, and nothing more. */
@@ -114,7 +115,7 @@ function setup(options: {
   readonly stored?: { value: string; label: string }[];
 }): void {
   handlers.clear();
-  registerRequestChannels(new EngineService(), {
+  registerRequestChannelsWithKinds(new EngineService(), {
     project: project({
       ...(options.rest !== undefined ? { rest: options.rest } : {}),
       ...(options.changes !== undefined ? { changes: options.changes } : {}),
@@ -152,7 +153,7 @@ describe('request.curl for a REST request', () => {
   it('masks a credential with show-secrets off, and never reads the keychain for it', async () => {
     const getSecret = vi.fn().mockResolvedValue('tok-live');
     handlers.clear();
-    registerRequestChannels(new EngineService(), {
+    registerRequestChannelsWithKinds(new EngineService(), {
       project: project({ rest: resolution({ auth: { type: 'bearer', tokenRef: 'sec_1' } }) }),
       adHocScopes: () => ({ project: {}, global: {}, system: {} }),
       showSecrets: { get: () => false },
@@ -172,7 +173,7 @@ describe('request.curl for a REST request', () => {
     async (shown) => {
       const getSecret = vi.fn().mockResolvedValue('pw-live');
       handlers.clear();
-      registerRequestChannels(new EngineService(), {
+      registerRequestChannelsWithKinds(new EngineService(), {
         project: project({
           rest: resolution({
             auth: { type: 'kerberos', username: 'alice', domain: 'CORP', passwordRef: 'sec_pw' },
@@ -206,7 +207,7 @@ describe('request.curl for a REST request', () => {
       settings: { timeoutMs: 30_000, followRedirects: true },
     });
     const api = createApi('Petstore', { id: 'api-1', baseUrl: 'https://api.test', requests: [rest] });
-    const withValue: Project = { ...createProject('Demo', { id: 'p1' }), apis: [api] };
+    const withValue: Project = { ...createProject('Demo', { id: 'p1' }), containers: { rest: [api] } };
 
     setup({ rest: withValue });
     const hidden = unwrap<{ command: string }>(await invoke('request.curl', { requestId: 'rest-1', shell: 'posix' }));

@@ -1,16 +1,16 @@
 import { useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { MethodBadge } from '../rest-api/method-badge.js';
+import { rendererKindOf } from '../../kinds/index.js';
 import { Button } from '../../components/button.js';
 import { formatClockTime, formatDuration } from '../../lib/format-size.js';
 import type { GridRowProps } from '../../lib/grid-navigation.js';
 import { useGridNavigation } from '../../lib/grid-navigation.js';
 import { useEditorsStore } from '../../state/editors.js';
-import { useExchangesStore } from '../../state/exchanges.js';
 import { useHistoryStore } from '../../state/history.js';
 import { canResendHistoryEntry, entrySide, openCompareTab, resendHistoryEntry } from './history-actions.js';
 import { useWorkspaceStore } from '../../state/workspace.js';
-import type { HistoryEntryWire, WorkspaceProjectWire } from '../../../shared/wire-types.js';
+import type { HistoryEntryWire } from '../../../shared/wire-types.js';
+import type { WorkspaceProjectWire } from '../../../shared/wire-base.js';
 
 const ROW_HEIGHT = 40;
 const VIRTUALISE_ABOVE = 200;
@@ -68,6 +68,7 @@ function Row({
   onCompare,
   onCompareWithCurrent,
 }: RowProps) {
+  const Badge = rendererKindOf(entry.kind)?.history.Badge;
   return (
     <div
       role="row"
@@ -93,25 +94,7 @@ function Row({
           )}
           {/* A REST row carries its method; a SOAP row its version. Both are the one thing that
               says what kind of send this was, so the column is never empty. */}
-          {entry.kind === 'rest' && entry.method !== undefined ? (
-            <MethodBadge
-              method={entry.method}
-              title={`${entry.method} ${entry.requestName}`}
-              className="w-12 text-left"
-            />
-          ) : entry.kind === 'grpc' ? (
-            <span data-testid="history-grpc-badge" className="w-12 shrink-0 text-fg-faint">
-              gRPC
-            </span>
-          ) : entry.kind === 'websocket' ? (
-            <span data-testid="history-ws-badge" className="w-12 shrink-0 text-fg-faint">
-              WS
-            </span>
-          ) : (
-            <span data-testid="history-soap-version" className="w-12 shrink-0 text-fg-faint">
-              {entry.soapVersion === 'none' ? 'SOAP' : `SOAP ${entry.soapVersion}`}
-            </span>
-          )}
+          {Badge !== undefined && <Badge entry={entry} place="row" />}
           <span className="min-w-0 flex-1 truncate">
             <span className="text-fg-default">{entry.requestName}</span>
             {entry.operationName.length > 0 && <span className="text-fg-subtle"> · {entry.operationName}</span>}
@@ -216,17 +199,9 @@ export function HistoryView() {
     if (entry.requestId === undefined) {
       return;
     }
-    const exchanges = useExchangesStore.getState();
-    if (entry.kind === 'rest') {
-      const current = exchanges.restByRequest[entry.requestId]?.exchange;
-      if (current !== undefined) {
-        openCompareTab(entrySide(entry), { label: 'Current', restExchange: current });
-      }
-      return;
-    }
-    const current = exchanges.byRequest[entry.requestId]?.exchange;
+    const current = rendererKindOf(entry.kind)?.history.current?.(entry.requestId);
     if (current !== undefined) {
-      openCompareTab(entrySide(entry), { label: 'Current', body: current.response?.envelopeXml ?? '' });
+      openCompareTab(entrySide(entry), current);
     }
   };
 

@@ -5,6 +5,7 @@
  * contract checker never runs for it.
  */
 import { mkdtempSync, rmSync } from 'node:fs';
+import { webhooksOf } from '@wirebench/engine';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -42,7 +43,7 @@ async function webhookItem(): Promise<{ projectId: string; requestId: string }> 
   await host.mutate({ kind: 'set-project-property', name: 'webhookTarget', value: 'https://receiver.test/in' });
   await host.mutate({ kind: 'update-webhooks', patch: { auth: { type: 'bearer', tokenRef: 'abc123def456ghi789' } } });
   await host.mutate({ kind: 'add-webhook-folder', name: 'Orders' });
-  const folderId = host.model()?.webhooks?.folders[0]?.id as string;
+  const folderId = webhooksOf(host.model()!)?.folders[0]?.id as string;
   await host.mutate({
     kind: 'add-webhook-request',
     parentId: folderId,
@@ -50,7 +51,7 @@ async function webhookItem(): Promise<{ projectId: string; requestId: string }> 
     draft: { method: 'POST', url: '/paid' },
   });
   const project = host.model();
-  return { projectId: project?.id as string, requestId: project?.webhooks?.folders[0]?.requests[0]?.id as string };
+  return { projectId: project?.id as string, requestId: webhooksOf(project!)?.folders[0]?.requests[0]?.id as string };
 }
 
 /** `requestId` resolved as the host's send would resolve it. */
@@ -83,8 +84,14 @@ describe('ProjectHost sending a webhook item', () => {
 
   it('names the item for History and never checks it against a contract', async () => {
     const { projectId, requestId } = await webhookItem();
-    expect(host.restMeta(requestId)).toEqual({ requestName: 'Paid', apiName: 'Webhooks', folderPath: 'Orders' });
-    expect(host.restContractFor(requestId, { method: 'POST', url: 'https://receiver.test/in/paid' })).toBeUndefined();
-    expect(host.restAuthOf(webhookCollectionId(projectId))).toMatchObject({ type: 'bearer' });
+    expect(host.kind('rest').restMeta(requestId)).toEqual({
+      requestName: 'Paid',
+      apiName: 'Webhooks',
+      folderPath: 'Orders',
+    });
+    expect(
+      host.kind('rest').restContractFor(requestId, { method: 'POST', url: 'https://receiver.test/in/paid' }),
+    ).toBeUndefined();
+    expect(host.kind('rest').restAuthOf(webhookCollectionId(projectId))).toMatchObject({ type: 'bearer' });
   });
 });

@@ -16,7 +16,7 @@ import { DEFAULT_PREFERENCES, mergePreferences } from '@wirebench/engine';
 import { DialogPicks } from '../src/main/dialog-picks.js';
 import { PREFERENCES_FILE, PreferencesService, rememberPickedCaBundle } from '../src/main/preferences.js';
 import { registerSslChannels } from '../src/main/ipc/ssl.js';
-import type { PreferencesWire } from '../src/shared/wire-types.js';
+import type { PreferencesWire } from '../src/shared/wire-base.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 

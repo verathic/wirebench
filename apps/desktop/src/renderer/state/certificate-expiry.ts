@@ -19,7 +19,7 @@ import type {
   CertificateFindingWire,
   CertificatesCheckResponse,
   CertificateUntrustedWire,
-} from '../../shared/wire-types.js';
+} from '../../shared/wire-base.js';
 import { ipc } from './ipc-client.js';
 import { usePreferencesStore } from './preferences.js';
 import type { Problem } from './problems.js';

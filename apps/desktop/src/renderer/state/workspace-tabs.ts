@@ -6,130 +6,34 @@
  * preferences tab all describe a moment rather than a thing, so they are simply dropped.
  */
 
+import { entityIdOf, TAB_KINDS, tabOwner, type TabContribution } from '../kinds/index.js';
+import { kindLabel } from '../kinds/placeholders.js';
 import type { PersistedTab } from './ui-state.js';
 import { useEditorsStore, type EditorTab } from './editors.js';
-import { useProjectStore, selectEnvironment } from './project.js';
+import { useProjectStore } from './project.js';
 import { useUiStore } from './ui.js';
 import { useWorkspaceStore } from './workspace.js';
 
-/**
- * The editor-tab id for one persisted entity. These prefixes are the ones
- * `request-actions.ts`, `interface-actions.ts` and `environment-actions.ts` open under;
- * they are repeated here rather than imported so this module stays free of the feature
- * layer (which imports the stores back). `ui-state-workspaces.test.ts` pins the two together.
- */
-function tabIdFor(tab: PersistedTab): string {
-  switch (tab.kind) {
-    case 'request':
-      return `request:${tab.id}`;
-    case 'interface':
-      return `interface:${tab.id}`;
-    case 'environment':
-      return `env:${tab.id}`;
-    case 'project':
-      return `project:${tab.id}`;
-    case 'rest-request':
-      return `rest:${tab.id}`;
-    case 'api':
-      return `api:${tab.id}`;
-    case 'grpc-request':
-      return `grpc:${tab.id}`;
-    case 'grpc-api':
-      return `grpc-api:${tab.id}`;
-    case 'ws-request':
-      return `ws:${tab.id}`;
-    case 'ws-api':
-      return `ws-api:${tab.id}`;
-    case 'sequence':
-      return `sequence:${tab.id}`;
-    case 'mock':
-      return `mock:${tab.id}`;
-  }
+/** The contribution of a tab kind that survives a workspace switch. */
+function persistedContribution(kind: EditorTab['kind']): TabContribution | undefined {
+  const contribution = TAB_KINDS[kind];
+  return contribution?.persisted === true ? contribution : undefined;
 }
 
 /** The persisted shape of an open tab, or `undefined` for a kind that does not survive. */
 function persist(tab: EditorTab): PersistedTab | undefined {
-  if (tab.kind === 'request' && tab.requestId !== undefined) {
-    return { kind: 'request', id: tab.requestId };
-  }
-  if (tab.kind === 'interface' && tab.interfaceId !== undefined) {
-    return { kind: 'interface', id: tab.interfaceId };
-  }
-  if (tab.kind === 'environment' && tab.environmentId !== undefined) {
-    return { kind: 'environment', id: tab.environmentId };
-  }
-  if (tab.kind === 'project' && tab.projectId !== undefined) {
-    return { kind: 'project', id: tab.projectId };
-  }
-  if (tab.kind === 'rest-request' && tab.restRequestId !== undefined) {
-    return { kind: 'rest-request', id: tab.restRequestId };
-  }
-  if (tab.kind === 'api' && tab.apiId !== undefined) {
-    return { kind: 'api', id: tab.apiId };
-  }
-  if (tab.kind === 'grpc-request' && tab.grpcRequestId !== undefined) {
-    return { kind: 'grpc-request', id: tab.grpcRequestId };
-  }
-  if (tab.kind === 'grpc-api' && tab.grpcApiId !== undefined) {
-    return { kind: 'grpc-api', id: tab.grpcApiId };
-  }
-  if (tab.kind === 'ws-request' && tab.wsRequestId !== undefined) {
-    return { kind: 'ws-request', id: tab.wsRequestId };
-  }
-  if (tab.kind === 'ws-api' && tab.wsApiId !== undefined) {
-    return { kind: 'ws-api', id: tab.wsApiId };
-  }
-  if (tab.kind === 'sequence' && tab.sequenceId !== undefined) {
-    return { kind: 'sequence', id: tab.sequenceId };
-  }
-  if (tab.kind === 'mock' && tab.mockId !== undefined) {
-    return { kind: 'mock', id: tab.mockId };
-  }
-  return undefined;
+  const contribution = persistedContribution(tab.kind);
+  const id = contribution === undefined ? undefined : entityIdOf(tab, contribution);
+  return id === undefined ? undefined : { kind: tab.kind as PersistedTab['kind'], id };
 }
 
 /** The title one persisted tab reopens with, or `undefined` when its entity is gone. */
-function titleFor(tab: PersistedTab): string | undefined {
-  const projects = useProjectStore.getState();
-  switch (tab.kind) {
-    case 'request':
-      return projects.requests[tab.id]?.name;
-    case 'interface':
-      return projects.interfaces[tab.id]?.name;
-    case 'environment': {
-      // 'globals' and 'workspace' are sentinel ids for the two fixed scopes that are not a real
-      // environment — see `environment-actions.ts`'s `targetId`. Neither is ever a real
-      // environment's id (those are UUIDs), so this check never shadows a real one.
-      if (tab.id === 'globals') {
-        return 'Globals';
-      }
-      if (tab.id === 'workspace') {
-        return 'Workspace';
-      }
-      const workspace = useWorkspaceStore.getState().workspace;
-      const environment =
-        workspace?.environments.find((candidate) => candidate.id === tab.id) ?? selectEnvironment(projects, tab.id);
-      return environment?.name;
-    }
-    case 'project':
-      return projects.projects[tab.id]?.name;
-    case 'rest-request':
-      return projects.restRequests[tab.id]?.name;
-    case 'api':
-      return projects.apis[tab.id]?.name;
-    case 'grpc-request':
-      return projects.grpcRequests[tab.id]?.name;
-    case 'grpc-api':
-      return projects.grpcApis[tab.id]?.name;
-    case 'ws-request':
-      return projects.wsRequests[tab.id]?.name;
-    case 'ws-api':
-      return projects.wsApis[tab.id]?.name;
-    case 'sequence':
-      return projects.sequences[tab.id]?.name;
-    case 'mock':
-      return projects.mocks[tab.id]?.name;
-  }
+function titleFor(contribution: TabContribution, id: string): string | undefined {
+  return contribution.title(id, {
+    project: useProjectStore.getState(),
+    workspaceEnvironments: useWorkspaceStore.getState().workspace?.environments ?? [],
+    hookNames: {},
+  });
 }
 
 /**
@@ -163,29 +67,19 @@ export function restoreWorkspaceTabs(workspaceId: string): void {
   }
   const editors = useEditorsStore.getState();
   let activeTabId: string | undefined;
+  const enabledKinds = useUiStore.getState().enabledKinds;
   for (const tab of entry.tabs) {
-    const title = titleFor(tab);
-    if (title === undefined) {
+    const contribution = persistedContribution(tab.kind);
+    // A tab of a kind this run switched off reopens as a placeholder panel rather than vanishing: its
+    // entity is not in the mirror, so it is named for its kind.
+    const owner = tabOwner(tab.kind);
+    const off = owner !== undefined && !enabledKinds.includes(owner);
+    const title = contribution === undefined ? undefined : off ? kindLabel(owner) : titleFor(contribution, tab.id);
+    if (contribution === undefined || title === undefined) {
       continue;
     }
-    const id = tabIdFor(tab);
-    editors.open({
-      id,
-      kind: tab.kind,
-      title,
-      ...(tab.kind === 'request' ? { requestId: tab.id } : {}),
-      ...(tab.kind === 'interface' ? { interfaceId: tab.id } : {}),
-      ...(tab.kind === 'environment' ? { environmentId: tab.id } : {}),
-      ...(tab.kind === 'project' ? { projectId: tab.id } : {}),
-      ...(tab.kind === 'rest-request' ? { restRequestId: tab.id } : {}),
-      ...(tab.kind === 'api' ? { apiId: tab.id } : {}),
-      ...(tab.kind === 'grpc-request' ? { grpcRequestId: tab.id } : {}),
-      ...(tab.kind === 'grpc-api' ? { grpcApiId: tab.id } : {}),
-      ...(tab.kind === 'ws-request' ? { wsRequestId: tab.id } : {}),
-      ...(tab.kind === 'ws-api' ? { wsApiId: tab.id } : {}),
-      ...(tab.kind === 'sequence' ? { sequenceId: tab.id } : {}),
-      ...(tab.kind === 'mock' ? { mockId: tab.id } : {}),
-    });
+    const id = `${contribution.prefix}${tab.id}`;
+    editors.open({ id, kind: tab.kind, title, [contribution.idField]: tab.id });
     if (tab.id === entry.activeId) {
       activeTabId = id;
     }

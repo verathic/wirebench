@@ -17,7 +17,7 @@ import { IconButton } from '../../components/icon-button.js';
 import { SecretField } from '../../components/secret-field.js';
 import { useProjectStore, useTargetProjectId } from '../../state/project.js';
 import { useKeystoreAliases, WSS_FIELD_CLASS } from './outgoing-entry-fields.js';
-import type { WssIncomingPatchWire, WssIncomingWire } from '../../../shared/wire-types.js';
+import type { WssIncomingPatchWire, WssIncomingWire } from '../../../shared/kinds/soap/wire.js';
 
 const FIELD = WSS_FIELD_CLASS;
 

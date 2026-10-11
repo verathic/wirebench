@@ -7,7 +7,7 @@
  */
 
 import { channels } from '../../shared/ipc.js';
-import type { ScriptTargetWire } from '../../shared/wire-types.js';
+import type { ScriptTargetWire } from '../../shared/wire-base.js';
 import type { ScriptHost, ScriptTarget } from '../script-host.js';
 import { registerHandler } from './register.js';
 

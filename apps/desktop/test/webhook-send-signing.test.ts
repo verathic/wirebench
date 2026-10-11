@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { createProject, createRestRequest, createWebhookCollection, createWebhookFolder } from '@wirebench/engine';
 import type { Project, WebhookSigning } from '@wirebench/engine';
 import { previewRest } from '../src/main/send/exchange.js';
-import type { RestRequestPatchWire } from '../src/shared/wire-types.js';
+import type { RestRequestPatchWire } from '../src/shared/kinds/rest/wire.js';
 import { sendDepsFor } from './helpers/send-deps.js';
 
 const SIGNING: WebhookSigning = {
@@ -21,16 +21,18 @@ const SIGNING: WebhookSigning = {
 function project(signing?: WebhookSigning): Project {
   return {
     ...createProject('P', { id: 'p1' }),
-    webhooks: createWebhookCollection({
-      target: 'https://receiver.test/hooks',
-      folders: [
-        createWebhookFolder('Orders', {
-          id: 'g1',
-          ...(signing !== undefined ? { signing } : {}),
-          requests: [createRestRequest('Paid', { id: 'w1', method: 'POST', url: '/paid' })],
-        }),
-      ],
-    }),
+    protocols: {
+      rest: createWebhookCollection({
+        target: 'https://receiver.test/hooks',
+        folders: [
+          createWebhookFolder('Orders', {
+            id: 'g1',
+            ...(signing !== undefined ? { signing } : {}),
+            requests: [createRestRequest('Paid', { id: 'w1', method: 'POST', url: '/paid' })],
+          }),
+        ],
+      }),
+    },
   };
 }
 

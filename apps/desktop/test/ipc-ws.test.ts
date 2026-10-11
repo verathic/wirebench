@@ -19,9 +19,11 @@ import {
   type Project,
 } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
-import { registerRequestChannels, whenWsSessionsRecorded, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { whenWsSessionsRecorded, type RequestChannelDeps } from '../src/main/ipc/request.js';
 import { ExchangeRegistry } from '../src/main/send/exchange.js';
-import type { FailedExchangeWire, HistoryEntryWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { HistoryEntryWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { FailedExchangeWire } from '../src/shared/wire-base.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -123,13 +125,15 @@ function model(
     });
   return {
     ...createProject('Demo', { id: 'p1' }),
-    wsApis: [
-      createWsApi('Chat', {
-        id: 'w-1',
-        url: server.url,
-        requests: [request('ws-1', 'Echo'), request('ws-2', 'Echo 2')],
-      }),
-    ],
+    containers: {
+      websocket: [
+        createWsApi('Chat', {
+          id: 'w-1',
+          url: server.url,
+          requests: [request('ws-1', 'Echo'), request('ws-2', 'Echo 2')],
+        }),
+      ],
+    },
   };
 }
 
@@ -156,7 +160,7 @@ function project(overrides: Record<string, unknown> = {}) {
 /** Registers the channels; answers the registry they keep their sessions in. */
 function register(overrides: Partial<RequestChannelDeps> = {}, projectOverrides: Record<string, unknown> = {}) {
   const registry = new ExchangeRegistry();
-  registerRequestChannels(new EngineService(), {
+  registerRequestChannelsWithKinds(new EngineService(), {
     project: project(projectOverrides),
     adHocScopes: () => ({ project: {}, global: {}, system: {} }),
     getSecret: () => Promise.resolve(undefined),

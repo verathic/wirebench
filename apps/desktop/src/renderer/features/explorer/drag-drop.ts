@@ -6,25 +6,20 @@
  * `moveNode` instead takes an index into the one kind's own list, counted after the moved node is
  * pulled out. This module translates between the two.
  */
-import type { ExplorerNode } from './tree-nodes.js';
+import { explorerRole } from '../../kinds/index.js';
+import type { ExplorerNode, ExplorerNodeKind } from './tree-nodes.js';
 
 /**
- * A folder or request movable within an API (REST, gRPC or WebSocket), or within a project's
- * webhook collection.
+ * A folder or webhook item, or a request its kind marks movable within its API (spec §6.1): one
+ * that moves within its container.
  */
-type MovableKind = 'folder' | 'rest-request' | 'grpc-request' | 'ws-request' | 'webhook-folder' | 'webhook-request';
-
-const MOVABLE_KINDS: ReadonlySet<string> = new Set<MovableKind>([
-  'folder',
-  'rest-request',
-  'grpc-request',
-  'ws-request',
-  'webhook-folder',
-  'webhook-request',
-]);
-
-function isMovable(node: ExplorerNode): node is ExplorerNode & { readonly kind: MovableKind } {
-  return MOVABLE_KINDS.has(node.kind);
+function isMovable(node: ExplorerNode): boolean {
+  return (
+    node.kind === 'folder' ||
+    node.kind === 'webhook-folder' ||
+    node.kind === 'webhook-request' ||
+    explorerRole(node.kind)?.movable === true
+  );
 }
 
 const isWebhookKind = (kind: string): boolean => kind === 'webhook-folder' || kind === 'webhook-request';
@@ -34,7 +29,7 @@ const isFolderKind = (kind: string): boolean => kind === 'folder' || kind === 'w
 /** One `moveNode` call: where one dragged node goes, in its kind's list under the target parent. */
 export interface PlannedMove {
   readonly entityId: string;
-  readonly kind: MovableKind;
+  readonly kind: ExplorerNodeKind;
   readonly index: number;
 }
 
@@ -58,44 +53,36 @@ export function planMoves(
   index: number,
 ): PlannedMove[] {
   const draggedIds = new Set(dragged.map(movableId).filter((id): id is string => id !== undefined));
-  const lists: Record<MovableKind, string[]> = {
-    folder: [],
-    'rest-request': [],
-    'grpc-request': [],
-    'ws-request': [],
-    'webhook-folder': [],
-    'webhook-request': [],
+  // Each movable kind's own list under the parent, and the node each dragged one goes after.
+  const lists = new Map<ExplorerNodeKind, string[]>();
+  const listOf = (kind: ExplorerNodeKind): string[] => {
+    const list = lists.get(kind) ?? [];
+    lists.set(kind, list);
+    return list;
   };
-  const anchors: Record<MovableKind, string | undefined> = {
-    folder: undefined,
-    'rest-request': undefined,
-    'grpc-request': undefined,
-    'ws-request': undefined,
-    'webhook-folder': undefined,
-    'webhook-request': undefined,
-  };
+  const anchors = new Map<ExplorerNodeKind, string>();
 
   children.forEach((child, position) => {
     const id = movableId(child);
-    if (id === undefined || !isMovable(child)) return;
-    lists[child.kind].push(id);
+    if (id === undefined) return;
+    listOf(child.kind).push(id);
     if (position < index && !draggedIds.has(id)) {
-      anchors[child.kind] = id;
+      anchors.set(child.kind, id);
     }
   });
 
   const plan: PlannedMove[] = [];
   for (const node of dragged) {
     const entityId = movableId(node);
-    if (entityId === undefined || !isMovable(node)) continue;
-    const list = lists[node.kind];
+    if (entityId === undefined) continue;
+    const list = listOf(node.kind);
     const current = list.indexOf(entityId);
     if (current !== -1) list.splice(current, 1);
 
-    const anchor = anchors[node.kind];
+    const anchor = anchors.get(node.kind);
     const target = anchor === undefined ? 0 : list.indexOf(anchor) + 1;
     list.splice(target, 0, entityId);
-    anchors[node.kind] = entityId;
+    anchors.set(node.kind, entityId);
     plan.push({ entityId, kind: node.kind, index: target });
   }
   return plan;
@@ -128,7 +115,7 @@ export function isDropDisabled({ parent, children, dragged, index, sameProject, 
     // The collection has one per project, so `sameProject` already pins it down.
     if (parent.kind !== 'webhook-collection' && parent.kind !== 'webhook-folder') return true;
   } else {
-    if (parent.kind !== 'api' && parent.kind !== 'grpc-api' && parent.kind !== 'ws-api' && parent.kind !== 'folder') {
+    if (explorerRole(parent.kind)?.dropTarget !== true && parent.kind !== 'folder') {
       return true;
     }
     if (parent.apiId !== dragged.apiId) return true;

@@ -8,24 +8,12 @@ import { openSecretTokenDialog } from '../features/secrets/secret-token-actions.
 import { runValidation } from '../features/request-editor/validate-actions.js';
 import { recordContractProblems } from '../features/rest-editor/response/contract.js';
 import type { AnyExchangeSummary } from '../features/request-editor/response-status.js';
-import type {
-  EnvSendResult,
-  ExchangeFailedEvent,
-  ExchangeLoggedEvent,
-  ExchangeSummary,
-  FailedExchangeWire,
-  GrpcExchangeSummary,
-  GrpcLiveEvent,
-  GrpcResponseMessageWire,
-  RestExchangeSummary,
-  RestLiveEvent,
-  SseRowWire,
-  UnresolvedRefWire,
-  WsExchangeSummary,
-  WsFrameWire,
-  WsHandshakeWire,
-  WsLiveEvent,
-} from '../../shared/wire-types.js';
+import type { EnvSendResult, ExchangeLoggedEvent } from '../../shared/wire-types.js';
+import type { GrpcExchangeSummary, GrpcLiveEvent, GrpcResponseMessageWire } from '../../shared/kinds/grpc/wire.js';
+import type { RestExchangeSummary, RestLiveEvent, SseRowWire } from '../../shared/kinds/rest/wire.js';
+import type { ExchangeSummary } from '../../shared/kinds/soap/wire.js';
+import type { WsExchangeSummary, WsFrameWire, WsHandshakeWire, WsLiveEvent } from '../../shared/kinds/ws/wire.js';
+import type { ExchangeFailedEvent, FailedExchangeWire, UnresolvedRefWire } from '../../shared/wire-base.js';
 import { ipc } from './ipc-client.js';
 import { usePreferencesStore } from './preferences.js';
 import type { Problem } from './problems.js';

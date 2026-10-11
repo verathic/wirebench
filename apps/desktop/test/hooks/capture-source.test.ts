@@ -7,7 +7,7 @@ import {
   desktopCaptureSource,
   linkedServerOf,
 } from '../../src/main/hooks/capture-source.js';
-import type { WorkspaceWire } from '../../src/shared/wire-types.js';
+import type { WorkspaceWire } from '../../src/shared/wire-base.js';
 
 const SERVER = 'https://wb.example.test';
 const TOKEN = 'wbs_abc123def456ghi789abc123def456ghi789abc123d';

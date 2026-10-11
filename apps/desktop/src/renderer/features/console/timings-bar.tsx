@@ -1,4 +1,4 @@
-import type { ExchangeSummary } from '../../../shared/wire-types.js';
+import type { ExchangeSummary } from '../../../shared/kinds/soap/wire.js';
 
 type Timings = ExchangeSummary['http']['timings'];
 

@@ -2,6 +2,9 @@
  * What one HTTP Log row can do, and why an action is off. A pure table: the row menu renders it,
  * `runRowAction` (log-row-menu.tsx) carries it out.
  */
+import { rendererKindOf } from '../../kinds/index.js';
+import { placeholderMessage } from '../../kinds/placeholders.js';
+import { useUiStore } from '../../state/ui.js';
 import { decodeBase64Text } from '../../lib/format-size.js';
 import { isStsRow, type LogEntry } from '../../state/exchanges.js';
 import { useProjectStore } from '../../state/project.js';
@@ -31,10 +34,12 @@ export interface RowAction {
 export interface RequestLookup {
   has(protocol: LogProtocol, requestId: string): boolean;
   unaryGrpc(requestId: string): boolean;
+  /** Whether this run has the kind on (`WIREBENCH_KINDS`); absent means every kind is. */
+  enabled?(protocol: LogProtocol): boolean;
 }
 
 /** Whether a REST row's own exchange is an event stream — a `RestExchangeSummary` carrying `stream`. */
-function isSseExchange(entry: LogEntry): boolean {
+export function isSseExchange(entry: LogEntry): boolean {
   return (
     entry.kind === 'exchange' &&
     !('protocol' in entry.exchange) &&
@@ -87,10 +92,18 @@ export function rowActions(entry: LogEntry, lookup: RequestLookup): RowAction[] 
   const exists = requestId !== undefined && lookup.has(protocol, requestId);
   const failed = entry.kind === 'failure';
 
-  const missingReason = requestId === undefined ? 'Not from a saved request' : 'The request no longer exists';
+  // A row of a kind this run switched off keeps its saved text, with no resend or open (spec §7.2).
+  const switchedOff =
+    lookup.enabled?.(protocol) === false ? placeholderMessage(protocol, 'feature-disabled') : undefined;
+  const missingReason =
+    switchedOff ?? (requestId === undefined ? 'Not from a saved request' : 'The request no longer exists');
+  const log = rendererKindOf(protocol)?.log;
+  const refusal = requestId === undefined ? undefined : log?.resendRefusal?.(entry, requestId, lookup);
   let resend: RowAction;
-  if (protocol === 'websocket') {
-    resend = off('resend', 'Resend', 'A WebSocket session reconnects from the request');
+  if (switchedOff !== undefined) {
+    resend = off('resend', 'Resend', switchedOff);
+  } else if (log?.noResend !== undefined) {
+    resend = off('resend', 'Resend', log.noResend);
   } else if (isStsRow(entry)) {
     // The saved request would be sent, not this token request, which main keeps no copy of to replay.
     resend = off('resend', 'Resend', 'A token request is made again by sending the request it was made for');
@@ -98,10 +111,8 @@ export function rowActions(entry: LogEntry, lookup: RequestLookup): RowAction[] 
     resend = off('resend', 'Resend', missingReason);
   } else if (stageOf(entry) === 'prepare') {
     resend = off('resend', 'Resend', 'Never sent');
-  } else if (protocol === 'grpc' && !lookup.unaryGrpc(requestId)) {
-    resend = off('resend', 'Resend', 'Streaming calls resend from the editor');
-  } else if (protocol === 'rest' && isSseExchange(entry)) {
-    resend = off('resend', 'Resend', 'Event streams resend from the editor');
+  } else if (refusal !== undefined) {
+    resend = off('resend', 'Resend', refusal);
   } else {
     resend = on('resend', 'Resend', RESEND_HINT);
   }
@@ -118,29 +129,22 @@ export function rowActions(entry: LogEntry, lookup: RequestLookup): RowAction[] 
       : on('copy-response-headers', 'Copy response headers'),
     failed
       ? off('copy-response-body', 'Copy response body', 'No response')
-      : protocol === 'websocket'
-        ? off('copy-response-body', 'Copy response body', 'A handshake has no body')
+      : log?.noBody !== undefined
+        ? off('copy-response-body', 'Copy response body', log.noBody)
         : on('copy-response-body', 'Copy response body'),
     resend,
-    exists ? on('open-request', 'Open request') : off('open-request', 'Open request', missingReason),
+    exists && switchedOff === undefined
+      ? on('open-request', 'Open request')
+      : off('open-request', 'Open request', missingReason),
   ];
 }
 
 /** A {@link RequestLookup} over the open projects. */
 export function projectLookup(): RequestLookup {
   return {
-    has: (protocol, requestId) => {
-      const state = useProjectStore.getState();
-      const records =
-        protocol === 'soap'
-          ? state.requests
-          : protocol === 'rest'
-            ? state.restRequests
-            : protocol === 'websocket'
-              ? state.wsRequests
-              : state.grpcRequests;
-      return records[requestId] !== undefined;
-    },
+    enabled: (protocol) => useUiStore.getState().enabledKinds.includes(protocol),
+    has: (protocol, requestId) =>
+      rendererKindOf(protocol)?.requests.exists(requestId, useProjectStore.getState()) === true,
     unaryGrpc: (requestId) => useProjectStore.getState().grpcRequests[requestId]?.methodKind === 'unary',
   };
 }

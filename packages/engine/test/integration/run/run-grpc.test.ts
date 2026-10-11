@@ -75,14 +75,12 @@ function makeProject(
     settings: DEFAULT_PROJECT_SETTINGS,
     properties: {},
     disabledProperties: [],
-    interfaces: [],
-    apis: [],
-    grpcApis: [api],
-    wsApis: [],
+    containers: { grpc: [api] },
+
     sequences: [],
     mocks: [],
     environments: [],
-    wss: { outgoing: [], incoming: [], keystores: [] },
+    keystores: [],
   };
 }
 

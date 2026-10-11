@@ -4,7 +4,7 @@ import type { EnvironmentTarget } from './environment-actions.js';
 import { queueEnvironmentPatch } from './environment-queue.js';
 import { VariablesTable, type InheritedScope, type VariablesTableTarget } from './variables-table.js';
 import { currentColumn, useCurrentValues } from '../../state/current-values.js';
-import type { ScopeKeyWire } from '../../../shared/wire-types.js';
+import type { ScopeKeyWire } from '../../../shared/wire-base.js';
 import { useGlobalsStore } from '../../state/globals.js';
 import { selectEnvironment, useProjectStore } from '../../state/project.js';
 import { useWorkspaceStore } from '../../state/workspace.js';

@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EXCHANGE_CACHE_CAP, ExchangeCache } from '../src/main/exchange-cache.js';
 import { registerExchangeChannels } from '../src/main/ipc/exchanges.js';
 import { ShowSecretsFlag } from '../src/main/secrets.js';
-import type { ExchangeSummary, RestExchangeSummary } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary } from '../src/shared/kinds/rest/wire.js';
+import type { ExchangeSummary } from '../src/shared/kinds/soap/wire.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 

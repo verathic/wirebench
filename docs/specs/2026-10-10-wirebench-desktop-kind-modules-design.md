@@ -83,7 +83,7 @@ with a phase that has merged. This phase removes them.
 | `project/schema.ts` | WS-Security defaults | The typed WS-Security entry schemas move to `wss/schema.ts`. Core keeps the loose stored-entry schema the loader uses. |
 | `project/load.ts`, `serialize.ts` | REST's request reader and writer, the webhook model | §3. |
 | `project/request-location.ts` | `RestFolder` (type-only) | A storage hook, `requestLocation(container, requestId)`, asked of each enabled module. |
-| `secrets/scan/walk.ts`, `apply.ts` | the request types (type-only) | A secrets facet on the module: `scanTargets(container)` and `applyMoves(container, moves)`. `SecretLocation` becomes `{ kind, part, … }`, with the part names unchanged. |
+| `secrets/scan/walk.ts`, `apply.ts` | the request types (type-only) | A secrets facet on the module: `scanTargets(project)` and `applyMoves(project, rewriter)`, per project so REST covers the webhook collection in its place. `SecretLocation` keeps its kinds, which the desktop's wire mirrors. |
 
 `RunContext.defaultWsaActionFor` and `loadedDefinitionFor`, the SOAP members of the run context, stay:
 they name no protocol folder, only the composition file's `SelectedRequest`.
@@ -135,9 +135,18 @@ apps/desktop/src/shared/
     rest/  kind.ts  wire.ts  channels.ts      (webhooks, SSE, OpenAPI, Postman, HAR, .http)
     grpc/  kind.ts  wire.ts  channels.ts
     ws/    kind.ts  wire.ts  channels.ts      (AsyncAPI)
-  wire-types.ts         what no protocol owns, plus the composed schemas
+  wire-base.ts          what no protocol owns
+  wire-types.ts         the composed schemas, and a re-export of every name
+  ipc-contract.ts       defineChannel, defineEvent and their types
   ipc.ts                channels and events, composed
 ```
+
+_As built (slice 4):_ a kind's wire file cannot import `wire-types.ts` while `wire-types.ts` imports
+it: zod builds schemas at load time, so the cycle would read a binding before it is set. What no
+kind owns is therefore in `wire-base.ts`, which the kinds import; `wire-types.ts` keeps only the
+schemas that compose several kinds and re-exports every name. `ipc-contract.ts` holds
+`defineChannel` and `defineEvent` for the same reason, so a kind's `channels.ts` never imports the
+registry that spreads it.
 
 ### 4.1 The shared half of a kind
 
@@ -158,14 +167,15 @@ process-specific and no zod, so the renderer may value-import it.
 
 - Each `kinds/<kind>/wire.ts` holds the schemas only that kind uses, moved verbatim with their
   names. What two kinds share (`keyValueWireSchema`, `httpExchangeWireSchema`, `tlsInfoWireSchema`,
-  the folder schema REST, gRPC and WebSocket use, `definitionAuthWireSchema`,
-  `requestPreflightResponseSchema`) stays in `wire-types.ts`. A kind's wire file imports
-  `wire-types.ts` and never another kind's.
-- The composition points stay in `wire-types.ts` and are built from the kinds' parts:
-  `projectWireSchema` (per-kind fields from each kind's `projectWireFields`), `projectChangeSchema`
-  (core arms plus each kind's `changeArms`), `historyEntrySchema`, `logEntryWireSchema`,
-  `exchangesGetResponseSchema`, the curl and multi-environment unions and the workspace draft
-  maps. Field names, arm order and union order are unchanged.
+  the folder schema REST, gRPC and WebSocket use, `definitionAuthWireSchema`) is in `wire-base.ts`.
+  A kind's wire file imports `wire-base.ts` and never another kind's.
+- The composition points stay in `wire-types.ts`: `projectWireSchema`, `projectChangeSchema`,
+  `historyEntrySchema`, `logEntryWireSchema`, `exchangesGetResponseSchema`, the curl and
+  multi-environment unions, the workspace draft maps, and every response that carries a whole
+  project. Field names, arm order and union order are unchanged. _As built:_ they name the kinds'
+  schemas as they always did rather than spreading a `projectWireFields` or `changeArms` per kind;
+  the per-kind lists would only reorder the arms, and main's mutations (§5.2) key on the change
+  kind, not on where its arm is written.
 - `wire-types.ts` re-exports every moved name for one release, so the 230 test files and 275 source
   files that import it keep compiling; the source files are moved to the kind files in the slice
   that moves the code, and the re-exports are removed in the last slice (§11).
@@ -236,6 +246,14 @@ mutations today (`takenApiSlugs`, `toEngineAuthConfig`, `toEngineRows`) moves in
 The cross-kind cases that probe each kind's lists (`add-folder`, `update-folder`, `remove-folder`,
 `move-node`) ask each kind whether it owns the API or folder id instead.
 
+_As built (slice 5):_ each kind's table sits at the end of its `mutations.ts`
+(`kinds/<kind>/mutations.ts`, REST's webhook changes in `kinds/rest/webhooks/mutations.ts`, the
+WS-Security reducers in `kinds/soap/wss-mutations.ts`), and a reducer takes `(project, change, deps)`.
+The four folder changes stay core change kinds: core asks each kind's optional `tree` facet
+(`ownsApi`, `ownsNode`, and the four reducers) and refuses an id no kind owns with
+`project-entity-not-found`. `CORE_CHANGE_KINDS` lists what core applies, so a test can hold every
+change kind to exactly one owner.
+
 ### 5.3 The project host
 
 `ProjectHost` keeps what is about no protocol: open, close, save, autosave, the watcher, mutate,
@@ -250,6 +268,17 @@ on a `ProjectHostCore` the host passes in. `ProjectHost.kind('rest')` returns it
   `exportApiDefinitionTo`) ask each kind whether it owns the API id.
 - `closeInternal`, `hydrateAll` and the post-mutation cache drops call every kind's host.
 
+_As built (slice 5):_ `ProjectHostCore` is a `Pick` of `ProjectHost` (`project-host-core.ts`), so the
+members a kind's host reads are public on the host. Each kind declares its router methods once, in
+`kinds/<kind>/router.ts`: a table naming the host method each reaches and how its host is found (by
+the leading entity id, or by a leading project id that is dropped or kept). `ProjectRouter` extends
+the kinds' router types derived from those tables, `window-scope.ts` lists the core's methods and
+adds each kind's, and `WorkspaceService` installs the kinds' forwarders on its prototype from the
+same tables. Core calls each kind's host through optional hooks (`hydrate`, `close`,
+`afterChange`, `wireOptions`, `apiDefinitions`). `preflight` still asks SOAP's host for a request's
+default `wsa:Action`, and `mutate` hands SOAP's `addAttachmentFile`, until slice 6 moves the send
+path.
+
 ### 5.4 IPC
 
 `ipc/request.ts`, `ipc/api.ts`, the resends in `ipc/history.ts` and `ipc/log.ts`, `ipc/search.ts`
@@ -258,11 +287,31 @@ and the SOAP-only modules (`definition`, `wsa`, `wss`, `wsi`, `xml`, `xpath`, `v
 names no kind. The importers that write several kinds' APIs (Postman, `.http`, OpenCollection) stay
 in core `ipc/api.ts` until phase 7, and call each kind's host for its part.
 
+_As built (slice 6):_ each `kinds/<k>/ipc.ts` ends with `register<K>Channels(deps: KindChannelDeps)`,
+which registers that kind's request, API and History-resend channels; `index.ts` calls every
+kind's `registerChannels` once. The core modules export the helpers the kinds' channels share.
+The SOAP-only modules moved to `kinds/soap/channels/`. Search and the HTTP log took facets
+instead of channels: `ipc/search.ts` walks `MAIN_KINDS` (`search.requests`, then
+`search.definitions`), and `log.resend` calls the kind's `log` facet (WebSocket refuses with
+`ws-resend-streaming`). The Code panel's `request.curl` stays in core `ipc/request.ts` for now:
+its builders share the redaction and network-note helpers there. Tests register channels through
+`test/helpers/kind-channels.ts`.
+
 ### 5.5 The send path
 
 `send/exchange.ts`, `draft.ts`, `live.ts`, `record.ts` and `sequence-runner.ts` look up the item's
 kind in `MAIN_KINDS` instead of switching. `ExchangeRegistry`'s WebSocket session rules stay in
 `exchange.ts`, keyed by the module's `interactive` flag rather than the kind name.
+
+_As built (slice 6):_ the per-kind send steps (`selected`, `summarise`, `record`,
+`recordFailure`, `sentAudit`, `failedAudit`, `liveEvent`) are each kind's `send` facet in
+`kinds/<k>/send.ts`. The send path reads them from `kinds/kind-send.ts` (`KIND_SENDS`) and the
+router from `kinds/kind-routes.ts` (`KIND_ROUTES`), not from `MAIN_KINDS`: `kind-main` imports
+every kind's channels, which import the send path, so reading `MAIN_KINDS` there closes a cycle.
+`test/kind-main-load-order.test.ts` loads each entry first and checks all four kinds are seen.
+`isInteractive(kind)` reads `KindModule.interactive`, which only the WebSocket module sets. The
+typed per-kind preview functions in `exchange.ts` keep their kind names, since each one is
+already a single kind's entry point.
 
 ## 6. Renderer: a registry of kinds
 
@@ -317,6 +366,26 @@ interface TabContribution {
 - `renderer/kinds/*/index.tsx` imports each component through `lazy()`, so the eager-import guard
   is unaffected.
 
+_As built (slice 7):_ `RendererKind` carries `tabs`, `explorer`, `requests` (`open`, `exists`),
+`history`, `search`, an optional `log` and `registerCommands`.
+
+- **Tabs.** `TAB_KINDS` holds only the tabs that name an entity. A diff, an environment
+  comparison, the cookie manager and a terminal stay with the editor area. A row also carries
+  `dirty` (the tab's unsaved dot) and `detail` (SOAP's operation name in the tab menu).
+- **Explorer.** The explorer facet is a table of node roles by node kind: icon, test id, gutter
+  badge, API badge, click behaviour, movable, drop target, open, rename, remove and menu. It also
+  has `newRequestIn`, `importCurlIn`, `ownsApi`, and the confirm dialog's `deletions`.
+- **Explorer tree.** The tree contribution is a pure `kinds/<kind>/explorer-tree.ts`, listed in
+  `kinds/explorer-trees.ts`, so `tree-nodes.ts` and its tests do not load the editors. REST, gRPC
+  and WebSocket share one folder walker (`features/explorer/container-tree.ts`). Folder rows carry
+  `ownerKind`.
+- **History, Search and Log.** The WebSocket and event-stream History bodies moved into
+  `kinds/ws` and `kinds/rest` and load lazily. SOAP's search reveal moved to
+  `kinds/soap/search.ts`.
+- **Still in core.** Webhook, sequence, mock and values rows stay in core. So do the log's name
+  column (`log-name.ts`), the `active*RequestId` command helpers, and the commands that span
+  kinds (send to environments, cancel, Show code).
+
 ### 6.2 Store slices
 
 The project store keeps its per-kind maps (`restRequests`, `grpcApis`, …) because the wire keeps its
@@ -356,6 +425,28 @@ The engine already refuses to rewrite or delete a placeholder's files (ADR-0017)
 nothing that could: a placeholder has no id the mutations accept. A test opens a project with a
 disabled kind, edits and saves another container, and compares the disabled container's files byte
 for byte.
+
+_As built (slice 8):_ main builds the switched registry once (`main/kinds/enabled-kinds.ts`) and passes
+it through `WorkspaceService` to each project host, which hands it to every load, save, `projectFiles`
+and run context. A first version made it the engine's process default instead; it was removed after
+review, since it reached every call that passed none and leaked between tests. `ProjectWire.unsupported` is optional, so a project with none
+sends nothing new. A kind that is off registers none of its channels at all, so a call to one fails as
+an unknown channel rather than with `feature-disabled`; the renderer never makes one, since it
+registers none of the kind's commands and shows its containers as placeholders. The shell files'
+guard (`test/kind-literals.test.ts`) allows union members, which declare a row kind, and the typed
+preview entry points in `exchange.ts`, which ask for their own kind's preview by name. The WebSocket
+session follower moved to `main/kinds/ws/session.ts`, and each kind's `keyMasks` send facet gives the
+API key names a send masks.
+
+_As built (after review):_ main refuses a change, a folder change in an API, or a routed host call
+through a kind that is off with `feature-disabled` (`details.feature`), as the engine refuses a
+feature; the enabled kinds reach `applyChange` from `index.ts` through `WorkspaceService` and the
+project host's hooks. A kind's project-level files go with it: REST's `webhooks/` and SOAP's `wss/`
+are neither loaded nor saved while it is off, so at open main asks the off module's
+`projectFiles.managed` what is on disk and adds one placeholder per folder (`dir` widened to any
+folder). The WS-Security view keeps the keystores, which every kind uses, and says SOAP is off in
+place of the configurations. REST reads no WS-Security configuration, so soap=off changes no REST
+send.
 
 ## 8. Errors
 
@@ -401,6 +492,11 @@ interface Project {
 - `CHANGELOG.md`: the placeholder row and `WIREBENCH_KINDS` under Added, and the engine's changed
   `Project` and `SendHost` under Changed (breaking) for 6.0.0.
 
+_As built (slice 8):_ ADR-0017's exception table had already lost its rows in slices 1 to 3; its
+consequences gained an amendment pointing to ADR-0023. The engine README and the CHANGELOG need no
+new engine entry: the registry is passed, as every engine call already allowed. The `wire-types.ts` re-exports are gone: every import names the file that
+declares the name, rewritten over the TypeScript AST.
+
 ## 11. Slices
 
 Each slice is its own pull request against `main`, keeps `pnpm check` and e2e green, and changes no
@@ -408,8 +504,10 @@ behaviour except where it says so.
 
 1. **Engine leftovers** (§2): history records, issued tokens and the host slot, the WS-Security
    entry schemas.
-2. **One container map** (§9): SOAP's model out of core, the map and the typed readers, request
-   location and the secrets facet (§2).
+2. **One container map** (§9), in two pull requests:
+   1. the map, the typed readers and writers, and request location (§2);
+   2. SOAP's model out of core, the secrets facet (§2), and `workspace/reidentify.ts` reading SOAP's
+      containers through a module rather than its own exception.
 3. **Project-level files** (§3): webhooks into REST, WS-Security configurations into SOAP,
    `Project.keystores`.
 4. **Shared** (§4): `shared/kinds/`, wire types and channels per kind, composed; the channel-name

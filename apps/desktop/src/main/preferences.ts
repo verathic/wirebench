@@ -22,7 +22,7 @@ import type { findGit, Preferences, PreferencesPatch, PreferencesSection } from 
 import { applyPolicy, loadPolicy, lockedKeysIn, noPolicy } from './policy.js';
 import type { Policy } from './policy.js';
 
-import type { PreferencesWire } from '../shared/wire-types.js';
+import type { PreferencesWire } from '../shared/wire-base.js';
 
 /**
  * The JSON-plain, mutable mirror of a {@link Preferences} document. A structural clone rather

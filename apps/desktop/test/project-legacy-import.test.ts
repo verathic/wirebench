@@ -35,7 +35,7 @@ function requestNames(project: ProjectWire): string[] {
 describe('ProjectHost.importLegacyProject', () => {
   it('imports the full fixture offline and reports what it left behind', async () => {
     const legacy = await readLegacySoapProject({ kind: 'file', path: join(fixtures, 'full.xml') });
-    const { project, report } = await host.importLegacyProject({ project: legacy });
+    const { project, report } = await host.kind('soap').importLegacyProject({ project: legacy });
 
     expect(project.interfaces.map((iface) => [iface.name, iface.hydration])).toEqual([
       ['EchoBinding', 'ready'],
@@ -58,7 +58,7 @@ describe('ProjectHost.importLegacyProject', () => {
 
   it('writes the scripts under imported-scripts/, where a save leaves them alone', async () => {
     const legacy = await readLegacySoapProject({ kind: 'file', path: join(fixtures, 'full.xml') });
-    await host.importLegacyProject({ project: legacy });
+    await host.kind('soap').importLegacyProject({ project: legacy });
     const afterLoad = join(projectDir, 'imported-scripts', 'afterLoadScript.groovy');
     expect(await readFile(afterLoad, 'utf8')).toBe("log.info('project loaded')\n// second line");
     expect(existsSync(join(projectDir, 'imported-scripts', 'Smoke', 'setupScript.js'))).toBe(true);
@@ -73,7 +73,7 @@ describe('ProjectHost.importLegacyProject', () => {
     await writeFile(join(projectDir, 'imported-scripts', 'afterLoadScript.groovy'), 'mine');
     const legacy = await readLegacySoapProject({ kind: 'file', path: join(fixtures, 'full.xml') });
 
-    const { report } = await host.importLegacyProject({ project: legacy });
+    const { report } = await host.kind('soap').importLegacyProject({ project: legacy });
 
     expect(await readFile(join(projectDir, 'imported-scripts', 'afterLoadScript.groovy'), 'utf8')).toBe('mine');
     expect(await readFile(join(projectDir, 'imported-scripts', 'afterLoadScript-2.groovy'), 'utf8')).toBe(
@@ -89,7 +89,7 @@ describe('ProjectHost.importLegacyProject', () => {
 
   it('never writes a password into the project folder', async () => {
     const legacy = await readLegacySoapProject({ kind: 'file', path: join(fixtures, 'full.xml') });
-    await host.importLegacyProject({ project: legacy });
+    await host.kind('soap').importLegacyProject({ project: legacy });
     const files = (await readdir(projectDir, { recursive: true, withFileTypes: true }))
       .filter((entry) => entry.isFile())
       .map((entry) => join(entry.parentPath, entry.name));
@@ -101,7 +101,7 @@ describe('ProjectHost.importLegacyProject', () => {
 
   it('reopens offline from the definition cache it wrote', async () => {
     const legacy = await readLegacySoapProject({ kind: 'file', path: join(fixtures, 'minimal.xml') });
-    await host.importLegacyProject({ project: legacy });
+    await host.kind('soap').importLegacyProject({ project: legacy });
     await host.close();
 
     host = new ProjectHost(new EngineService());
@@ -118,7 +118,7 @@ describe('ProjectHost.importLegacyProject', () => {
       'definition="http://example.invalid/nested/service.wsdl"',
       `definition="${local}"`,
     );
-    const { project, report } = await host.importLegacyProject({ project: parseLegacyProject(text) });
+    const { project, report } = await host.kind('soap').importLegacyProject({ project: parseLegacyProject(text) });
     expect(project.interfaces).toEqual([]);
     expect(report.items).toContainEqual({
       severity: 'warning',

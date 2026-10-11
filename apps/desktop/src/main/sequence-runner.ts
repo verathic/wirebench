@@ -53,7 +53,7 @@ import type {
   SequenceRunResultWire,
   SequenceStepResultWire,
   SequenceWaitingEvent,
-} from '../shared/wire-types.js';
+} from '../shared/wire-base.js';
 
 /** What a run needs from the app around it. */
 export interface SequenceRunDeps {

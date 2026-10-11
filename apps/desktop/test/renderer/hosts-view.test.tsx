@@ -19,7 +19,7 @@ import { useHostsStore } from '../../src/renderer/features/ssh/hosts-store.js';
 import { useEditorsStore } from '../../src/renderer/state/editors.js';
 import { useWorkspaceStore } from '../../src/renderer/state/workspace.js';
 import { DEFAULT_HOSTS_PREFS, readHostsPrefs, writeHostsPrefs } from '../../src/renderer/features/ssh/hosts-prefs.js';
-import type { WorkspaceWire } from '../../src/shared/wire-types.js';
+import type { WorkspaceWire } from '../../src/shared/wire-base.js';
 
 const defaults = {
   user: { value: undefined, from: 'default' },

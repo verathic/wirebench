@@ -10,7 +10,7 @@ import { lstat, rm } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { readGoldenFile, requestFileLocation, WirebenchError, writeGoldenFile } from '@wirebench/engine';
 import type { GoldenWrite, Project } from '@wirebench/engine';
-import type { SnapshotReadResponse } from '../shared/wire-types.js';
+import type { SnapshotReadResponse } from '../shared/wire-base.js';
 import { isInsideReal, realpathOfPrefix } from './path-containment.js';
 
 /** The saved project that holds a request: its model and the folder it was saved to. */
@@ -149,6 +149,8 @@ export class SnapshotStore {
     if (saved === undefined) {
       return undefined;
     }
+    // The built-in registry: a request of a kind that is off is not in the model, so this run's would
+    // find the same file.
     const location = requestFileLocation(saved.project, requestId);
     if (location === undefined) {
       return undefined;

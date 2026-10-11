@@ -8,24 +8,10 @@
 
 import type { ProtocolRegistry } from '../protocol/registry.js';
 import { defaultRegistry } from '../protocols.js';
-import type { RestRequestDef } from '../rest/model.js';
-import { signingDocument, writeRestRequest } from '../rest/storage.js';
 import { mockFiles } from '../mock/file.js';
 import { sequenceDocument, sequenceFilePath } from '../sequence/file.js';
-import type { WebhookCollection, WebhookFolder } from '../webhooks/model.js';
-import type { Project, PropertyMap, WssRef } from './model.js';
-import {
-  assertPathSegment,
-  assertWssRelativePath,
-  ENVIRONMENTS_DIR,
-  REQUESTS_DIR,
-  slugify,
-  WEBHOOKS_DIR,
-  WEBHOOKS_FEATURE,
-  WEBHOOKS_FILE,
-  WSS_DIR,
-} from './paths.js';
-import { addFolderFiles, authDocument } from './serialize-helpers.js';
+import type { Project, PropertyMap } from './model.js';
+import { assertPathSegment, ENVIRONMENTS_DIR, WSS_DIR } from './paths.js';
 import { compact, stringifyYaml } from './yaml.js';
 
 export { authDocument } from './serialize-helpers.js';
@@ -50,46 +36,6 @@ function disabledList(disabled: readonly string[], properties: PropertyMap): rea
   return kept.length > 0 ? kept : undefined;
 }
 
-/** The webhook collection's files: `webhooks/webhooks.yaml` and the request tree under it. */
-function addWebhookFiles(files: Map<string, string>, webhooks: WebhookCollection): void {
-  files.set(
-    `${WEBHOOKS_DIR}/${WEBHOOKS_FILE}`,
-    stringifyYaml(
-      compact({
-        target: webhooks.target,
-        auth: webhooks.auth === undefined ? undefined : authDocument(webhooks.auth),
-        signing: signingDocument(webhooks.signing),
-      }),
-    ),
-  );
-  addFolderFiles<RestRequestDef>(files, `${WEBHOOKS_DIR}/${REQUESTS_DIR}`, webhooks, 0, writeRestRequest, (folder) => {
-    const hook = folder as Partial<WebhookFolder>;
-    return {
-      target: hook.target,
-      source: hook.source === undefined ? undefined : { apiId: hook.source.apiId },
-      signing: signingDocument(hook.signing),
-    };
-  });
-}
-
-function wssDocument(ref: WssRef): string {
-  return stringifyYaml(ref.document);
-}
-
-/**
- * Relative path of a WS-Security configuration file.
- *
- * @throws ProjectError `project-path-invalid` when `ref.file` is not a
- * relative path rooted at `wss/` with only safe segments.
- */
-export function wssRefPath(direction: 'outgoing' | 'incoming', ref: WssRef): string {
-  if (ref.file !== undefined) {
-    assertWssRelativePath(ref.file);
-    return ref.file;
-  }
-  return `${WSS_DIR}/${direction}/${slugify(ref.name)}.yaml`;
-}
-
 /** Options for {@link projectFiles}. */
 export interface ProjectFilesOptions {
   /** Recorded in the manifest as `writtenBy`. Defaults to `'wirebench'`. */
@@ -99,11 +45,11 @@ export interface ProjectFilesOptions {
 }
 
 /**
- * Builds the complete `relative path -> content` map for a project: core's own files, and every
- * enabled module's `storage.files` for each of its containers (spec §5.2).
+ * Builds the complete `relative path -> content` map for a project: core's own files, every enabled
+ * module's `storage.files` for each of its containers (spec §5.2), and its `projectFiles.files`.
  *
- * Every slug is validated with {@link assertPathSegment} (and every
- * `WssRef.file` with {@link assertWssRelativePath}) before any path is built,
+ * Every slug is validated with {@link assertPathSegment} (and every WS-Security
+ * `WssRef.file` with `assertWssRelativePath`) before any path is built,
  * so a corrupted slug or an unvalidated file reference throws
  * `ProjectError('project-path-invalid')` here — before `saveProject` ever
  * touches the file system.
@@ -166,21 +112,15 @@ export function projectFiles(project: Project, options?: ProjectFilesOptions): P
       files.set(relative, content);
     }
   }
-  // REST requests in a tree of their own: written only while REST is on (spec §3.2).
-  if (project.webhooks !== undefined && registry.features.isEnabled(WEBHOOKS_FEATURE)) {
-    addWebhookFiles(files, project.webhooks);
-  }
-
-  for (const [direction, refs] of [
-    ['outgoing', project.wss.outgoing],
-    ['incoming', project.wss.incoming],
-  ] as const) {
-    for (const ref of refs) {
-      files.set(wssRefPath(direction, ref), wssDocument(ref));
+  // What a protocol keeps for the whole project, in registry order; a disabled module's is not written.
+  for (const { projectFiles: facet } of registry.modules) {
+    if (facet === undefined) continue;
+    for (const [relative, content] of facet.files(project)) {
+      files.set(relative, content);
     }
   }
-  if (project.wss.keystores.length > 0) {
-    files.set(KEYSTORES_PATH, stringifyYaml({ keystores: project.wss.keystores.map((k) => k.document) }));
+  if (project.keystores.length > 0) {
+    files.set(KEYSTORES_PATH, stringifyYaml({ keystores: project.keystores.map((k) => k.document) }));
   }
 
   return files;

@@ -14,7 +14,7 @@ import { Copy, Send, SquareDashedBottom } from 'lucide-react';
 import { Button } from '../../components/button.js';
 import { Tabs } from '../../components/tabs.js';
 import type { IpcError } from '../../../shared/ipc.js';
-import type { GrpcExchangeSummary, GrpcResponseMessageWire } from '../../../shared/wire-types.js';
+import type { GrpcExchangeSummary, GrpcResponseMessageWire } from '../../../shared/kinds/grpc/wire.js';
 import { base64ByteLength, formatBytes } from '../../lib/format-size.js';
 import type { GrpcExchangeState, GrpcLiveState } from '../../state/exchanges.js';
 import { InspectorIconButton } from '../request-editor/inspectors/inspector-strip.js';

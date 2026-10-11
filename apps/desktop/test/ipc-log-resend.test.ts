@@ -34,7 +34,8 @@ function sent(n = 0): { sendId: string; requestId: string; options: Record<strin
   const [, sendId, requestId, options] = engineSend.mock.calls[n] as [unknown, string, string, Record<string, unknown>];
   return { sendId, requestId, options };
 }
-import type { ExchangeSummary, RestExchangeSummary } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary } from '../src/shared/kinds/rest/wire.js';
+import type { ExchangeSummary } from '../src/shared/kinds/soap/wire.js';
 
 const LOG_EXTRA = { picks: { rememberWrite: () => undefined }, appVersion: '0.0.0-test' };
 
@@ -110,15 +111,17 @@ function model(options: { accept?: string; grpcKind?: GrpcMethodKind } = {}): Pr
   });
   return {
     ...createProject('P', { id: 'p1' }),
-    apis: [createApi('Api', { id: 'api-1', baseUrl: 'http://h', requests: [rest] })],
-    grpcApis: [
-      createGrpcApi('G', {
-        id: 'g-1',
-        target: 'h:1',
-        tls: false,
-        folders: [createGrpcFolder('G', { id: 'f-1', requests: [call] })],
-      }),
-    ],
+    containers: {
+      rest: [createApi('Api', { id: 'api-1', baseUrl: 'http://h', requests: [rest] })],
+      grpc: [
+        createGrpcApi('G', {
+          id: 'g-1',
+          target: 'h:1',
+          tls: false,
+          folders: [createGrpcFolder('G', { id: 'f-1', requests: [call] })],
+        }),
+      ],
+    },
   };
 }
 

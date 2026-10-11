@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { quickOpenEntries } from '../../src/renderer/shell/quick-open.js';
-import type { InterfaceSummary, RequestWire } from '../../src/shared/wire-types.js';
+import type { InterfaceSummary, RequestWire } from '../../src/shared/kinds/soap/wire.js';
 
 const BINDING = '{http://tempuri.org/}CalculatorSoap';
 

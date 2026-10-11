@@ -13,7 +13,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { startTestRestServer, type TestRestServer } from '@wirebench/engine/test-helpers';
 import { createApi, createProject, createRestRequest, entry } from '@wirebench/engine';
 import type { AuthConfig, CreateRestRequestInput, RestRequestSettings } from '@wirebench/engine';
-import type { LogEntryWire, RestExchangeSummary, RestLiveEvent } from '../src/shared/wire-types.js';
+import type { LogEntryWire } from '../src/shared/wire-types.js';
+import type { RestExchangeSummary, RestLiveEvent } from '../src/shared/kinds/rest/wire.js';
 import { harOf } from '../src/main/har.js';
 import { buildRestHistoryEntry } from '../src/main/history-service.js';
 import { curlForLogEntry } from '../src/main/log-curl.js';
@@ -66,7 +67,7 @@ function send(
     ],
   });
   const deps = sendDepsFor(
-    { ...createProject('Demo', { id: 'p1' }), apis: [api] },
+    { ...createProject('Demo', { id: 'p1' }), containers: { rest: [api] } },
     {
       getSecret: (ref) => Promise.resolve(options.secrets?.[ref]),
       showSecrets: { get: () => options.showSecrets ?? false },

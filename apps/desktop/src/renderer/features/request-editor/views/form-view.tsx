@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '../../../components/empty-state.js';
 import { showToast } from '../../../components/toast.js';
 import { ipc } from '../../../state/ipc-client.js';
-import type { FormEditWire, FormNodeWire, TextRangeWire } from '../../../../shared/wire-types.js';
+import type { FormEditWire, FormNodeWire, TextRangeWire } from '../../../../shared/kinds/soap/wire.js';
 import type { IpcError } from '../../../../shared/ipc.js';
 import type { FormViewType } from '../../../state/editors.js';
 import { FieldEditor, NodeBadges, hintFor, isEmptyValue } from './form-fields.js';

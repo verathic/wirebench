@@ -8,7 +8,7 @@ import {
 import { useProblemsStore } from '../../src/renderer/state/problems.js';
 import { useProjectStore } from '../../src/renderer/state/project.js';
 import { makeDraft } from '../mocks/exchange-fixtures.js';
-import type { HeaderEntryWire } from '../../src/shared/wire-types.js';
+import type { HeaderEntryWire } from '../../src/shared/wire-base.js';
 
 const editRequest = vi.fn();
 

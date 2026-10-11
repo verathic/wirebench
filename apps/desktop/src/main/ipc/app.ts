@@ -1,12 +1,13 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import { AREAS } from '../../shared/area-module.js';
 import type { AreaId } from '../../shared/area-module.js';
+import { KINDS, type KindId } from '../../shared/kinds/kind-module.js';
 import { appVersion } from '../app-version.js';
 import { channels, events } from '../../shared/ipc.js';
 import { applyCommandMenu } from '../menu.js';
 import type { MenuApi } from '../menu.js';
 import { emitEvent } from './events.js';
-import type { UpdateStatusWire } from '../../shared/wire-types.js';
+import type { UpdateStatusWire } from '../../shared/wire-base.js';
 import { registerHandler } from './register.js';
 
 /**
@@ -29,6 +30,7 @@ export function registerAppChannels(
     Promise.resolve({ kind: 'error', message: 'Could not check for updates' }),
   newWindow: () => void = () => undefined,
   enabledAreas: readonly AreaId[] = AREAS.map((area) => area.id),
+  enabledKinds: readonly KindId[] = KINDS.map((kind) => kind.kind),
 ): void {
   registerHandler(channels.app.version, () =>
     Promise.resolve({
@@ -39,6 +41,8 @@ export function registerAppChannels(
   );
 
   registerHandler(channels.app.areas, () => Promise.resolve({ enabled: [...enabledAreas] }));
+
+  registerHandler(channels.app.kinds, () => Promise.resolve({ enabled: [...enabledKinds] }));
 
   registerHandler(channels.app.checkForUpdates, async () => ({ status: await checkForUpdates() }));
 

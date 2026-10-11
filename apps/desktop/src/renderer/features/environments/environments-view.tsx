@@ -8,7 +8,7 @@ import { useEditorsStore } from '../../state/editors.js';
 import { useUiStore } from '../../state/ui.js';
 import { useWorkspaceStore } from '../../state/workspace.js';
 import { useGridNavigation, type GridRowProps } from '../../lib/grid-navigation.js';
-import type { WorkspaceEnvironmentWire } from '../../../shared/wire-types.js';
+import type { WorkspaceEnvironmentWire } from '../../../shared/wire-base.js';
 import { duplicateEnvironment, nextEnvironmentName, openEnvironmentTab } from './environment-actions.js';
 
 const ITEM_CLASS =

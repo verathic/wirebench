@@ -10,7 +10,7 @@ import { ipc } from '../../../state/ipc-client.js';
 import { useProjectStore } from '../../../state/project.js';
 import { selectRequestEndpointUrl } from '../../../state/project-endpoint.js';
 import { useWorkspaceStore } from '../../../state/workspace.js';
-import type { RequestPropertiesPatchWire } from '../../../../shared/wire-types.js';
+import type { RequestPropertiesPatchWire } from '../../../../shared/kinds/soap/wire.js';
 
 export interface PropertiesInspectorProps {
   readonly requestId: string;

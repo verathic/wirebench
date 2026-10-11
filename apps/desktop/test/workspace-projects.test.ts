@@ -12,7 +12,7 @@ import { registerProjectChannels } from '../src/main/ipc/project.js';
 import { HistoryService } from '../src/main/history-service.js';
 import { WorkspaceService } from '../src/main/workspace-service.js';
 import type { WorkspaceServiceDeps } from '../src/main/workspace-service.js';
-import type { WorkspaceWire } from '../src/shared/wire-types.js';
+import type { WorkspaceWire } from '../src/shared/wire-base.js';
 
 /**
  * What the next folder picker answers. `undefined` is a cancelled dialog.
@@ -73,7 +73,10 @@ async function workspaceWithProject(
   const service = newService();
   const created = await service.create('Workspace');
   const { projectId } = await service.addProject(name);
-  await service.hostFor(projectId).addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+  await service
+    .hostFor(projectId)
+    .kind('soap')
+    .addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
   await service.saveAll('test');
   return { service, workspace: created, projectId };
 }

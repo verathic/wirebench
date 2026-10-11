@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AccountWire } from '../../src/shared/wire-types.js';
+import type { AccountWire } from '../../src/shared/wire-base.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
 
 const showToast = vi.hoisted(() => vi.fn());

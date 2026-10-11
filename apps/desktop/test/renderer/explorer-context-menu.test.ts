@@ -283,7 +283,9 @@ describe('explorerMenuItems on a gRPC row', () => {
   });
 
   it('offers a folder inside a gRPC API the same entries as a REST folder, minus Import cURL…', () => {
-    const items = explorerMenuItems(node({ kind: 'folder', id: 'folder:f1', apiId: 'g1', folderId: 'f1', grpc: true }));
+    const items = explorerMenuItems(
+      node({ kind: 'folder', id: 'folder:f1', apiId: 'g1', folderId: 'f1', ownerKind: 'grpc' }),
+    );
 
     expect(items.map((item) => item.label)).toEqual(['New folder', 'New request', 'Rename…', 'Auth…', 'Delete']);
   });
@@ -319,7 +321,9 @@ describe('explorerMenuItems on a WebSocket row', () => {
   });
 
   it('offers a folder inside a WebSocket API the same entries as a gRPC folder, minus Import cURL…', () => {
-    const items = explorerMenuItems(node({ kind: 'folder', id: 'folder:f1', apiId: 'w1', folderId: 'f1', ws: true }));
+    const items = explorerMenuItems(
+      node({ kind: 'folder', id: 'folder:f1', apiId: 'w1', folderId: 'f1', ownerKind: 'websocket' }),
+    );
 
     expect(items.map((item) => item.label)).toEqual(['New folder', 'New request', 'Rename…', 'Auth…', 'Delete']);
   });

@@ -33,23 +33,25 @@ beforeAll(async () => {
   await saveProject(
     {
       ...createProject('Hooks', { id: 'p1' }),
-      webhooks: createWebhookCollection({
-        target: receiverUrl,
-        signing: {
-          mode: 'sign',
-          scheme: { kind: 'hmac', algorithm: 'sha256', encoding: 'hex', header: 'X-Signature' },
-          secretEnv: 'HOOKS_SIGNING',
-        },
-        requests: [
-          createRestRequest('Ping', {
-            id: 'w1',
-            slug: 'ping',
-            method: 'POST',
-            url: '/ping',
-            body: { kind: 'raw', language: 'json', text: BODY },
-          }),
-        ],
-      }),
+      protocols: {
+        rest: createWebhookCollection({
+          target: receiverUrl,
+          signing: {
+            mode: 'sign',
+            scheme: { kind: 'hmac', algorithm: 'sha256', encoding: 'hex', header: 'X-Signature' },
+            secretEnv: 'HOOKS_SIGNING',
+          },
+          requests: [
+            createRestRequest('Ping', {
+              id: 'w1',
+              slug: 'ping',
+              method: 'POST',
+              url: '/ping',
+              body: { kind: 'raw', language: 'json', text: BODY },
+            }),
+          ],
+        }),
+      },
     },
     dir,
   );

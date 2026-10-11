@@ -11,7 +11,8 @@ import { IconButton } from '../../components/icon-button.js';
 import { SecretField } from '../../components/secret-field.js';
 import { ipc } from '../../state/ipc-client.js';
 import { useProjectStore } from '../../state/project.js';
-import type { KeystoreAliasWire, WssEntryWire } from '../../../shared/wire-types.js';
+import type { WssEntryWire } from '../../../shared/kinds/soap/wire.js';
+import type { KeystoreAliasWire } from '../../../shared/wire-base.js';
 
 type WssTimestampEntry = Extract<WssEntryWire, { kind: 'timestamp' }>;
 type WssUsernameTokenEntry = Extract<WssEntryWire, { kind: 'username-token' }>;

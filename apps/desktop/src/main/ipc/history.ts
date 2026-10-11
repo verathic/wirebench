@@ -7,23 +7,17 @@
  * method, URL, headers and body through its saved request's auth, TLS and settings.
  */
 
-import { randomUUID } from 'node:crypto';
-import { grpcItemFor, joinBase, signatureHeaderNames, splitQuery, WirebenchError } from '@wirebench/engine';
+import { signatureHeaderNames, splitQuery, WirebenchError } from '@wirebench/engine';
 import { channels } from '../../shared/ipc.js';
-import type {
-  GrpcRequestPatchWire,
-  HeaderEntryWire,
-  HistoryEntryWire,
-  KeyValueWire,
-  RestBodyWire,
-  RestRequestPatchWire,
-} from '../../shared/wire-types.js';
+import type { HistoryEntryWire } from '../../shared/wire-types.js';
+import type { GrpcRequestPatchWire } from '../../shared/kinds/grpc/wire.js';
+import type { RestBodyWire, RestRequestPatchWire } from '../../shared/kinds/rest/wire.js';
+import type { KeyValueWire } from '../../shared/wire-base.js';
 import { isTruncatedBody, type HistoryService } from '../history-service.js';
 import { containsRedaction } from '../redact.js';
 import type { ProjectRouter } from '../project-router.js';
 import type { AuthConfig, EffectiveSigning, RestBody, RestRequestDef } from '@wirebench/engine';
-import { AD_HOC_ID } from '../send/draft.js';
-import { previewRest, sendThroughEngine, type RestPreview, type SendThroughEngineDeps } from '../send/exchange.js';
+import { type SendThroughEngineDeps } from '../send/exchange.js';
 import { registerHandler } from './register.js';
 
 /** What the `history.*` channels need beyond `EngineService`/`HistoryService`. */
@@ -44,7 +38,7 @@ export interface HistoryChannelDeps {
 }
 
 /** Refuses a re-send when there is no engine send to put it through (a test that registers none). */
-function sendDepsOf(deps: HistoryChannelDeps, id: string, kind: string): SendThroughEngineDeps {
+export function sendDepsOf(deps: HistoryChannelDeps, id: string, kind: string): SendThroughEngineDeps {
   if (deps.send === undefined) {
     throw new WirebenchError('history-resend-unsupported', "This entry can't be re-sent here.", {
       details: { id, kind },
@@ -59,16 +53,6 @@ export interface SavedRest {
   readonly auth: AuthConfig;
   /** A webhook item's signing, when it signs. */
   readonly webhookSigning?: EffectiveSigning;
-}
-
-/** The saved request a REST resend goes out through, resolved as its send resolves it. */
-function savedRestOf(preview: RestPreview): SavedRest {
-  const { signing } = preview.item;
-  return {
-    request: preview.item.request,
-    auth: preview.auth,
-    ...(signing?.signing.mode === 'sign' ? { webhookSigning: signing } : {}),
-  };
 }
 
 /**
@@ -99,10 +83,10 @@ export function grpcResendDraft(
  * The redaction marker as `URLSearchParams` writes it. `redactUrl` masks a query parameter by
  * setting it through `URLSearchParams`, so a masked value is recorded percent-encoded.
  */
-const ENCODED_MARKER = /%3credacted%3e/i;
+export const ENCODED_MARKER = /%3credacted%3e/i;
 
 /** True when `text` holds the redaction marker in its literal or its percent-encoded form. */
-function holdsUrlMarker(text: string): boolean {
+export function holdsUrlMarker(text: string): boolean {
   return containsRedaction(text) || ENCODED_MARKER.test(text);
 }
 
@@ -113,13 +97,13 @@ function holdsUrlMarker(text: string): boolean {
  * reference to fill. The tokenizer reads `$${` as a literal `${`, so this round-trips exactly.
  * Values filled from the saved request are not passed through it: those are typed and must expand.
  */
-function literal(text: string): string {
+export function literal(text: string): string {
   // A function, not a replacement string: in one, `$$` is itself the escape for a single `$`.
   return text.replaceAll('${', () => '$${');
 }
 
 /** Refuses a resend that would put the redaction marker on the wire. */
-function refuseRedacted(id: string, where: string): never {
+export function refuseRedacted(id: string, where: string): never {
   throw new WirebenchError(
     'history-resend-redacted',
     `This entry's ${where} holds a value History redacted, so it can't be re-sent as recorded; re-send it from the request.`,
@@ -128,7 +112,7 @@ function refuseRedacted(id: string, where: string): never {
 }
 
 /** The value of the last enabled row whose name `matches`, or `undefined` when there is none. */
-function lastEnabled(
+export function lastEnabled(
   rows: readonly { readonly name: string; readonly value: string; readonly enabled: boolean }[],
   matches: (name: string) => boolean,
 ): string | undefined {
@@ -142,7 +126,7 @@ function lastEnabled(
 }
 
 /** A recorded query name percent-decoded, or as it is when it is not a valid escape sequence. */
-function decodedName(name: string): string {
+export function decodedName(name: string): string {
   try {
     return decodeURIComponent(name);
   } catch {
@@ -151,7 +135,7 @@ function decodedName(name: string): string {
 }
 
 /** True when a recorded (encoded) query name is the one a saved row typed as `typed`. */
-function sameParam(recorded: string, typed: string): boolean {
+export function sameParam(recorded: string, typed: string): boolean {
   return recorded === typed || decodedName(recorded) === typed;
 }
 
@@ -159,7 +143,7 @@ function sameParam(recorded: string, typed: string): boolean {
  * The query rows typed inline in a saved request's URL. Not `splitQuery`: the URL is unexpanded, and
  * the `#` of a `${#Env#name}` reference there is not a fragment.
  */
-function typedQuery(url: string): KeyValueWire[] {
+export function typedQuery(url: string): KeyValueWire[] {
   const mark = url.indexOf('?');
   if (mark === -1) {
     return [];
@@ -183,7 +167,7 @@ function typedQuery(url: string): KeyValueWire[] {
  * rows, with every redacted query value filled from the saved request and a query API key left for
  * auth to add once. `pathParams` is empty, because the recorded path is already filled.
  */
-function resendUrl(
+export function resendUrl(
   entry: HistoryEntryWire,
   saved: Pick<SavedRest, 'request' | 'auth'>,
 ): Pick<RestRequestPatchWire, 'url' | 'query' | 'pathParams'> {
@@ -223,7 +207,7 @@ function resendUrl(
  * the host it parses, but `savedOrigin` is handed in as a plain string that may not have gone
  * through `URL` at all.
  */
-function sameOrigin(endpoint: string, savedOrigin: string | undefined): boolean {
+export function sameOrigin(endpoint: string, savedOrigin: string | undefined): boolean {
   if (savedOrigin === undefined) {
     return false;
   }
@@ -235,7 +219,7 @@ function sameOrigin(endpoint: string, savedOrigin: string | undefined): boolean 
 }
 
 /** The language a recorded body is sent as when the saved request has no raw body to lend one. */
-function rawLanguageOf(text: string): 'json' | 'xml' | 'text' {
+export function rawLanguageOf(text: string): 'json' | 'xml' | 'text' {
   try {
     JSON.parse(text);
     return 'json';
@@ -249,7 +233,7 @@ function rawLanguageOf(text: string): 'json' | 'xml' | 'text' {
  * type, or `undefined` — send the saved body as it is — when the entry kept no text for a body that
  * has none (form, multipart, binary or none).
  */
-function resendBody(text: string, saved: RestBody): RestBodyWire | undefined {
+export function resendBody(text: string, saved: RestBody): RestBodyWire | undefined {
   if (saved.kind === 'raw') {
     return {
       kind: 'raw',
@@ -335,65 +319,12 @@ export function restResendDraft(
 }
 
 /** Whether `entry` recorded every header the item's signing scheme writes (names case-insensitive). */
-function carriesSignature(entry: HistoryEntryWire, signing: SavedRest['webhookSigning']): boolean {
+export function carriesSignature(entry: HistoryEntryWire, signing: SavedRest['webhookSigning']): boolean {
   if (signing === undefined || signing.signing.mode !== 'sign') {
     return false;
   }
   const recorded = new Set(entry.request.headers.map((header) => header.name.toLowerCase()));
   return signatureHeaderNames(signing.signing.scheme).every((name) => recorded.has(name.toLowerCase()));
-}
-
-/**
- * True when a REST entry was an event stream, or, with no response to say, asked for one with an
- * `Accept` header — the line `log.resend` draws.
- */
-function isStreamEntry(entry: HistoryEntryWire): boolean {
-  return (
-    entry.sse !== undefined ||
-    (entry.response === undefined &&
-      entry.request.headers.some(
-        (header) => header.name.toLowerCase() === 'accept' && header.value.toLowerCase().includes('text/event-stream'),
-      ))
-  );
-}
-
-/**
- * The saved request's resolved origin: the base and path joined as its send resolves them, with a
- * `${secret:…}` token kept as typed. Only a reference left unresolved *in that joined URL itself*
- * makes this `undefined` — a `${secret:…}` (or any other property reference) in a header, the body,
- * or elsewhere on the saved request expands on its own path and must not affect this. Also
- * `undefined` when the joined text doesn't parse as a URL. `restResendDraft` refuses an entry with
- * a response in either case.
- */
-function savedOriginOf(saved: Pick<RestPreview, 'input'>): string | undefined {
-  const joined = joinBase(saved.input.baseUrl, saved.input.request.url);
-  if (joined.includes('${')) {
-    return undefined;
-  }
-  try {
-    return new URL(joined).origin;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Drops headers the history store redacted (`<redacted>`) before resending — never resent verbatim. */
-function liveHeaders(headers: readonly HeaderEntryWire[]): Record<string, string> {
-  return Object.fromEntries(headers.filter((header) => header.value !== '<redacted>').map((h) => [h.name, h.value]));
-}
-
-/**
- * True when an orphaned entry (its original request no longer exists) carries a redacted
- * secret anywhere a resend would replay: the request envelope, a request header value, or the
- * SOAP fault reason. Such an entry must never be resent — the redaction marker itself would go
- * out as the literal credential.
- */
-function isRedacted(entry: HistoryEntryWire): boolean {
-  return (
-    containsRedaction(entry.request.envelopeXml) ||
-    entry.request.headers.some((header) => containsRedaction(header.value)) ||
-    (entry.fault?.reason !== undefined && containsRedaction(entry.fault.reason))
-  );
 }
 
 export function registerHistoryChannels(history: HistoryService, deps: HistoryChannelDeps): void {
@@ -416,145 +347,4 @@ export function registerHistoryChannels(history: HistoryService, deps: HistoryCh
   registerHandler(channels.history.get, (request) => Promise.resolve({ entry: history.get(request.id) }));
 
   registerHandler(channels.history.clear, async () => ({ cleared: await history.clear(deps.projectIds?.()) }));
-
-  registerHandler(channels.history.resend, (request) => {
-    const entry = history.get(request.id);
-    if (entry === undefined) {
-      throw new WirebenchError('unknown-history-entry', 'This entry is no longer in History.', {
-        details: { id: request.id },
-      });
-    }
-
-    // Only a SOAP send can be replayed here: both paths below build a SOAP send input, so a REST,
-    // gRPC or WebSocket entry would go out as a POST of its body wrapped as an envelope — a
-    // different request from the one recorded. Refuse it, typed, rather than misfire. (An entry
-    // without a kind predates the other protocols and is SOAP.)
-    const kind = entry.kind ?? 'soap';
-    if (kind !== 'soap') {
-      throw new WirebenchError(
-        'history-resend-unsupported',
-        kind === 'websocket'
-          ? 'A WebSocket session is re-sent from its request, not from History.'
-          : `This ${kind === 'grpc' ? 'gRPC' : 'REST'} entry can't be re-sent as a SOAP request.`,
-        { details: { id: request.id, kind } },
-      );
-    }
-
-    // Path 1: the original request still exists — replay the LIVE request (current envelope,
-    // headers and effective endpoint, its scripts, TLS and auth), exactly like a normal
-    // `request.send`. The stored entry was redacted before being written to disk, so it must never
-    // be the source of a resend while a live copy is available.
-    const { requestId } = entry;
-    if (requestId !== undefined && deps.project.projectId(requestId) !== undefined) {
-      // No endpoint resolves for it now (an environment that maps none): it goes to the one it went
-      // to, still as its project sends it — properties, auth, keychain, WS-Security, proxy, scripts.
-      const live = deps.project.endpointFor(requestId) !== undefined;
-      if (!live && holdsUrlMarker(entry.endpoint)) {
-        refuseRedacted(entry.id, 'URL');
-      }
-      return sendThroughEngine(sendDepsOf(deps, request.id, kind), randomUUID(), requestId, {
-        draft: { kind: 'soap', override: live ? {} : { endpoint: entry.endpoint } },
-      });
-    }
-    // Path 2: the original request is gone. An entry that carries a redacted secret can never
-    // be resent — the marker itself would go out as the literal credential — so refuse it.
-    if (isRedacted(entry)) {
-      throw new WirebenchError(
-        'history-resend-redacted',
-        "This entry holds values History redacted and the request it was sent from no longer exists, so it can't be re-sent.",
-        { details: { id: request.id } },
-      );
-    }
-    const input = {
-      endpoint: entry.endpoint,
-      envelopeXml: entry.request.envelopeXml,
-      soapVersion: entry.soapVersion === 'none' ? ('1.1' as const) : entry.soapVersion,
-      ...(entry.soapAction !== undefined ? { soapAction: entry.soapAction } : {}),
-      headers: liveHeaders(entry.request.headers),
-    };
-    // Sent as it was recorded, as a synthetic item, back into the History it came from.
-    return sendThroughEngine(sendDepsOf(deps, request.id, kind), randomUUID(), AD_HOC_ID, {
-      draft: { kind: 'soap', override: {} },
-      adHoc: {
-        input,
-        names: {
-          requestName: entry.requestName,
-          interfaceName: entry.interfaceName,
-          operationName: entry.operationName,
-          projectId: entry.projectId,
-        },
-        ...(requestId !== undefined ? { requestId } : {}),
-      },
-    });
-  });
-
-  registerHandler(channels.history.resendGrpc, (request) => {
-    const entry = history.get(request.id);
-    if (entry === undefined) {
-      throw new WirebenchError('unknown-history-entry', 'This entry is no longer in History.', {
-        details: { id: request.id },
-      });
-    }
-    const { grpc } = entry;
-    if (entry.kind !== 'grpc' || grpc === undefined) {
-      throw new WirebenchError(
-        'history-resend-unsupported',
-        "This entry isn't a gRPC call, so it can't be re-sent as one.",
-        { details: { id: request.id, kind: entry.kind ?? 'soap' } },
-      );
-    }
-    // The call goes out through the saved request (its endpoint, metadata, auth and TLS), so an
-    // entry whose request is gone has nothing to resend through.
-    const { requestId } = entry;
-    const send = sendDepsOf(deps, request.id, 'grpc');
-    const located = requestId === undefined ? undefined : send.project.runContextFor?.(requestId);
-    if (requestId === undefined || located === undefined || grpcItemFor(located.project, requestId) === undefined) {
-      throw new WirebenchError(
-        'history-resend-orphan',
-        "The request this call was sent from no longer exists, so it can't be re-sent.",
-        { details: { id: request.id } },
-      );
-    }
-    // No live hook: nothing on screen holds this send id, so its events would be dropped.
-    return sendThroughEngine(send, randomUUID(), requestId, {
-      draft: { kind: 'grpc', draft: grpcResendDraft({ ...entry, grpc }) },
-    });
-  });
-
-  registerHandler(channels.history.resendRest, async (request) => {
-    const entry = history.get(request.id);
-    if (entry === undefined) {
-      throw new WirebenchError('unknown-history-entry', 'This entry is no longer in History.', {
-        details: { id: request.id },
-      });
-    }
-    if (entry.kind !== 'rest') {
-      throw new WirebenchError(
-        'history-resend-unsupported',
-        "This entry isn't a REST request, so it can't be re-sent as one.",
-        { details: { id: request.id, kind: entry.kind ?? 'soap' } },
-      );
-    }
-    // A resend has no live pane, so a stream the server never closes would never finish.
-    if (isStreamEntry(entry)) {
-      throw new WirebenchError('rest-resend-streaming', 'Event streams resend from the editor.', {
-        details: { id: request.id },
-      });
-    }
-    // Auth, TLS, proxy and settings come from the saved request, so an entry whose request is gone
-    // has nothing to resend through.
-    const { requestId } = entry;
-    const send = sendDepsOf(deps, request.id, 'rest');
-    const saved = requestId === undefined ? undefined : await previewRest(send, requestId, undefined);
-    if (requestId === undefined || saved === undefined) {
-      throw new WirebenchError(
-        'history-resend-orphan',
-        "The request this entry was sent from no longer exists, so it can't be re-sent.",
-        { details: { id: request.id } },
-      );
-    }
-    return await sendThroughEngine(send, randomUUID(), requestId, {
-      draft: { kind: 'rest', draft: restResendDraft(entry, savedRestOf(saved), savedOriginOf(saved)) },
-    });
-  });
 }

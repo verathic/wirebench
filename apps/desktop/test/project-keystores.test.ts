@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { createProject } from '@wirebench/engine';
+import { createProject, soapInterfacesOf } from '@wirebench/engine';
 import {
   generateClientCert,
   generateClientPkcs12,
@@ -67,8 +67,8 @@ describe('keystore mutations', () => {
 
   it('infers the type and defaults the name to the file stem', () => {
     const { project, keystoreId } = addKeystore(base, { path: 'certs/corp.p12' });
-    expect(project.wss.keystores).toHaveLength(1);
-    expect(project.wss.keystores[0]?.document).toMatchObject({
+    expect(project.keystores).toHaveLength(1);
+    expect(project.keystores[0]?.document).toMatchObject({
       id: keystoreId,
       name: 'corp',
       path: 'certs/corp.p12',
@@ -78,8 +78,8 @@ describe('keystore mutations', () => {
 
   it('takes an explicit name and a password ref', () => {
     const { project } = addKeystore(base, { path: 'a.pem', name: '  Corp  ', passwordSecretRef: 'secret:1' });
-    expect(project.wss.keystores[0]?.name).toBe('Corp');
-    expect(project.wss.keystores[0]?.document).toMatchObject({ type: 'pem', passwordSecretRef: 'secret:1' });
+    expect(project.keystores[0]?.name).toBe('Corp');
+    expect(project.keystores[0]?.document).toMatchObject({ type: 'pem', passwordSecretRef: 'secret:1' });
   });
 
   it('refuses a file that is not a keystore', () => {
@@ -89,29 +89,26 @@ describe('keystore mutations', () => {
   it('patches the name, password ref and default alias', () => {
     const { project, keystoreId } = addKeystore(base, { path: 'a.p12', passwordSecretRef: 'secret:1' });
     const renamed = updateKeystore(project, keystoreId, { name: 'Prod', defaultAlias: 'client' });
-    expect(renamed.wss.keystores[0]?.document).toMatchObject({
+    expect(renamed.keystores[0]?.document).toMatchObject({
       name: 'Prod',
       defaultAlias: 'client',
       passwordSecretRef: 'secret:1',
     });
     const cleared = updateKeystore(renamed, keystoreId, { passwordSecretRef: null, defaultAlias: null });
-    expect(cleared.wss.keystores[0]?.document['passwordSecretRef']).toBeUndefined();
-    expect(cleared.wss.keystores[0]?.document['defaultAlias']).toBeUndefined();
+    expect(cleared.keystores[0]?.document['passwordSecretRef']).toBeUndefined();
+    expect(cleared.keystores[0]?.document['defaultAlias']).toBeUndefined();
   });
 
   it('carries a committed passwordEnv through an unrelated patch, though it never edits it', () => {
     const { project, keystoreId } = addKeystore(base, { path: 'a.p12', passwordSecretRef: 'secret:1' });
     const withEnv = {
       ...project,
-      wss: {
-        ...project.wss,
-        keystores: project.wss.keystores.map((ref) =>
-          ref.id === keystoreId ? { ...ref, document: { ...ref.document, passwordEnv: 'BILLING_KEYSTORE' } } : ref,
-        ),
-      },
+      keystores: project.keystores.map((ref) =>
+        ref.id === keystoreId ? { ...ref, document: { ...ref.document, passwordEnv: 'BILLING_KEYSTORE' } } : ref,
+      ),
     };
     const renamed = updateKeystore(withEnv, keystoreId, { name: 'Prod' });
-    expect(renamed.wss.keystores[0]?.document).toMatchObject({ name: 'Prod', passwordEnv: 'BILLING_KEYSTORE' });
+    expect(renamed.keystores[0]?.document).toMatchObject({ name: 'Prod', passwordEnv: 'BILLING_KEYSTORE' });
   });
 
   it('reports an unknown id', () => {
@@ -123,46 +120,49 @@ describe('keystore mutations', () => {
     const { project, keystoreId } = addKeystore(base, { path: 'a.p12' });
     const withRequest = {
       ...project,
-      interfaces: [
-        {
-          kind: 'soap' as const,
-          id: 'i1',
-          name: 'I',
-          slug: 'i',
-          order: 0,
-          definitionUrl: 'http://x',
-          cacheDefinition: true,
-          targetNamespace: '',
-          endpoints: [],
-          wsa: { enabled: false, version: '1.0' as const },
-          operations: [
-            {
-              name: 'Op',
-              bindingName: 'B',
-              slug: 'op',
-              order: 0,
-              requests: [
-                {
-                  id: 'r1',
-                  name: 'Request 1',
-                  slug: 'request-1',
-                  order: 0,
-                  envelopeXml: '<x/>',
-                  soapVersion: '1.1' as const,
-                  headers: [],
-                  attachments: [],
-                  properties: { sslKeystoreRef: keystoreId, encoding: 'UTF-8' },
-                },
-              ],
-            },
-          ],
-        },
-      ],
+      containers: {
+        ...project.containers,
+        soap: [
+          {
+            kind: 'soap' as const,
+            id: 'i1',
+            name: 'I',
+            slug: 'i',
+            order: 0,
+            definitionUrl: 'http://x',
+            cacheDefinition: true,
+            targetNamespace: '',
+            endpoints: [],
+            wsa: { enabled: false, version: '1.0' as const },
+            operations: [
+              {
+                name: 'Op',
+                bindingName: 'B',
+                slug: 'op',
+                order: 0,
+                requests: [
+                  {
+                    id: 'r1',
+                    name: 'Request 1',
+                    slug: 'request-1',
+                    order: 0,
+                    envelopeXml: '<x/>',
+                    soapVersion: '1.1' as const,
+                    headers: [],
+                    attachments: [],
+                    properties: { sslKeystoreRef: keystoreId, encoding: 'UTF-8' },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
     } as unknown as typeof project;
 
     const removed = removeKeystore(withRequest, keystoreId);
-    expect(removed.wss.keystores).toHaveLength(0);
-    expect(removed.interfaces[0]?.operations[0]?.requests[0]?.properties.sslKeystoreRef).toBeUndefined();
+    expect(removed.keystores).toHaveLength(0);
+    expect(soapInterfacesOf(removed)[0]?.operations[0]?.requests[0]?.properties.sslKeystoreRef).toBeUndefined();
   });
 
   it('derives a name from a path with no extension', () => {
@@ -256,7 +256,7 @@ describe('ProjectHost keystores', () => {
     const dir = tempDir('proj');
     const service = newService(tempDir('ud'), undefined, { get: () => Promise.resolve(PASSWORD) });
     await service.create({ dir, name: 'Demo' });
-    const imported = await service.addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
+    const imported = await service.kind('soap').addInterface({ source: { kind: 'url', url: server.wsdlUrl } });
     await service.whenHydrated();
     const requestId = imported.project.requests[0]?.id as string;
     await writeFile(join(dir, 'client.p12'), pkcs12Bytes());
@@ -342,7 +342,7 @@ describe('ProjectHost keystores', () => {
     const project = createProject('Demo');
     const broken = {
       ...project,
-      wss: { ...project.wss, keystores: [{ id: 'k1', name: 'Legacy', document: { id: 'k1', name: 'Legacy' } }] },
+      keystores: [{ id: 'k1', name: 'Legacy', document: { id: 'k1', name: 'Legacy' } }],
     };
     const wire = toProjectWire(broken, { dir: '/tmp', dirty: false, problems: [], runtime: new Map() });
     expect(wire.keystores).toEqual([{ id: 'k1', name: 'Legacy', path: '', type: 'pem' }]);

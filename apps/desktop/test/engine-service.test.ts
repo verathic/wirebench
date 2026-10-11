@@ -7,7 +7,8 @@ import { AD_HOC_ID, soapOverrideOf } from '../src/main/send/draft.js';
 import { ExchangeRegistry, sendThroughEngine } from '../src/main/send/exchange.js';
 import { AD_HOC_NAME } from '../src/main/send/record.js';
 import { channels } from '../src/shared/ipc.js';
-import type { EngineProgressEvent, ResolvedSendInputWire } from '../src/shared/wire-types.js';
+import type { ResolvedSendInputWire } from '../src/shared/wire-types.js';
+import type { EngineProgressEvent } from '../src/shared/wire-base.js';
 import { readPublicFixture } from './helpers/fixtures.js';
 import { sendDepsFor } from './helpers/send-deps.js';
 

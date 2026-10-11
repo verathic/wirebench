@@ -14,11 +14,12 @@ import {
 } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
 import type { RecordSendInput } from '../src/main/history-service.js';
-import { registerRequestChannels, toSendDeps, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { toSendDeps, type RequestChannelDeps } from '../src/main/ipc/request.js';
 import type { PreflightResult } from '../src/main/expansion-preflight.js';
 import { wrapHandler } from '../src/main/ipc/envelope.js';
 import { ExchangeRegistry } from '../src/main/send/exchange.js';
 import { channels } from '../src/shared/ipc.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 describe('request.* IPC validation', () => {
   it('rejects a malformed request.send payload with ipc-invalid-request', async () => {
@@ -176,7 +177,7 @@ function seeded(extra: Partial<SoapRequestDef> = {}): Project {
     cacheDefinition: false,
     operations: [{ name: 'Op', bindingName: '{urn:t}B', slug: 'op', order: 0, requests: [request] }],
   });
-  return { ...createProject('P', { id: 'p1' }), properties: { stage: 'dev' }, interfaces: [iface] };
+  return { ...createProject('P', { id: 'p1' }), properties: { stage: 'dev' }, containers: { soap: [iface] } };
 }
 
 /** The project surface a send through the engine reads, over `model`. */
@@ -244,7 +245,7 @@ describe('registerRequestChannels', () => {
     const model = seeded({ envelopeXml: '<a>${#Project#stage}</a>' });
     const runContextFor = vi.fn(() => ({ project: model, projectDir: '/tmp/none', globals: {} }));
     const adHoc: PropertyScopes = { project: {}, global: { only: 'globals' }, env: {} };
-    registerRequestChannels(new EngineService(), {
+    registerRequestChannelsWithKinds(new EngineService(), {
       project: { ...stubProject(model), runContextFor },
       adHocScopes: () => adHoc,
     });
@@ -283,7 +284,7 @@ describe('registerRequestChannels', () => {
     // The store no longer holds the ref the project's auth points at — a password cleared from
     // the keychain while the project still references it.
     const model = seeded({ auth: { type: 'basic', username: 'alice', passwordRef: 'sec_deleted' } });
-    registerRequestChannels(new EngineService(() => Promise.resolve(undefined)), {
+    registerRequestChannelsWithKinds(new EngineService(() => Promise.resolve(undefined)), {
       project: { ...stubProject(model), projectId: () => undefined },
       getSecret: () => Promise.resolve(undefined),
     });
@@ -305,7 +306,7 @@ describe('registerRequestChannels', () => {
       projectId: vi.fn().mockReturnValue(undefined),
       ...noActionSupport,
     };
-    registerRequestChannels(new EngineService(), { project });
+    registerRequestChannelsWithKinds(new EngineService(), { project });
 
     const result = await invoke('request.preflight', { requestId: 'req-1' });
 
@@ -314,7 +315,7 @@ describe('registerRequestChannels', () => {
   });
 
   it('rejects a malformed request.preflight payload', async () => {
-    registerRequestChannels(new EngineService(), {
+    registerRequestChannelsWithKinds(new EngineService(), {
       project: {
         scopesFor: () => scopes,
         preflight: () => preflight,
@@ -346,7 +347,7 @@ describe('request.send applies the saved request properties', () => {
     project: Record<string, unknown> = {},
     extra: Partial<RequestChannelDeps> = {},
   ) {
-    registerRequestChannels(new EngineService(), {
+    registerRequestChannelsWithKinds(new EngineService(), {
       project: { ...stubProject(model), ...project },
       ...extra,
     });

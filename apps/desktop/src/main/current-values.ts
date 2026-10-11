@@ -13,13 +13,8 @@
 import { WirebenchError } from '@wirebench/engine';
 import type { CurrentValues, PropertyMap } from '@wirebench/engine';
 import { scopeKeyString } from '../shared/current-value-keys.js';
-import type {
-  CurrentValuesStateWire,
-  GlobalsState,
-  ProjectWire,
-  ScopeKeyWire,
-  WorkspaceWire,
-} from '../shared/wire-types.js';
+import type { ProjectWire } from '../shared/wire-types.js';
+import type { CurrentValuesStateWire, GlobalsState, ScopeKeyWire, WorkspaceWire } from '../shared/wire-base.js';
 
 interface Held {
   readonly committed: string;

@@ -4,7 +4,8 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { OutgoingConfigEditor } from '../../src/renderer/features/wss/outgoing-config-editor.js';
 import { useProjectStore } from '../../src/renderer/state/project.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
-import type { ProjectWire, WssEntryWire, WssOutgoingWire } from '../../src/shared/wire-types.js';
+import type { ProjectWire } from '../../src/shared/wire-types.js';
+import type { WssEntryWire, WssOutgoingWire } from '../../src/shared/kinds/soap/wire.js';
 
 const project = { id: 'p1', name: 'Demo', dir: '/tmp/demo' } as unknown as ProjectWire;
 

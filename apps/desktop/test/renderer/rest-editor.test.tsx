@@ -12,6 +12,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { RestEditor, mergeQuery } from '../../src/renderer/features/rest-editor/rest-editor.js';
 import { restSendBlocked } from '../../src/renderer/features/rest-editor/send-blocked.js';
 import { registerRequestCommands } from '../../src/renderer/commands/register-request-commands.js';
+import { registerRestCommands } from '../../src/renderer/kinds/rest/commands.js';
 import { getCommand, resetCommands } from '../../src/renderer/lib/commands.js';
 import { useDraftsStore } from '../../src/renderer/state/drafts.js';
 import { useEditorsStore } from '../../src/renderer/state/editors.js';
@@ -424,6 +425,7 @@ describe('RestEditor for a webhook item', () => {
       .mockResolvedValue({ ok: false, error: { code: 'webhook-target-missing', message: 'Set the Webhooks target' } });
     resetCommands();
     registerRequestCommands();
+    registerRestCommands();
     useEditorsStore.setState({
       tabs: [{ id: 'tab-wh', kind: 'rest-request', restRequestId: 'wh-1' } as never],
       activeId: 'tab-wh',

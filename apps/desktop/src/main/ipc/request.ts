@@ -1,29 +1,19 @@
-import { dirname, isAbsolute, resolve as resolvePath } from 'node:path';
-import { mkdir } from 'node:fs/promises';
 import {
   applySoapAuth,
   applyWsaHeaders,
-  composeUrl,
   CURL_REDACTED,
   fromCurl,
   fromRestCurl,
   grpcToCommand,
   isWirebenchError,
-  nodeFs,
-  prettyPrint,
   ProjectError,
-  recreateRequest,
-  resolveWsUrl,
   restToCurl,
   soapToCurl,
   toWsSessionOptions,
-  WirebenchError,
-  writeFileAtomic,
   wsToCommand,
 } from '@wirebench/engine';
-import { channels, events } from '../../shared/ipc.js';
+import { channels } from '../../shared/ipc.js';
 import type { EngineService } from '../engine-service.js';
-import { generateOptionsFrom } from '../generate-options.js';
 import type {
   AuthConfig,
   DesktopAuditEvent,
@@ -35,7 +25,6 @@ import type {
   PropertyScopes,
   UnresolvedRef,
   WsSessionMaterial,
-  WsFrame,
   SentScripts,
   SoapOwnerAuth,
   SoapSendInput,
@@ -46,52 +35,34 @@ import type { HistoryService } from '../history-service.js';
 import type { IssuedTokensService } from '../issued-tokens.js';
 import type { OAuth2Service } from '../oauth2.js';
 import type { PreferencesService } from '../preferences.js';
-import { isInsideReal, realpathOfPrefix } from '../path-containment.js';
 import { redactHeaders, redactSecretText, redactUrl, redactXml } from '../redact.js';
-import { AD_HOC_ID, soapOverrideOf } from '../send/draft.js';
-import { AD_HOC_NAME } from '../send/record.js';
 import {
   ExchangeRegistry,
   previewGrpc,
   previewRest,
   previewWs,
-  sendThroughEngine,
   type GrpcPreview,
   previewSoap,
   type RestPreview,
-  type RestUrlSource,
   type SoapPreview,
   type SendThroughEngineDeps,
   type WsPreview,
 } from '../send/exchange.js';
 import { type SendScripts } from '../script-send.js';
-import { type WebhookUrlSource } from '../webhook-send.js';
 import type { PreflightResult } from '../expansion-preflight.js';
-import { toUnresolvedRefWire, toWsFrameWire } from '../engine-wire.js';
+import { toUnresolvedRefWire } from '../engine-wire.js';
 import { secretSourceContext, secretSourceRefCode } from '../expansion-preflight.js';
 import type { SecretSourcesSnapshot } from '../secret-sources-service.js';
+import type { HistoryEntryWire, RequestCurlRequest, LogEntryWire } from '../../shared/wire-types.js';
 import type {
-  GrpcRequestPatchWire,
   RestRequestPatchWire,
-  UnresolvedRefWire,
-  EndpointSourceWire,
-  ExchangeSummary,
-  HistoryEntryWire,
-  FailedExchangeWire,
-  RequestCurlRequest,
-  RequestCurlResponse,
   RequestImportCurlRequest,
   RequestImportCurlTarget,
   RequestImportCurlResponse,
-  RequestPatchWire,
-  RequestRecreateRequest,
-  RequestRecreateResponse,
-  WsExchangeSummary,
-  WsRequestPatchWire,
-  LogEntryWire,
-} from '../../shared/wire-types.js';
+} from '../../shared/kinds/rest/wire.js';
+import type { RequestPatchWire } from '../../shared/kinds/soap/wire.js';
+import type { UnresolvedRefWire, FailedExchangeWire, RequestCurlResponse } from '../../shared/wire-base.js';
 import { cancelEnvironmentBatch, sendToEnvironments } from '../multi-env-send.js';
-import { emitEvent } from './events.js';
 import { registerHandler } from './register.js';
 
 /** The `ProjectRouter` surface the `request.*` channels drive; a stub stands in for it in tests. */
@@ -150,7 +121,7 @@ export type RequestChannelProject = Pick<
  * (a mutation, a proxy lookup) while the renderer only named an entity inside it. Throws rather
  * than guessing: with several projects open there is no "current" one to fall back to.
  */
-function ownerOf(project: Pick<RequestChannelProject, 'projectId'>, entityId: string): string {
+export function ownerOf(project: Pick<RequestChannelProject, 'projectId'>, entityId: string): string {
   const projectId = project.projectId(entityId);
   if (projectId === undefined) {
     throw new ProjectError('unknown-entity', `No open project owns "${entityId}"`, { details: { entityId } });
@@ -306,121 +277,8 @@ export function toSendDeps(
  */
 export type DumpFilePicks = { hasWrite(path: string): boolean };
 
-/**
- * Resolves a dump-file target against the project folder and refuses one that would land
- * outside it, unless the exact path was chosen through the Dump File "Browse…" picker this
- * session — a dump file may point anywhere the *user* has explicitly picked, but a
- * relative path (or an absolute one merely typed into the property) must stay inside the
- * project.
- */
-async function resolveDumpPath(
-  target: { path: string; projectDir: string },
-  picks: DumpFilePicks | undefined,
-): Promise<{ path: string } | { problem: ExchangeSummary['problems'][number] }> {
-  const resolved = isAbsolute(target.path) ? target.path : resolvePath(target.projectDir, target.path);
-  if (picks?.hasWrite(resolved) === true) {
-    return { path: resolved };
-  }
-  const [projectReal, candidateReal] = await Promise.all([
-    realpathOfPrefix(target.projectDir),
-    realpathOfPrefix(resolved),
-  ]);
-  if (!isInsideReal(projectReal, candidateReal)) {
-    return {
-      problem: {
-        code: 'dump-outside-project',
-        message: `The dump file "${target.path}" resolves outside the project folder`,
-      },
-    };
-  }
-  return { path: resolved };
-}
-
-/**
- * "Dump File": writes the response body of a completed send to the path the request
- * names, resolving a relative path against the project folder and refusing to write (or create
- * directories) anywhere outside it — see {@link resolveDumpPath}. A write failure (or the
- * refusal itself) is reported as a problem on the exchange rather than failing the send — the
- * response arrived, and losing it because a directory is read-only, or the path is untrusted,
- * would be the worse outcome.
- */
-async function writeDumpFile(
-  project: RequestChannelProject,
-  requestId: string | undefined,
-  summary: ExchangeSummary,
-  picks?: DumpFilePicks,
-): Promise<ExchangeSummary> {
-  const target = requestId === undefined ? undefined : project.dumpFileFor(requestId);
-  if (target === undefined) {
-    return summary;
-  }
-  const resolved = await resolveDumpPath(target, picks);
-  if ('problem' in resolved) {
-    return { ...summary, problems: [...summary.problems, resolved.problem] };
-  }
-  try {
-    await mkdir(dirname(resolved.path), { recursive: true });
-    await writeFileAtomic(nodeFs, resolved.path, Buffer.from(summary.http.bodyBase64, 'base64'));
-    return summary;
-  } catch (error) {
-    return {
-      ...summary,
-      problems: [
-        ...summary.problems,
-        {
-          code: 'dump-failed',
-          message: `Could not write the dump file "${resolved.path}": ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
-    };
-  }
-}
-
-function unknownRequest(requestId: string): ProjectError {
+export function unknownRequest(requestId: string): ProjectError {
   return new ProjectError('unknown-request', `No saved request with id ${requestId}`, { details: { requestId } });
-}
-
-/**
- * "Recreate Request": regenerate the operation's envelope, merge the saved one into
- * it (unless `empty`, which starts from a bare envelope), then save the result through the
- * project service so the renderer's mirror and the folder on disk both follow.
- */
-async function recreate(
-  service: EngineService,
-  deps: RequestChannelDeps,
-  request: RequestRecreateRequest,
-): Promise<RequestRecreateResponse> {
-  const project = deps.project;
-  const preferences = deps.preferences?.get();
-  const source = project.requestSource(request.requestId);
-  if (source === undefined) {
-    throw unknownRequest(request.requestId);
-  }
-  const options = generateOptionsFrom(preferences);
-  const generated = service.generate({
-    interfaceId: source.interfaceId,
-    bindingName: source.bindingName,
-    operationName: source.operationName,
-    ...(options !== undefined ? { options } : {}),
-    ...(request.empty ? { empty: true } : {}),
-  });
-  // An empty request is a deliberate reset, so nothing is merged into it — the counts a merge
-  // would report are all zero rather than describing what was thrown away.
-  const merged = request.empty
-    ? { xml: generated.envelopeXml, kept: 0, added: 0, removed: 0 }
-    : recreateRequest(source.envelopeXml, generated.envelopeXml, {
-        keepValues: request.keepValues,
-        keepHeaders: request.keepHeaders,
-      });
-  // A recreate hands back a freshly built envelope, so it is formatted with the user's own
-  // indent rather than whatever width the generator happened to use.
-  const envelopeXml = prettyPrint(merged.xml, preferences?.editor.tabSize);
-  await project.projectMutate(ownerOf(project, request.requestId), {
-    kind: 'update-request',
-    requestId: request.requestId,
-    patch: { envelopeXml },
-  });
-  return { envelopeXml, kept: merged.kept, added: merged.added, removed: merged.removed };
 }
 
 /** The note under a Kerberos export: the ticket is the OS's to supply, so none is in the command. */
@@ -900,7 +758,7 @@ function cachedAccessToken(deps: RequestChannelDeps, config: OAuth2Auth): string
  * A dry run's unresolved references onto the wire, without the `${secret:name}` tokens: a dry run
  * reads no secret, and a send resolves them (refusing as `secret-missing` when nothing is stored).
  */
-function preflightUnresolved(unresolved: readonly UnresolvedRef[]): UnresolvedRefWire[] {
+export function preflightUnresolved(unresolved: readonly UnresolvedRef[]): UnresolvedRefWire[] {
   return unresolved.filter((ref) => !isSecretTokenRef(ref)).map(toUnresolvedRefWire);
 }
 
@@ -910,7 +768,7 @@ function preflightUnresolved(unresolved: readonly UnresolvedRef[]): UnresolvedRe
  * placeholder, so none of them is ever in its unresolved list; the names come from `secretNames`. Nothing is
  * fetched and no tool runs: only the mapping and the trust state are read.
  */
-function preflightSecretRefs(
+export function preflightSecretRefs(
   names: readonly string[],
   secretSources: SecretSourcesSnapshot | undefined,
 ): UnresolvedRefWire[] {
@@ -932,25 +790,15 @@ function preflightSecretRefs(
  * True when a caller asked for the secret-source warnings only and no name is mapped: there is nothing
  * to warn about, so the request is not resolved at all (the send that runs beside it resolves it once).
  */
-function nothingToWarnAbout(
+export function nothingToWarnAbout(
   secretsOnly: boolean | undefined,
   secretSources: SecretSourcesSnapshot | undefined,
 ): boolean {
   return secretsOnly === true && (secretSources === undefined || secretSourceContext(secretSources).sources.size === 0);
 }
 
-/** True for a base URL the webhook collection supplied: its target, or a callback's own URL. */
-function isWebhookUrlSource(source: RestUrlSource): source is WebhookUrlSource {
-  return source === 'target' || source === 'callback' || source === 'callback-fallback';
-}
-
-/** A REST base URL's source in the endpoint vocabulary the editor's badge reads. */
-function endpointSourceOf(source: RestUrlSource): EndpointSourceWire {
-  return source === 'api' || isWebhookUrlSource(source) ? 'interface-default' : source;
-}
-
 /** What a preflight answers for a request no open project holds. */
-const NO_PREFLIGHT: PreflightResult = {
+export const NO_PREFLIGHT: PreflightResult = {
   endpointSource: 'none',
   unresolved: [],
   auth: { type: 'none', source: 'none' },
@@ -958,72 +806,8 @@ const NO_PREFLIGHT: PreflightResult = {
 };
 
 /** The credentials a preflight names: their type, with an unresolved `inherit` as none. */
-function preflightAuth(auth: AuthConfig): PreflightResult['auth'] {
+export function preflightAuth(auth: AuthConfig): PreflightResult['auth'] {
   return { type: auth.type === 'inherit' ? 'none' : auth.type, source: 'request' };
-}
-
-/**
- * The dry run of a REST send: where it would go, what would not expand, and which credentials it
- * would use. It resolves as the send resolves, through the engine, so the two never disagree; nothing
- * is sent and no secret is read — which is what lets the editor show the badge while the user types.
- */
-async function preflightRest(
-  sendDeps: SendThroughEngineDeps,
-  secretSources: SecretSourcesSnapshot | undefined,
-  request: {
-    readonly requestId: string;
-    readonly draft?: RestRequestPatchWire | undefined;
-    readonly secretsOnly?: boolean | undefined;
-  },
-): Promise<PreflightResult> {
-  if (nothingToWarnAbout(request.secretsOnly, secretSources)) {
-    return NO_PREFLIGHT;
-  }
-  const resolved = await previewRest(sendDeps, request.requestId, request.draft);
-  if (resolved === undefined) {
-    return NO_PREFLIGHT;
-  }
-  const composed = composeUrl(
-    resolved.input.baseUrl,
-    resolved.input.request.url,
-    resolved.input.request.pathParams,
-    resolved.input.request.query,
-    { encode: resolved.input.settings.encodeUrl ?? true },
-  );
-  // A `{param}` with no value is reported in the same list as an unresolved property: both are
-  // "this request is not finished", and the console shows them together.
-  const missing: UnresolvedRefWire[] = composed.problems
-    .filter((problem) => problem.code === 'missing-path-param')
-    .map((problem) => ({
-      expr: `{${problem.name}}`,
-      code: 'missing' as const,
-      start: 0,
-      end: 0,
-      scope: 'path',
-      name: problem.name,
-    }));
-  return {
-    endpoint: composed.url,
-    // The base URL's source uses the same vocabulary an interface endpoint's does, so the badge in
-    // the editor reads identically for either protocol. A webhook item's target is its default,
-    // and where it actually went is reported in `target`.
-    endpointSource: endpointSourceOf(resolved.baseUrlSource),
-    unresolved: [
-      ...preflightUnresolved(resolved.unresolved),
-      ...preflightSecretRefs(resolved.secretNames, secretSources),
-      ...missing,
-    ],
-    auth: preflightAuth(resolved.auth),
-    wsa: { enabled: false },
-    ...(isWebhookUrlSource(resolved.baseUrlSource)
-      ? {
-          target: {
-            source: resolved.baseUrlSource,
-            ...(resolved.targetDetail !== undefined ? { detail: resolved.targetDetail } : {}),
-          },
-        }
-      : {}),
-  };
 }
 
 /**
@@ -1097,57 +881,6 @@ async function wsCommand(
   return { command, notes };
 }
 
-/** What a push on a call that is not open, or never was, is refused with. */
-const GRPC_STREAM_UNKNOWN_MESSAGE = 'That call is no longer open for sending.';
-
-/**
- * The dry run of a gRPC call: the target it would go to and what would not expand, resolved as the
- * send resolves it. Nothing is sent and no secret is read, so the editor can show the badge while
- * the user types.
- */
-async function preflightGrpc(
-  sendDeps: SendThroughEngineDeps,
-  secretSources: SecretSourcesSnapshot | undefined,
-  request: {
-    readonly requestId: string;
-    readonly draft?: GrpcRequestPatchWire | undefined;
-    readonly secretsOnly?: boolean | undefined;
-  },
-): Promise<PreflightResult> {
-  if (nothingToWarnAbout(request.secretsOnly, secretSources)) {
-    return NO_PREFLIGHT;
-  }
-  const resolved = await previewGrpc(sendDeps, request.requestId, request.draft);
-  if (resolved === undefined) {
-    return NO_PREFLIGHT;
-  }
-  return {
-    endpoint: resolved.input.target,
-    endpointSource: resolved.targetSource === 'api' ? 'interface-default' : resolved.targetSource,
-    unresolved: [
-      ...preflightUnresolved(resolved.unresolved),
-      ...preflightSecretRefs(resolved.secretNames, secretSources),
-    ],
-    auth: preflightAuth(resolved.auth),
-    wsa: { enabled: false },
-  };
-}
-
-/** The URL a WebSocket call's input resolves to, for display in a failure row — never sent anywhere. */
-function wsDisplayUrl(input: {
-  readonly serverUrl: string;
-  readonly request: {
-    readonly url: string;
-    readonly query: readonly { readonly name: string; readonly value: string; readonly enabled: boolean }[];
-  };
-}): string {
-  try {
-    return resolveWsUrl(input.serverUrl, input.request.url, input.request.query);
-  } catch {
-    return `${input.serverUrl}${input.request.url}`;
-  }
-}
-
 /**
  * The `request.openWs` sends still running: one per open session, each settling only once its
  * History entry has been written.
@@ -1158,7 +891,7 @@ function wsDisplayUrl(input: {
  * the recording, or the entry is written into a history file that has already been closed, or not
  * at all because the process exited first. {@link whenWsSessionsRecorded} is that wait.
  */
-const openWsCalls = new Map<Promise<unknown>, string>();
+export const openWsCalls = new Map<Promise<unknown>, string>();
 
 /**
  * Resolves once every `request.openWs` in flight whose request `matches` — every one of them when
@@ -1199,7 +932,7 @@ export async function whenWsSessionsRecorded(
  * has been written — the REST twin of {@link openWsCalls}, for an event stream that stays open
  * until something stops it.
  */
-const openRestCalls = new Map<Promise<unknown>, string>();
+export const openRestCalls = new Map<Promise<unknown>, string>();
 
 /**
  * Resolves once every editor REST send in flight whose request `matches` has recorded its History
@@ -1231,68 +964,6 @@ export async function whenRestSendsRecorded(
   }
 }
 
-/** Registers one editor REST send in {@link openRestCalls} until it has recorded its History entry. */
-function trackRestSend<T>(requestId: string, call: Promise<T>): Promise<T> {
-  const settled = call.then(
-    () => undefined,
-    () => undefined,
-  );
-  openRestCalls.set(settled, requestId);
-  void settled.finally(() => openRestCalls.delete(settled));
-  return call;
-}
-
-/** Registers one `request.openWs` call in {@link openWsCalls} for the life of its session. */
-function trackOpenWs(requestId: string, call: Promise<WsExchangeSummary>): Promise<WsExchangeSummary> {
-  // A rejection is a fact about that one session, not about the wait: `whenWsSessionsRecorded`
-  // only cares that the call has *finished*, and the caller still gets the original promise.
-  const settled = call.then(
-    () => undefined,
-    () => undefined,
-  );
-  openWsCalls.set(settled, requestId);
-  void settled.finally(() => openWsCalls.delete(settled));
-  return call;
-}
-
-/** `true` when `text` is strictly valid base64 (including the empty string). */
-function isValidBase64(text: string): boolean {
-  return text.length % 4 === 0 && /^[A-Za-z0-9+/]*={0,2}$/.test(text);
-}
-
-/**
- * The dry run of opening a WebSocket session: where it would go and what would not expand, resolved
- * as the open resolves it. Nothing is dialled and no secret is read, so the editor can show the badge
- * while the user types.
- */
-async function preflightWs(
-  sendDeps: SendThroughEngineDeps,
-  secretSources: SecretSourcesSnapshot | undefined,
-  request: {
-    readonly requestId: string;
-    readonly draft?: WsRequestPatchWire | undefined;
-    readonly secretsOnly?: boolean | undefined;
-  },
-): Promise<PreflightResult> {
-  if (nothingToWarnAbout(request.secretsOnly, secretSources)) {
-    return NO_PREFLIGHT;
-  }
-  const resolved = await previewWs(sendDeps, request.requestId, request.draft);
-  if (resolved === undefined) {
-    return NO_PREFLIGHT;
-  }
-  return {
-    endpoint: wsDisplayUrl(resolved.input),
-    endpointSource: resolved.urlSource === 'api' ? 'interface-default' : resolved.urlSource,
-    unresolved: [
-      ...preflightUnresolved(resolved.unresolved),
-      ...preflightSecretRefs(resolved.secretNames, secretSources),
-    ],
-    auth: preflightAuth(resolved.auth),
-    wsa: { enabled: false },
-  };
-}
-
 /**
  * Registers the `request.*` IPC channels against a shared `EngineService` instance.
  *
@@ -1303,116 +974,6 @@ async function preflightWs(
  */
 export function registerRequestChannels(service: EngineService, deps: RequestChannelDeps): void {
   const sendDeps = toSendDeps(service, deps);
-  registerHandler(channels.request.generate, (request) => {
-    const options = request.options ?? generateOptionsFrom(deps.preferences?.get());
-    return Promise.resolve(service.generate({ ...request, ...(options !== undefined ? { options } : {}) }));
-  });
-
-  // The editor's envelope, endpoint and headers ride over the saved request as its override; a send
-  // with no saved request behind it goes as the renderer built it, as a synthetic item.
-  registerHandler(channels.request.send, async (request) => {
-    const summary = await sendThroughEngine(sendDeps, request.sendId, request.requestId ?? AD_HOC_ID, {
-      draft: { kind: 'soap', override: soapOverrideOf(request.input) },
-      checkAssertions: true,
-      ...(request.requestId === undefined ? { adHoc: { input: request.input, names: AD_HOC_NAME } } : {}),
-    });
-    return request.requestId === undefined
-      ? summary
-      : writeDumpFile(deps.project, request.requestId, summary, deps.dialogPicks);
-  });
-
-  // The stream as it happens, alongside the invoke that is still open and will resolve with the
-  // whole exchange. A window that has gone away swallows its own events.
-  registerHandler(channels.request.sendRest, (request, sender) =>
-    trackRestSend(
-      request.requestId,
-      sendThroughEngine(sendDeps, request.sendId, request.requestId, {
-        draft: { kind: 'rest', ...(request.draft !== undefined ? { draft: request.draft } : {}) },
-        checkAssertions: true,
-        onLive: (live) => {
-          emitEvent(sender, events.rest.live, live);
-        },
-      }),
-    ),
-  );
-
-  registerHandler(channels.request.preflightRest, (request) =>
-    preflightRest(sendDeps, deps.secretSources?.(), request),
-  );
-
-  // The call as it happens, its request side open for pushes when `interactive`; the `closed` event
-  // of a half-close comes from the engine with the rest of the call's events.
-  registerHandler(channels.request.sendGrpc, (request, sender) =>
-    sendThroughEngine(sendDeps, request.sendId, request.requestId, {
-      draft: { kind: 'grpc', ...(request.draft !== undefined ? { draft: request.draft } : {}) },
-      checkAssertions: true,
-      interactive: request.interactive === true,
-      onLive: (live) => {
-        emitEvent(sender, events.grpc.live, live);
-      },
-    }),
-  );
-  registerHandler(channels.request.grpcPush, async ({ sendId, messageText }) => {
-    const handle = sendDeps.registry.get(sendId);
-    if (handle === undefined) {
-      throw new WirebenchError('grpc-stream-unknown', GRPC_STREAM_UNKNOWN_MESSAGE, { details: { sendId } });
-    }
-    return { json: JSON.stringify(await handle.push({ text: messageText }), null, 2) };
-  });
-  registerHandler(channels.request.grpcHalfClose, ({ sendId }) =>
-    Promise.resolve({ closed: sendDeps.registry.halfClose(sendId) }),
-  );
-
-  registerHandler(channels.request.preflightGrpc, (request) =>
-    preflightGrpc(sendDeps, deps.secretSources?.(), request),
-  );
-
-  // The session as it happens: the invoke stays pending until it closes, while `ws.live` reports the
-  // handshake, each frame and each frame's contract check. Its request side takes pushes and a close.
-  // A reused `sendId` never replaces a session in flight, which nothing could reach again: the
-  // registry refuses it with `ws-session-exists` from the moment the first open begins.
-  registerHandler(channels.request.openWs, async (request, sender) => {
-    return await trackOpenWs(
-      request.requestId,
-      sendThroughEngine(sendDeps, request.sendId, request.requestId, {
-        draft: { kind: 'websocket', ...(request.draft !== undefined ? { draft: request.draft } : {}) },
-        interactive: true,
-        checkAssertions: true,
-        onLive: (live) => {
-          emitEvent(sender, events.ws.live, live);
-        },
-      }),
-    );
-  });
-  // Pushed in the order the renderer sent them: a text waiting on the keychain holds back the next.
-  registerHandler(channels.request.wsSend, async (request) => {
-    const handle = sendDeps.registry.get(request.sendId, 'websocket');
-    if (handle === undefined) {
-      throw new WirebenchError('ws-session-unknown', 'That connection is no longer open.', {
-        details: { sendId: request.sendId },
-      });
-    }
-    // The engine sends what `Buffer.from` salvages of a bad base64: refused here, before the push.
-    if (request.format === 'binary' && !isValidBase64(request.content)) {
-      throw new WirebenchError('ws-bad-binary', 'The message is not valid base64.', {
-        details: { sendId: request.sendId },
-      });
-    }
-    // An expanded text reads the properties as they are now, an environment switched since the open
-    // included; its escaping follows the request as the session opened it.
-    const frame = await handle.push(
-      request.format === 'binary'
-        ? { base64: request.content }
-        : request.expand
-          ? { text: request.content, expand: true, scopes: deps.project.scopesFor(request.requestId) }
-          : { text: request.content },
-    );
-    return toWsFrameWire(frame as WsFrame, { show: deps.showSecrets?.get() ?? false });
-  });
-  registerHandler(channels.request.wsClose, (request) =>
-    Promise.resolve({ closed: sendDeps.registry.closeWs(request.sendId, request.code, request.reason) }),
-  );
-  registerHandler(channels.request.preflightWs, (request) => preflightWs(sendDeps, deps.secretSources?.(), request));
 
   registerHandler(channels.request.sendToEnvironments, (request) => sendToEnvironments(sendDeps, deps, request));
 
@@ -1421,23 +982,7 @@ export function registerRequestChannels(service: EngineService, deps: RequestCha
     Promise.resolve(cancelEnvironmentBatch(sendDeps.registry, sendId) ?? sendDeps.registry.cancel(sendId)),
   );
 
-  registerHandler(channels.request.preflight, (request) => Promise.resolve(deps.project.preflight(request.requestId)));
-
-  registerHandler(channels.request.recreate, (request) => recreate(service, deps, request));
-
   registerHandler(channels.request.curl, (request) => curl(service, deps, sendDeps, request));
 
   registerHandler(channels.request.importCurl, (request) => importCurl(deps, request));
-
-  registerHandler(channels.request.restBodySchema, async (request) => {
-    // The operation is found from what a send would call — the draft laid over the saved request and
-    // its properties expanded — the same method and URL the contract check matches after a send, so
-    // the form and the check never disagree about the operation.
-    const resolved = await previewRest(sendDeps, request.requestId, request.draft);
-    const sent =
-      resolved === undefined ? undefined : { method: resolved.input.request.method, url: resolved.input.request.url };
-    const found = await deps.project.restBodySchema?.(request.requestId, sent);
-    // The wire keeps the schema as plain JSON data; the renderer reads it back as a `JsonSchema`.
-    return found === undefined ? null : { mediaType: found.mediaType, schema: found.schema as Record<string, unknown> };
-  });
 }

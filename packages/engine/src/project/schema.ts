@@ -19,14 +19,14 @@
  * ADR-0003.
  *
  * This file holds the core documents only: the manifest, an environment, the keystore registry, the
- * WS-Security configurations, the webhook collection and the definition-cache manifests. A
- * protocol's container and request files are in its own folder (`soap/files.ts`, `rest/files.ts`,
- * `grpc/files.ts`, `ws/files.ts`), and the pieces they share in `schema-parts.ts`.
+ * WS-Security configurations and the definition-cache manifests. A protocol's container and request
+ * files are in its own folder (`soap/files.ts`, `rest/files.ts`, `grpc/files.ts`, `ws/files.ts`), the
+ * webhook collection's in `webhooks/schema.ts`, and the pieces they share in `schema-parts.ts`.
  */
 
 import { z } from 'zod';
 import { FORMAT_VERSION } from './model.js';
-import { authConfigSchema, envName, nonEmpty, restFolderFileSchema, webhookSigningSchema } from './schema-parts.js';
+import { envName, nonEmpty } from './schema-parts.js';
 
 // The pieces the protocols' file schemas share are declared in `schema-parts.ts` and keep their
 // old names here. A protocol's own file schemas are exported from its folder.
@@ -67,20 +67,6 @@ export const manifestSchema = z.looseObject({
   activeEnvironmentId: z.string().optional(),
   /** Name of the Wirebench build that last wrote this manifest; informational only. */
   writtenBy: z.string().optional(),
-});
-
-/** `webhooks/webhooks.yaml`. */
-export const webhooksFileSchema = z.looseObject({
-  target: z.string(),
-  auth: authConfigSchema.optional(),
-  signing: webhookSigningSchema.optional(),
-});
-
-/** `webhooks/requests/[<folder>/…]folder.yaml`: a REST folder plus a target override and its source API. */
-export const webhookFolderFileSchema = restFolderFileSchema.extend({
-  target: z.string().optional(),
-  source: z.looseObject({ apiId: nonEmpty }).optional(),
-  signing: webhookSigningSchema.optional(),
 });
 
 /** `environments/<slug>.yaml`. */

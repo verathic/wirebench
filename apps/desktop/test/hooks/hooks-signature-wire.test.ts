@@ -6,7 +6,7 @@ import {
   captureSummaryWireSchema,
   catchUrlWireSchema,
   hooksUpdateRequestWireSchema,
-} from '../../src/shared/wire-types.js';
+} from '../../src/shared/wire-base.js';
 
 const HOOK = {
   id: '01J8ZC5Q0V7R3T9XK2M4N6P8QB',

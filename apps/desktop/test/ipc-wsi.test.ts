@@ -7,10 +7,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { importWsdl } from '@wirebench/engine';
 import type { WsdlImportResult, SoapExchange } from '@wirebench/engine';
 import { ExchangeCache } from '../src/main/exchange-cache.js';
-import { registerWsiChannels } from '../src/main/ipc/wsi.js';
-import type { WsiChannelProject } from '../src/main/ipc/wsi.js';
+import { registerWsiChannels } from '../src/main/kinds/soap/channels/wsi.js';
+import type { WsiChannelProject } from '../src/main/kinds/soap/channels/wsi.js';
 import type { EngineService } from '../src/main/engine-service.js';
-import type { WsiReportWire } from '../src/shared/wire-types.js';
+import type { WsiReportWire } from '../src/shared/kinds/soap/wire.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 

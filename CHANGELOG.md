@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A container of a kind this build cannot open stays in the explorer.** It shows as a dimmed row,
+  at its place among the project's containers, whose tooltip and only menu item say why: the kind
+  is switched off, or this version of Wirebench does not know it. Its files are never rewritten, a
+  tab of it reopens as a panel saying the same, and History and the HTTP Log keep its entries
+  without a re-send (#184).
+- **`WIREBENCH_KINDS` switches a protocol off in the desktop** (`grpc=off,websocket=off`), as
+  `WIREBENCH_AREAS` does an area: its channels and commands are not registered and its containers
+  load as placeholders. What the kind keeps for the whole project goes with it: with REST off the
+  webhook collection, and with SOAP off the WS-Security configurations, show as switched off and
+  stay on disk untouched. A change through a kind that is off is refused (`feature-disabled`). It is
+  a developer switch (#184).
+
 ### Breaking
 
 - **`@wirebench/engine`: `SendHost.issuedTokens` is `SendHost.protocols.soap.issuedTokens`.** A host
@@ -13,6 +27,16 @@ All notable changes to this project are documented here. The format follows
   set SOAP's entry. History's WebSocket frames, event-stream rows and contract results are typed with
   History's own `HistoryWsFrame`, `HistorySseRow` and `HistoryContract`, with the same fields as
   before. The engine README's "Migrating to 6.0" lists each change (#184).
+- **`@wirebench/engine`: a project's containers are one map.** `Project.interfaces`, `apis`,
+  `grpcApis`, `wsApis` and `extraContainers` are replaced by `Project.containers`, keyed by kind;
+  each protocol reads and replaces its own with a typed pair such as `restApisOf` and
+  `withRestApis` (#184).
+- **`@wirebench/engine`: the webhook collection and the WS-Security configurations belong to their
+  protocols.** `Project.webhooks` and `Project.wss.outgoing` / `incoming` move into
+  `Project.protocols`, read with `webhooksOf` and `wssConfigsOf`; `Project.wss.keystores` is
+  `Project.keystores`. REST loads and saves `webhooks/` and SOAP `wss/outgoing/` and
+  `wss/incoming/` through a new project-files facet, so a switched-off protocol's files are left on
+  disk untouched (#184).
 
 ## [5.0.0] - 2026-10-10
 

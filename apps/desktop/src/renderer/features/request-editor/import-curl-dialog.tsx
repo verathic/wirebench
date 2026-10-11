@@ -15,7 +15,7 @@ import { X } from 'lucide-react';
 import { Button } from '../../components/button.js';
 import { importCurl } from './request-actions.js';
 import { describeCurlProblem, previewCurl, type CurlPreview } from './curl-preview.js';
-import type { RequestImportCurlTarget } from '../../../shared/wire-types.js';
+import type { RequestImportCurlTarget } from '../../../shared/kinds/rest/wire.js';
 
 export interface ImportCurlDialogProps {
   readonly open: boolean;

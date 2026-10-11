@@ -28,7 +28,9 @@ import { isAbsoluteUrl, queryFromUrl, syncPathParams } from '../../state/rest-ur
 import { useCurrentValuesStore } from '../../state/current-values.js';
 import { useWorkspaceStore } from '../../state/workspace.js';
 import { groupOrientation, useEditorLayout } from '../request-editor/layout.js';
-import type { AuthConfigWire, RequestPreflightResponse, RestRequestPatchWire } from '../../../shared/wire-types.js';
+import type { RequestPreflightResponse } from '../../../shared/wire-types.js';
+import type { RestRequestPatchWire } from '../../../shared/kinds/rest/wire.js';
+import type { AuthConfigWire } from '../../../shared/wire-base.js';
 import { explorerActions } from '../explorer/explorer-actions.js';
 import { WebhookUrlNote } from '../webhook-items/webhook-url-note.js';
 import { RestAuthTab } from './auth-tab.js';

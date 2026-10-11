@@ -57,10 +57,10 @@ afterEach(() => {
 });
 
 describe('an event-stream entry in History', () => {
-  it('shows a summary line and the rows, read-only, with no banner when nothing was cut', () => {
+  it('shows a summary line and the rows, read-only, with no banner when nothing was cut', async () => {
     useHistoryStore.setState({ entries: [sseEntry()], total: 1 });
     render(<HistoryEntryView historyId="h-sse" />);
-    const line = screen.getByTestId('sse-history-status').textContent ?? '';
+    const line = (await screen.findByTestId('sse-history-status')).textContent ?? '';
     expect(line).toContain('1 event');
     expect(line).toContain('last id 1');
     expect(line).toContain('stopped');
@@ -69,25 +69,25 @@ describe('an event-stream entry in History', () => {
     expect(screen.queryByLabelText('History response body')).toBeNull();
   });
 
-  it('says the stream ended on an error, in the summary line', () => {
+  it('says the stream ended on an error, in the summary line', async () => {
     useHistoryStore.setState({ entries: [sseEntry({ endedBy: 'error', error: 'socket hang up' })], total: 1 });
     render(<HistoryEntryView historyId="h-sse" />);
-    const line = screen.getByTestId('sse-history-status').textContent ?? '';
+    const line = (await screen.findByTestId('sse-history-status')).textContent ?? '';
     expect(line).toContain('ended: socket hang up');
     expect(line).not.toContain('stopped');
   });
 
-  it('says how many rows from the middle were not kept, from the record', () => {
+  it('says how many rows from the middle were not kept, from the record', async () => {
     useHistoryStore.setState({ entries: [sseEntry({ truncated: true, omittedRows: 1234 })], total: 1 });
     render(<HistoryEntryView historyId="h-sse" />);
-    expect(screen.getByTestId('sse-history-truncated').textContent).toBe(
+    expect((await screen.findByTestId('sse-history-truncated')).textContent).toBe(
       '1234 events from the middle of the stream were not kept.',
     );
     // The total counts the rows left out, not only the kept ones.
     expect(screen.getByTestId('sse-count').textContent).toBe('1236 rows');
   });
 
-  it('mentions trimmed payloads', () => {
+  it('mentions trimmed payloads', async () => {
     useHistoryStore.setState({
       entries: [
         sseEntry({
@@ -109,7 +109,7 @@ describe('an event-stream entry in History', () => {
       total: 1,
     });
     render(<HistoryEntryView historyId="h-sse" />);
-    expect(screen.getByTestId('sse-history-truncated').textContent).toBe(
+    expect((await screen.findByTestId('sse-history-truncated')).textContent).toBe(
       'Some payloads were not kept either; their events show their size.',
     );
   });

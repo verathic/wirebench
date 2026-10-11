@@ -11,9 +11,22 @@
 | 5.x                                                            | 6.0                                                                                                                                                           |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SendHost.issuedTokens`                                        | `SendHost.protocols.soap.issuedTokens`. Read it with `soapHostOf(host)`, set it with `withSoapHost(host, { issuedTokens })`.                                  |
+| `Project.interfaces`                                           | `project.containers.soap`; read it with `soapInterfacesOf(project)`, replace it with `withSoapInterfaces(project, interfaces)`.                               |
+| `Project.apis`                                                 | `project.containers.rest`; `restApisOf` / `withRestApis`.                                                                                                     |
+| `Project.grpcApis`                                             | `project.containers.grpc`; `grpcApisOf` / `withGrpcApis`.                                                                                                     |
+| `Project.wsApis`                                               | `project.containers.websocket`; `wsApisOf` / `withWsApis`.                                                                                                    |
+| `Project.extraContainers`, `extraContainersOf`                 | `project.containers[kind]`; `containersOf(project, kind)` / `withContainersOf(project, kind, containers)`. Every kind, built in or not, is in the one map.    |
+| `requestFileLocation(project, id)`                             | Takes an optional registry; each module's storage answers through its new `requestLocation(container, id)`.                                                   |
+| `Project.webhooks`                                             | `project.protocols.rest`; `webhooksOf(project)` / `withWebhooks(project, collection)`, where `undefined` removes the collection.                              |
+| `Project.wss.outgoing`, `Project.wss.incoming`                 | `project.protocols.soap`; `wssConfigsOf(project)` / `withWssConfigs(project, { outgoing, incoming })`.                                                        |
+| `Project.wss.keystores`                                        | `Project.keystores`.                                                                                                                                          |
 | `HistoryWs.frames`, `HistorySse.rows`, `HistoryEntry.contract` | Typed with History's own `HistoryWsFrame`, `HistorySseRow` and `HistoryContract`, which have the same fields as `WsFrame`, `SseRow` and `RestContractResult`. |
 
-`historyWsOf`, `historySseOf`, `historyContractOf`, `RestEventStreamLike`, `createIssuedTokenSource` and `wssEntrySchema` keep their names and signatures; they moved within the package.
+`historyWsOf`, `historySseOf`, `historyContractOf`, `RestEventStreamLike`, `createIssuedTokenSource`, `wssEntrySchema`, `AnyRequestDef` and SOAP's model (`Interface`, `OperationDef`, `SoapRequestDef`, `Endpoint`, `Attachment`, `RequestProperties`, `createInterface`, `createRequest` and the rest) keep their names and signatures; they moved within the package.
+
+`webhooks/` and `wss/outgoing/`, `wss/incoming/` are read and written by REST's and SOAP's new `projectFiles` facet (`ProtocolProjectFiles`), so with REST or SOAP switched off in the registry they are not loaded, and a save leaves them on disk as they are. `protocolDataOf` and `withProtocolData` read and replace any kind's entry in `Project.protocols`. `webhooksFileSchema` and `webhookFolderFileSchema` keep their names and exports; they moved to `webhooks/schema.ts`.
+
+A kind with no containers is absent from `containers`: a loaded project, a new one and one whose last API of a kind was removed through a writer all leave it out. Build a project's containers through the writers, so each container literal is checked against its own type rather than `ContainerBase`.
 
 ## Migrating to 3.1
 

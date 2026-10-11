@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createIssuedTokenSource, createWssContext } from '@wirebench/engine';
 import type { IssuedToken, IssuedTokenTarget, Project, TrustDeps, WssIssuedTokenEntry } from '@wirebench/engine';
-import type { IssuedTokenStatusWire } from '../src/shared/wire-types.js';
+import type { IssuedTokenStatusWire } from '../src/shared/kinds/soap/wire.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -27,7 +27,7 @@ const { IssuedTokensService } = await import('../src/main/issued-tokens.js');
 const { registerIssuedTokenChannels } = await import('../src/main/ipc/issued-tokens.js');
 const { EngineService } = await import('../src/main/engine-service.js');
 const { ProjectHost } = await import('../src/main/project-host.js');
-const { addWssOutgoing } = await import('../src/main/project-wss-mutations.js');
+const { addWssOutgoing } = await import('../src/main/kinds/soap/wss-mutations.js');
 const { desktopSecrets } = await import('../src/main/send/host.js');
 const { recordSecretValue } = await import('../src/main/redact.js');
 
@@ -156,42 +156,45 @@ describe('ProjectHost.issuedTokenTarget', () => {
     return {
       ...base,
       properties: { ...base.properties, sts: 'https://sts.test/issue' },
-      interfaces: [
-        {
-          kind: 'soap',
-          id: 'i1',
-          name: 'I',
-          slug: 'i',
-          order: 0,
-          definitionUrl: 'http://x',
-          cacheDefinition: true,
-          targetNamespace: '',
-          endpoints: [],
-          wsa: { enabled: false, version: '2005/08' },
-          operations: [
-            {
-              name: 'Op',
-              bindingName: 'B',
-              slug: 'op',
-              order: 0,
-              requests: refs.map((ref, index) => ({
-                id: `r${String(index + 1)}`,
-                name: `Request ${String(index + 1)}`,
-                slug: `request-${String(index + 1)}`,
-                order: index,
-                envelopeXml: ENVELOPE,
-                endpointUrl: `https://svc.test/${String(index + 1)}`,
-                soapVersion: '1.1',
-                headers: [],
-                attachments: [],
-                ...(ref !== undefined ? { wssOutgoingRef: ref } : {}),
-                properties: { encoding: 'UTF-8' },
-                assertions: [],
-              })),
-            },
-          ],
-        },
-      ],
+      containers: {
+        ...base.containers,
+        soap: [
+          {
+            kind: 'soap',
+            id: 'i1',
+            name: 'I',
+            slug: 'i',
+            order: 0,
+            definitionUrl: 'http://x',
+            cacheDefinition: true,
+            targetNamespace: '',
+            endpoints: [],
+            wsa: { enabled: false, version: '2005/08' },
+            operations: [
+              {
+                name: 'Op',
+                bindingName: 'B',
+                slug: 'op',
+                order: 0,
+                requests: refs.map((ref, index) => ({
+                  id: `r${String(index + 1)}`,
+                  name: `Request ${String(index + 1)}`,
+                  slug: `request-${String(index + 1)}`,
+                  order: index,
+                  envelopeXml: ENVELOPE,
+                  endpointUrl: `https://svc.test/${String(index + 1)}`,
+                  soapVersion: '1.1',
+                  headers: [],
+                  attachments: [],
+                  ...(ref !== undefined ? { wssOutgoingRef: ref } : {}),
+                  properties: { encoding: 'UTF-8' },
+                  assertions: [],
+                })),
+              },
+            ],
+          },
+        ],
+      },
     } as unknown as Project;
   }
 
@@ -220,7 +223,7 @@ describe('ProjectHost.issuedTokenTarget', () => {
 
   it('finds the entry and the first request that selects the configuration, as a send targets it', async () => {
     const { host, configId, projectId } = await open((id) => [undefined, id]);
-    const resolved = await host.issuedTokenTarget(projectId, configId, 1);
+    const resolved = await host.kind('soap').issuedTokenTarget(projectId, configId, 1);
     expect(resolved.entry).toMatchObject({ kind: 'issued-token', stsUrl: '${#Project#sts}' });
     expect(resolved.target.endpointUrl).toBe('https://svc.test/2');
     expect(resolved.target.expand(resolved.entry.stsUrl)).toBe('https://sts.test/issue');
@@ -229,12 +232,14 @@ describe('ProjectHost.issuedTokenTarget', () => {
 
   it('uses the request the caller names', async () => {
     const { host, configId, projectId } = await open((id) => [id, id]);
-    expect((await host.issuedTokenTarget(projectId, configId, 1, 'r2')).target.endpointUrl).toBe('https://svc.test/2');
+    expect((await host.kind('soap').issuedTokenTarget(projectId, configId, 1, 'r2')).target.endpointUrl).toBe(
+      'https://svc.test/2',
+    );
   });
 
   it('refuses a named request that does not select the configuration', async () => {
     const { host, configId, projectId } = await open((id) => [undefined, id]);
-    await expect(host.issuedTokenTarget(projectId, configId, 1, 'r1')).rejects.toMatchObject({
+    await expect(host.kind('soap').issuedTokenTarget(projectId, configId, 1, 'r1')).rejects.toMatchObject({
       code: 'ws-trust-no-request',
     });
   });
@@ -245,21 +250,23 @@ describe('ProjectHost.issuedTokenTarget', () => {
       { secretsFor: () => (ref) => Promise.resolve(ref === 'team:sts-password' ? 'from-team' : undefined) },
       projectId,
     );
-    const resolved = await host.issuedTokenTarget(projectId, configId, 1, undefined, sendGetter);
+    const resolved = await host.kind('soap').issuedTokenTarget(projectId, configId, 1, undefined, sendGetter);
     expect(await resolved.deps.ctx.secrets('team:sts-password')).toBe('from-team');
     // The keychain alone does not know it: without the send's getter the ref refuses.
-    const keychainOnly = await host.issuedTokenTarget(projectId, configId, 1);
+    const keychainOnly = await host.kind('soap').issuedTokenTarget(projectId, configId, 1);
     await expect(keychainOnly.deps.ctx.secrets('team:sts-password')).rejects.toMatchObject({ code: 'secret-missing' });
   });
 
   it('refuses an entry that is not an issued token', async () => {
     const { host, configId, projectId } = await open((id) => [id]);
-    await expect(host.issuedTokenTarget(projectId, configId, 0)).rejects.toMatchObject({ code: 'not-found' });
+    await expect(host.kind('soap').issuedTokenTarget(projectId, configId, 0)).rejects.toMatchObject({
+      code: 'not-found',
+    });
   });
 
   it('refuses with ws-trust-no-request when no request selects the configuration', async () => {
     const { host, configId, projectId } = await open(() => [undefined]);
-    await expect(host.issuedTokenTarget(projectId, configId, 1)).rejects.toMatchObject({
+    await expect(host.kind('soap').issuedTokenTarget(projectId, configId, 1)).rejects.toMatchObject({
       code: 'ws-trust-no-request',
       message: 'Select this configuration on a request first.',
     });
@@ -269,7 +276,7 @@ describe('ProjectHost.issuedTokenTarget', () => {
     const { host } = await open((id) => [id]);
     const request = vi.fn(() => Promise.resolve(issued()));
     host.setIssuedTokens(createIssuedTokenSource({ request }));
-    const preview = await host.previewOutgoingWss('r1', ENVELOPE);
+    const preview = await host.kind('soap').previewOutgoingWss('r1', ENVELOPE);
     expect(preview).toContain('<!-- issued token: fetched from sts.test at send -->');
     expect(preview).toContain('ID="_preview"');
     expect(request).not.toHaveBeenCalled();
@@ -279,9 +286,9 @@ describe('ProjectHost.issuedTokenTarget', () => {
     const { host, configId, projectId } = await open((id) => [id]);
     const source = createIssuedTokenSource({ request: () => Promise.resolve(issued()) });
     host.setIssuedTokens(source);
-    const resolved = await host.issuedTokenTarget(projectId, configId, 1);
+    const resolved = await host.kind('soap').issuedTokenTarget(projectId, configId, 1);
     await source.get(resolved.entry, resolved.target, resolved.deps);
-    const preview = await host.previewOutgoingWss('r1', ENVELOPE);
+    const preview = await host.kind('soap').previewOutgoingWss('r1', ENVELOPE);
     expect(preview).toContain('ID="_issued"');
     expect(preview).not.toContain('_preview');
   });

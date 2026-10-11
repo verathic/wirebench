@@ -14,7 +14,8 @@ import { harOf } from '../src/main/har.js';
 import { curlForLogEntry } from '../src/main/log-curl.js';
 import { buildHistoryEntry, type RecordSendInput } from '../src/main/history-service.js';
 import { sendThroughEngine, type SendThroughEngineDeps } from '../src/main/send/exchange.js';
-import type { FailedExchangeWire, LogEntryWire } from '../src/shared/wire-types.js';
+import type { LogEntryWire } from '../src/shared/wire-types.js';
+import type { FailedExchangeWire } from '../src/shared/wire-base.js';
 import { sendDepsFor, type SendDepsExtra } from './helpers/send-deps.js';
 
 interface Seen {
@@ -73,7 +74,7 @@ function projectWith(auth: SoapOwnerAuth | undefined, endpoint: string): Project
     cacheDefinition: false,
     operations: [{ name: 'O', bindingName: '{urn:t}B', slug: 'o', order: 0, requests: [request] }],
   });
-  return { ...createProject('P', { id: 'proj-1' }), interfaces: [iface] };
+  return { ...createProject('P', { id: 'proj-1' }), containers: { soap: [iface] } };
 }
 
 /** The send's dependencies over `projectWith(auth, endpoint)`, as `request.send` builds them. */

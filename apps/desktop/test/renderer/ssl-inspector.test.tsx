@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { SslInspector } from '../../src/renderer/features/request-editor/inspectors/ssl-inspector.js';
 import { usePreferencesStore } from '../../src/renderer/state/preferences.js';
 import { makeExchange } from '../mocks/exchange-fixtures.js';
-import type { ExchangeSummary, SslInfoWire } from '../../src/shared/wire-types.js';
+import type { ExchangeSummary } from '../../src/shared/kinds/soap/wire.js';
+import type { SslInfoWire } from '../../src/shared/wire-base.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

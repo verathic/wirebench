@@ -9,7 +9,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createInterface, createProject, createRequest, DEFAULT_PREFERENCES, soapItemFor } from '@wirebench/engine';
 import type { Project, SoapOwnerAuth, SoapRequestDef } from '@wirebench/engine';
 import { EngineService } from '../src/main/engine-service.js';
-import { registerRequestChannels, type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { type RequestChannelDeps } from '../src/main/ipc/request.js';
+import { registerRequestChannelsWithKinds } from './helpers/kind-channels.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 
@@ -77,7 +78,7 @@ function seeded(extra: Partial<SoapRequestDef> = {}, auth?: SoapOwnerAuth): Proj
       },
     ],
     activeEnvironmentId: 'env-dev',
-    interfaces: [iface],
+    containers: { soap: [iface] },
   };
 }
 
@@ -102,7 +103,7 @@ const accessToken = vi.fn(() => Promise.resolve('fetched-token'));
 
 function registerOver(model: Project): void {
   handlers.clear();
-  registerRequestChannels(new EngineService(read), {
+  registerRequestChannelsWithKinds(new EngineService(read), {
     project: project(model),
     showSecrets: { get: () => showSecrets },
     getSecret: read,

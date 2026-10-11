@@ -1,4 +1,5 @@
-import type { InterfaceWire, WsHandshakeExchangeSummary } from '../../src/shared/wire-types.js';
+import type { InterfaceWire } from '../../src/shared/kinds/soap/wire.js';
+import type { WsHandshakeExchangeSummary } from '../../src/shared/kinds/ws/wire.js';
 import type { LogEntry } from '../../src/renderer/state/exchanges.js';
 import type { AnyExchangeSummary } from '../../src/renderer/features/request-editor/response-status.js';
 import type { RequestDraft } from '../../src/renderer/state/project.js';

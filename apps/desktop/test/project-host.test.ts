@@ -14,7 +14,9 @@ import {
   loadProject,
   mergePreferences,
   nodeFs,
+  restApisOf,
   soapEffectiveAuth,
+  soapInterfacesOf,
   soapItemFor,
 } from '@wirebench/engine';
 import type { FsLike, SoapOverride } from '@wirebench/engine';
@@ -26,7 +28,7 @@ import type { PreferencesService } from '../src/main/preferences.js';
 import { ProjectHost } from '../src/main/project-host.js';
 import { moveDir } from '../src/main/rename-dir.js';
 import { ExchangeRegistry, previewSoap, type SendThroughEngineDeps } from '../src/main/send/exchange.js';
-import { MAX_DROPPED_ATTACHMENT_BYTES } from '../src/shared/wire-types.js';
+import { MAX_DROPPED_ATTACHMENT_BYTES } from '../src/shared/kinds/soap/wire.js';
 import type { ProjectWire } from '../src/shared/wire-types.js';
 
 // The real `moveDir`, wrapped so one test can make the move of an import's definition cache fail.
@@ -113,7 +115,7 @@ describe('ProjectHost', () => {
     const service = new ProjectHost(new EngineService((ref) => secrets.get(ref)), {}, undefined, undefined, secrets);
 
     await service.create({ dir, name: 'Auth Project' });
-    await service.addInterface({
+    await service.kind('soap').addInterface({
       source: { kind: 'url', url: server!.wsdlUrl },
       auth: { username: 'alice', passwordRef: 'sec_pw' },
       useForRequests: true,
@@ -151,7 +153,7 @@ describe('ProjectHost', () => {
     const service = new ProjectHost(addEngine, {}, undefined, undefined, secrets);
 
     await service.create({ dir, name: 'Kerberos Project' });
-    const { project, interfaceId } = await service.addInterface({
+    const { project, interfaceId } = await service.kind('soap').addInterface({
       source: { kind: 'url', url: server!.wsdlUrl },
       auth: { type: 'kerberos', spn: 'HTTP/wsdl.example.test' },
       useForRequests: true,
@@ -192,7 +194,7 @@ describe('ProjectHost', () => {
     const service = new ProjectHost(engine, {});
 
     await service.create({ dir, name: 'Blank SPN Project' });
-    const { project, interfaceId } = await service.addInterface({
+    const { project, interfaceId } = await service.kind('soap').addInterface({
       source: { kind: 'url', url: server!.wsdlUrl },
       auth: { type: 'kerberos', spn: '   ' },
       useForRequests: true,
@@ -212,7 +214,9 @@ describe('ProjectHost', () => {
       const secrets = { get: getSecret };
       const service = new ProjectHost(new EngineService(getSecret), {}, undefined, undefined, secrets);
       await service.create({ dir, name: 'Windows Account Project' });
-      const { interfaceId } = await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+      const { interfaceId } = await service
+        .kind('soap')
+        .addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
       await service.mutate({
         kind: 'update-interface-auth',
         interfaceId,
@@ -258,7 +262,7 @@ paths:
       { fetchDocument: createDefaultFetchDocument() },
     );
     const auth = { type: 'basic', username: 'ada', passwordRef: 'ref-p' } as const;
-    const { apiId } = await service.addApi({
+    const { apiId } = await service.kind('rest').addApi({
       api: imported.api,
       documents: imported.documents,
       source: 'https://pets.example.test/openapi.yaml',
@@ -268,7 +272,7 @@ paths:
     });
 
     // `restSource` — what an update re-reads with — answers the same credentials `addApi` recorded.
-    expect(service.restSource(apiId)).toEqual({ source: 'https://pets.example.test/openapi.yaml', auth });
+    expect(service.kind('rest').restSource(apiId)).toEqual({ source: 'https://pets.example.test/openapi.yaml', auth });
     // `snapshot` goes through `toApiWire`, the same conversion `api.*` answers over IPC with.
     const before = (service.snapshot() as ProjectWire).apis.find((api) => api.id === apiId);
     expect(before?.definition).toMatchObject({ auth });
@@ -279,7 +283,7 @@ paths:
     await reopened.whenHydrated();
 
     // The credentials came back from `apis/<slug>/api.yaml` on disk, not from memory.
-    expect(reopened.restSource(apiId)).toEqual({ source: 'https://pets.example.test/openapi.yaml', auth });
+    expect(reopened.kind('rest').restSource(apiId)).toEqual({ source: 'https://pets.example.test/openapi.yaml', auth });
     const after = (reopened.snapshot() as ProjectWire).apis.find((api) => api.id === apiId);
     expect(after?.definition).toMatchObject({ auth });
   });
@@ -293,7 +297,7 @@ paths:
       { fetchDocument: createDefaultFetchDocument() },
     );
     // An API named as the WSDL's interface is, so the interface's first choice of slug is taken.
-    await service.addApi({
+    await service.kind('rest').addApi({
       api: { ...imported.api, name: 'Calculator' },
       documents: imported.documents,
       source: 'mem:pets',
@@ -301,14 +305,14 @@ paths:
       cache: false,
     });
 
-    const { project } = await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    const { project } = await service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     await service.save({ reason: 'test' });
     await service.close();
 
     expect(project.interfaces.map((iface) => iface.slug)).toEqual(['Calculator-2']);
     const reopened = await loadProject(dir);
     expect(reopened.problems.map((problem) => problem.code)).not.toContain('api-slug-conflict');
-    expect(reopened.project.apis.map((api) => api.slug)).toEqual(['Calculator']);
+    expect(restApisOf(reopened.project).map((api) => api.slug)).toEqual(['Calculator']);
     expect(existsSync(join(dir, 'apis', 'Calculator', 'api.yaml'))).toBe(true);
   });
 
@@ -327,7 +331,7 @@ paths:
     await expect(newService().create({ dir, name: 'Again' })).rejects.toThrow(/not empty/);
 
     // --- import -------------------------------------------------------------
-    const { project: afterImport, interfaceId } = await service.addInterface({
+    const { project: afterImport, interfaceId } = await service.kind('soap').addInterface({
       source: { kind: 'url', url: server!.wsdlUrl },
     });
     expect(afterImport.interfaces).toHaveLength(1);
@@ -413,7 +417,7 @@ paths:
     const dir = join(tempDir('project'), 'Broken');
     const service = newService();
     await service.create({ dir, name: 'Broken' });
-    const { project } = await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    const { project } = await service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     const slug = project.interfaces[0]!.slug;
     await service.close();
 
@@ -446,7 +450,7 @@ paths:
     const service = new ProjectHost(engine, {});
     await service.create({ dir, name: 'Staged' });
 
-    const { project } = await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    const { project } = await service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     const slug = project.interfaces[0]!.slug;
 
     // The engine wrote the cache somewhere the project watcher never sees, never under a
@@ -474,7 +478,7 @@ paths:
     const service = new ProjectHost(engine, {});
     await service.create({ dir, name: 'Failed Import' });
 
-    await expect(service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } })).rejects.toThrow(
+    await expect(service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } })).rejects.toThrow(
       'could not be parsed',
     );
 
@@ -494,7 +498,9 @@ paths:
       Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' }),
     );
 
-    await expect(service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } })).rejects.toThrow('ENOSPC');
+    await expect(service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } })).rejects.toThrow(
+      'ENOSPC',
+    );
 
     expect(vi.mocked(moveDir)).toHaveBeenCalled();
     expect(existsSync(join(dir, 'interfaces')) ? await readdir(join(dir, 'interfaces')) : []).toEqual([]);
@@ -581,7 +587,7 @@ paths:
     const service = newService(fs);
 
     await service.create({ dir, name: 'Mutex Project' });
-    await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    await service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     await service.save({ reason: 'seed' });
     const filesBefore = (await readdir(dir)).sort();
     log.length = 0;
@@ -646,7 +652,7 @@ paths:
     const dir = join(tempDir('project'), 'First Save');
     const first = newService();
     await first.create({ dir, name: 'First Save' });
-    const { project } = await first.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    const { project } = await first.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     await first.save({ reason: 'seed' });
     await first.close();
 
@@ -683,7 +689,7 @@ paths:
     const dir = join(tempDir('project'), 'Case Rename');
     const first = newService();
     await first.create({ dir, name: 'Case Rename' });
-    const { project } = await first.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    const { project } = await first.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     await first.save({ reason: 'seed' });
     await first.close();
     // Only a case-folding file system renames by case; elsewhere there is nothing to test.
@@ -784,7 +790,7 @@ describe('ProjectHost: environments and property scopes', () => {
     const dir = join(tempDir('project'), 'Preflight Project');
     const service = newService();
     await service.create({ dir, name: 'Preflight Project' });
-    const imported = await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    const imported = await service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     await service.whenHydrated();
     const requestId = imported.project.requests[0]!.id;
     const slug = imported.project.interfaces[0]!.slug;
@@ -820,7 +826,7 @@ describe('ProjectHost: environments and property scopes', () => {
       const dir = join(tempDir('project'), 'Send Options Project');
       const service = new ProjectHost(new EngineService(), {}, undefined, undefined, undefined, preferences);
       await service.create({ dir, name: 'Send Options Project' });
-      const imported = await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+      const imported = await service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
       await service.whenHydrated();
       /** What a send of `id` would put on the wire, the editor's `override` laid over the saved request. */
       const inputOf = async (id: string, override?: SoapOverride) =>
@@ -899,20 +905,20 @@ describe('ProjectHost: environments and property scopes', () => {
 
     it('reports a dump file only when the request names one', async () => {
       const { service, requestId } = await withRequest();
-      expect(service.dumpFileFor(requestId)).toBeUndefined();
+      expect(service.kind('soap').dumpFileFor(requestId)).toBeUndefined();
 
       await service.mutate({ kind: 'update-request-properties', requestId, patch: { dumpFile: 'out/last.xml' } });
-      expect(service.dumpFileFor(requestId)?.path).toBe('out/last.xml');
+      expect(service.kind('soap').dumpFileFor(requestId)?.path).toBe('out/last.xml');
 
       await service.mutate({ kind: 'update-request-properties', requestId, patch: { dumpFile: null } });
-      expect(service.dumpFileFor(requestId)).toBeUndefined();
+      expect(service.kind('soap').dumpFileFor(requestId)).toBeUndefined();
       await service.close();
     });
 
     it('answers undefined for a request that is not in the project', async () => {
       const { service, inputOf } = await withRequest();
       expect(await inputOf('nope')).toBeUndefined();
-      expect(service.dumpFileFor('nope')).toBeUndefined();
+      expect(service.kind('soap').dumpFileFor('nope')).toBeUndefined();
       await service.close();
     });
   });
@@ -930,7 +936,7 @@ describe('ProjectHost: WSDL generation preferences reach every generation path',
     const dir = join(tempDir('project'), 'Sample Values Project');
     await service.create({ dir, name: 'Sample Values Project' });
 
-    const imported = await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    const imported = await service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     await service.whenHydrated();
 
     const addRequest = imported.project.requests.find((request) => request.envelopeXml.includes('intA'));
@@ -948,7 +954,7 @@ describe('ProjectHost: WSDL generation preferences reach every generation path',
     const dir = join(tempDir('project'), 'Add Request Sample Values Project');
     await service.create({ dir, name: 'Add Request Sample Values Project' });
 
-    const imported = await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    const imported = await service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     await service.whenHydrated();
     const addOperation = imported.project.requests.find((request) => request.envelopeXml.includes('intA'))!;
 
@@ -972,7 +978,7 @@ describe('ProjectHost: WSDL generation preferences reach every generation path',
     const dir = join(tempDir('project'), 'Default Values Project');
     await service.create({ dir, name: 'Default Values Project' });
 
-    const imported = await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    const imported = await service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     await service.whenHydrated();
 
     const addRequest = imported.project.requests.find((request) => request.envelopeXml.includes('intA'));
@@ -1019,7 +1025,7 @@ describe('ProjectHost attachments', () => {
     const service = newService(undefined, picks);
     const dir = join(tempDir('project'), name);
     await service.create({ dir, name });
-    const imported = await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    const imported = await service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     await service.whenHydrated();
     return {
       service,
@@ -1070,7 +1076,9 @@ describe('ProjectHost attachments', () => {
       const { service, dir, requestId } = await withProject('Drop Project');
       const bytes = new Uint8Array([9, 8, 7]);
 
-      const id = await service.addAttachmentBytes(requestId, { name: 'dropped.png', contentType: '', bytes });
+      const id = await service
+        .kind('soap')
+        .addAttachmentBytes(requestId, { name: 'dropped.png', contentType: '', bytes });
 
       const attachment = service.snapshot()!.requests.find((r) => r.id === requestId)!.attachments[0]!;
       expect(attachment.id).toBe(id);
@@ -1086,7 +1094,7 @@ describe('ProjectHost attachments', () => {
     it('keeps the browser-sniffed content type when it has one', async () => {
       const { service, requestId } = await withProject('Drop Type Project');
 
-      await service.addAttachmentBytes(requestId, {
+      await service.kind('soap').addAttachmentBytes(requestId, {
         name: 'payload',
         contentType: 'application/zip',
         bytes: new Uint8Array([1]),
@@ -1103,7 +1111,7 @@ describe('ProjectHost attachments', () => {
       const bytes = new Uint8Array(MAX_DROPPED_ATTACHMENT_BYTES + 1);
 
       await expect(
-        service.addAttachmentBytes(requestId, { name: 'huge.bin', contentType: '', bytes }),
+        service.kind('soap').addAttachmentBytes(requestId, { name: 'huge.bin', contentType: '', bytes }),
       ).rejects.toMatchObject({ code: 'attachment-too-large' });
 
       expect(existsSync(join(dir, 'attachments'))).toBe(false);
@@ -1114,7 +1122,7 @@ describe('ProjectHost attachments', () => {
     it('strips path separators and control characters from a dropped name', async () => {
       const { service, requestId } = await withProject('Drop Name Project');
 
-      await service.addAttachmentBytes(requestId, {
+      await service.kind('soap').addAttachmentBytes(requestId, {
         name: '../../etc/passwd',
         contentType: 'text/plain',
         bytes: new Uint8Array([1]),
@@ -1129,7 +1137,9 @@ describe('ProjectHost attachments', () => {
     it('falls back to "attachment" when a dropped name is left with nothing usable', async () => {
       const { service, requestId } = await withProject('Drop Empty Name Project');
 
-      await service.addAttachmentBytes(requestId, { name: ' ', contentType: '', bytes: new Uint8Array([1]) });
+      await service
+        .kind('soap')
+        .addAttachmentBytes(requestId, { name: ' ', contentType: '', bytes: new Uint8Array([1]) });
 
       expect(service.snapshot()!.requests.find((r) => r.id === requestId)!.attachments[0]!.name).toBe('attachment');
       await service.close();
@@ -1140,7 +1150,9 @@ describe('ProjectHost attachments', () => {
       expect(requestId).toBeDefined();
 
       await expect(
-        service.addAttachmentBytes('nope', { name: 'a.txt', contentType: 'text/plain', bytes: new Uint8Array([1]) }),
+        service
+          .kind('soap')
+          .addAttachmentBytes('nope', { name: 'a.txt', contentType: 'text/plain', bytes: new Uint8Array([1]) }),
       ).rejects.toMatchObject({ code: 'not-found' });
 
       await service.close();
@@ -1166,7 +1178,7 @@ describe('ProjectHost attachments', () => {
       },
     });
 
-    const send = service.sendAttachmentsFor(requestId);
+    const send = service.kind('soap').sendAttachmentsFor(requestId);
 
     expect(send?.attachments).toHaveLength(1);
     expect(send?.attachmentOptions).toMatchObject({
@@ -1201,7 +1213,7 @@ describe('ProjectHost attachments', () => {
 
       const readSpy = vi.spyOn(nodeFs, 'readFile');
       try {
-        const send = reopened.sendAttachmentsFor(requestId)!;
+        const send = reopened.kind('soap').sendAttachmentsFor(requestId)!;
         await expect(send.attachmentOptions.resolver(send.attachments[0]!)).rejects.toMatchObject({
           code: 'attachment-outside-project',
         });
@@ -1227,7 +1239,7 @@ describe('ProjectHost attachments', () => {
       await reopened.whenHydrated();
       picks.rememberRead(declared);
 
-      const send = reopened.sendAttachmentsFor(requestId)!;
+      const send = reopened.kind('soap').sendAttachmentsFor(requestId)!;
       expect(await send.attachmentOptions.resolver(send.attachments[0]!)).toEqual(
         new Uint8Array(Buffer.from('declared-bytes')),
       );
@@ -1266,7 +1278,7 @@ describe('ProjectHost attachments', () => {
       await reopened.openProject(dir);
       await reopened.whenHydrated();
 
-      const send = reopened.sendAttachmentsFor(requestId)!;
+      const send = reopened.kind('soap').sendAttachmentsFor(requestId)!;
       await expect(send.attachmentOptions.resolver(send.attachments[0]!)).rejects.toMatchObject({
         code: 'attachment-outside-project',
       });
@@ -1296,7 +1308,7 @@ describe('ProjectHost attachments', () => {
       await reopened.openProject(dir);
       await reopened.whenHydrated();
 
-      const send = reopened.sendAttachmentsFor(requestId)!;
+      const send = reopened.kind('soap').sendAttachmentsFor(requestId)!;
       expect(await send.attachmentOptions.resolver(send.attachments[0]!)).toEqual(
         new Uint8Array(Buffer.from('inside-bytes')),
       );
@@ -1307,7 +1319,7 @@ describe('ProjectHost attachments', () => {
 
   it('sendAttachmentsFor is undefined for an unknown request', async () => {
     const { service } = await withProject('Attach Unknown Project');
-    expect(service.sendAttachmentsFor('nope')).toBeUndefined();
+    expect(service.kind('soap').sendAttachmentsFor('nope')).toBeUndefined();
     await service.close();
   });
 
@@ -1323,7 +1335,7 @@ describe('ProjectHost attachments', () => {
         added.project.requests.find((r) => r.id === requestId)!.attachments[0]!.source as { sha256: string }
       ).sha256;
 
-      const resolveFile = service.sendAttachmentsFor(requestId)!.attachmentOptions.resolveFile!;
+      const resolveFile = service.kind('soap').sendAttachmentsFor(requestId)!.attachmentOptions.resolveFile!;
 
       expect(await resolveFile(inside)).toEqual(new Uint8Array(Buffer.from('inside')));
       expect(await resolveFile('payload.txt')).toEqual(new Uint8Array(Buffer.from('inside')));
@@ -1337,7 +1349,7 @@ describe('ProjectHost attachments', () => {
       const outside = join(tempDir('files'), 'secret.txt');
       await writeFile(outside, 'nope');
 
-      const resolveFile = service.sendAttachmentsFor(requestId)!.attachmentOptions.resolveFile!;
+      const resolveFile = service.kind('soap').sendAttachmentsFor(requestId)!.attachmentOptions.resolveFile!;
 
       await expect(resolveFile('../../etc/passwd')).rejects.toThrow(/outside the project folder/);
       await expect(resolveFile(outside)).rejects.toThrow(/outside the project folder/);
@@ -1351,7 +1363,7 @@ describe('ProjectHost attachments', () => {
       await writeFile(declared, 'declared-bytes');
       await service.mutate({ kind: 'add-attachment', requestId, path: declared, copyToCache: false });
 
-      const resolveFile = service.sendAttachmentsFor(requestId)!.attachmentOptions.resolveFile!;
+      const resolveFile = service.kind('soap').sendAttachmentsFor(requestId)!.attachmentOptions.resolveFile!;
 
       expect(await resolveFile(declared)).toEqual(new Uint8Array(Buffer.from('declared-bytes')));
       // Its neighbours are still out of bounds: `declared` passes because it was picked, not
@@ -1374,7 +1386,9 @@ describe('ProjectHost attachments', () => {
       const attachment = added.project.requests.find((r) => r.id === requestId)!.attachments[0]!;
       const digest = (attachment.source as { sha256: string }).sha256;
 
-      expect(await service.resolveAttachmentPath(requestId, attachment.id)).toBe(join(dir, 'attachments', digest));
+      expect(await service.kind('soap').resolveAttachmentPath(requestId, attachment.id)).toBe(
+        join(dir, 'attachments', digest),
+      );
 
       await service.close();
     });
@@ -1395,14 +1409,14 @@ describe('ProjectHost attachments', () => {
       await reopened.openProject(dir);
       await reopened.whenHydrated();
 
-      await expect(reopened.resolveAttachmentPath(requestId, attachmentId)).rejects.toMatchObject({
+      await expect(reopened.kind('soap').resolveAttachmentPath(requestId, attachmentId)).rejects.toMatchObject({
         code: 'attachment-outside-project',
       });
 
       // The Add picker (or a Browse… dialog) putting it back in the picked set is the only
       // thing that changes that answer.
       picks.rememberRead(declared);
-      expect(await reopened.resolveAttachmentPath(requestId, attachmentId)).toBe(declared);
+      expect(await reopened.kind('soap').resolveAttachmentPath(requestId, attachmentId)).toBe(declared);
 
       await reopened.close();
     });
@@ -1426,7 +1440,7 @@ describe('ProjectHost attachments', () => {
       await reopened.openProject(dir);
       await reopened.whenHydrated();
 
-      await expect(reopened.resolveAttachmentPath(requestId, attachmentId)).rejects.toMatchObject({
+      await expect(reopened.kind('soap').resolveAttachmentPath(requestId, attachmentId)).rejects.toMatchObject({
         code: 'attachment-outside-project',
       });
 
@@ -1436,8 +1450,12 @@ describe('ProjectHost attachments', () => {
     it('refuses an unknown request or attachment id', async () => {
       const { service, requestId } = await withProject('Resolve Unknown Project');
 
-      await expect(service.resolveAttachmentPath('nope', 'nope')).rejects.toMatchObject({ code: 'not-found' });
-      await expect(service.resolveAttachmentPath(requestId, 'nope')).rejects.toMatchObject({ code: 'not-found' });
+      await expect(service.kind('soap').resolveAttachmentPath('nope', 'nope')).rejects.toMatchObject({
+        code: 'not-found',
+      });
+      await expect(service.kind('soap').resolveAttachmentPath(requestId, 'nope')).rejects.toMatchObject({
+        code: 'not-found',
+      });
 
       await service.close();
     });
@@ -1515,7 +1533,7 @@ describe('ProjectHost attachments', () => {
     await service.close();
 
     const { project, problems } = await loadProject(dir);
-    const request = project.interfaces
+    const request = soapInterfacesOf(project)
       .flatMap((iface) => iface.operations)
       .flatMap((operation) => operation.requests)
       .find((candidate) => candidate.id === requestId)!;
@@ -1535,7 +1553,7 @@ describe('ProjectHost.authFor', () => {
     const service = newService(undefined, picks);
     const dir = join(tempDir('project'), 'Default Endpoint Auth Project');
     await service.create({ dir, name: 'Default Endpoint Auth Project' });
-    const imported = await service.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    const imported = await service.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
     await service.whenHydrated();
     const requestId = imported.project.requests[0]!.id;
     const iface = imported.project.interfaces[0]!;
@@ -1647,8 +1665,12 @@ describe('ProjectHost.importGrpcApi', () => {
     const dir = join(tempDir('project'), 'Grpc Project');
     await service.create({ dir, name: 'Grpc Project' });
 
-    const first = await service.importGrpcApi({ api: createGrpcApi('Pets', { target: 'localhost:50051' }) });
-    const second = await service.importGrpcApi({ api: createGrpcApi('Pets', { target: 'localhost:50051' }) });
+    const first = await service
+      .kind('grpc')
+      .importGrpcApi({ api: createGrpcApi('Pets', { target: 'localhost:50051' }) });
+    const second = await service
+      .kind('grpc')
+      .importGrpcApi({ api: createGrpcApi('Pets', { target: 'localhost:50051' }) });
 
     const apis = second.project.grpcApis;
     expect(apis.map((api) => [api.id, api.slug, api.order])).toEqual([
@@ -1669,7 +1691,7 @@ describe('ProjectHost.importGrpcApi', () => {
       definition: { kind: 'proto' as const, source: '/x/pets.proto', cache: true, roots: ['pets.proto'] },
     };
 
-    await expect(service.importGrpcApi({ api })).rejects.toMatchObject({ code: 'invalid-argument' });
+    await expect(service.kind('grpc').importGrpcApi({ api })).rejects.toMatchObject({ code: 'invalid-argument' });
     expect(service.snapshot()?.grpcApis).toEqual([]);
     await service.close();
   });
@@ -1680,10 +1702,10 @@ describe('ProjectHost.addGrpcApi', () => {
     const service = newService();
     const dir = join(tempDir('project'), 'Mixed Project');
     await service.create({ dir, name: 'Mixed Project' });
-    await service.importWsApi({ api: createWsApi('Chat', { url: 'wss://chat.test' }) });
-    await service.importGrpcApi({ api: createGrpcApi('Pets', { target: 'localhost:50051' }) });
+    await service.kind('websocket').importWsApi({ api: createWsApi('Chat', { url: 'wss://chat.test' }) });
+    await service.kind('grpc').importGrpcApi({ api: createGrpcApi('Pets', { target: 'localhost:50051' }) });
 
-    const added = await service.addGrpcApi({
+    const added = await service.kind('grpc').addGrpcApi({
       api: createGrpcApi('Store', { target: 'localhost:50052' }),
       roots: ['store.proto'],
       source: '/protos/store.proto',
@@ -1705,8 +1727,10 @@ describe('ProjectHost.importWsApi', () => {
     const dir = join(tempDir('project'), 'Ws Project');
     await service.create({ dir, name: 'Ws Project' });
 
-    const first = await service.importWsApi({ api: createWsApi('Chat', { url: 'wss://chat.test' }) });
-    const second = await service.importWsApi({ api: createWsApi('Chat', { url: 'wss://chat.test' }) });
+    const first = await service.kind('websocket').importWsApi({ api: createWsApi('Chat', { url: 'wss://chat.test' }) });
+    const second = await service
+      .kind('websocket')
+      .importWsApi({ api: createWsApi('Chat', { url: 'wss://chat.test' }) });
 
     const apis = second.project.wsApis;
     expect(apis.map((api) => [api.id, api.slug, api.order])).toEqual([

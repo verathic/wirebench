@@ -5,7 +5,7 @@
  */
 import { callbackLabel, checkRequestAssertions } from '@wirebench/engine';
 import type { Assertion, AssertionSubject, CallbackAssertion } from '@wirebench/engine';
-import type { RequestAssertionResultWire } from '../../shared/wire-types.js';
+import type { RequestAssertionResultWire } from '../../shared/wire-base.js';
 import { redactSecretText } from '../redact.js';
 
 const mask = (text: string): string => redactSecretText(text, { show: false });

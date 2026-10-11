@@ -529,7 +529,7 @@ describe('WorkspaceService routing', () => {
     await service.open(created.id);
 
     const host = service.hostFor(calculator.id);
-    await host.addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
+    await host.kind('soap').addInterface({ source: { kind: 'url', url: server!.wsdlUrl } });
 
     const snapshot = service.projectSnapshot(calculator.id);
     const requestId = snapshot?.requests[0]?.id;
@@ -773,11 +773,14 @@ describe('WorkspaceService saving', () => {
     });
     await service.open(created.id);
 
-    await service.hostFor(project.id).addInterface({
-      source: { kind: 'url', url: server!.wsdlUrl },
-      auth: { username: 'alice', passwordRef: 'secret:pw' },
-      useForRequests: true,
-    });
+    await service
+      .hostFor(project.id)
+      .kind('soap')
+      .addInterface({
+        source: { kind: 'url', url: server!.wsdlUrl },
+        auth: { username: 'alice', passwordRef: 'secret:pw' },
+        useForRequests: true,
+      });
     await service.saveAll('test');
 
     // Same discipline as the project-level "passwordRef, never the password" checks: grep the

@@ -31,7 +31,7 @@ import { SyncService } from '../src/main/sync/sync-service.js';
 import { WorkspaceService } from '../src/main/workspace-service.js';
 import type { WorkspaceServiceDeps } from '../src/main/workspace-service.js';
 import type { AuditTarget } from '../src/main/audit/reporter.js';
-import type { WorkspaceWire } from '../src/shared/wire-types.js';
+import type { WorkspaceWire } from '../src/shared/wire-base.js';
 
 const SERVER_URL = 'https://wb.test';
 const HEAD = 'a'.repeat(40);

@@ -7,7 +7,7 @@ import type { SecretReviewOutcome } from '../../src/renderer/state/secret-review
 import { useProjectStore } from '../../src/renderer/state/project.js';
 import { wrapHandler } from '../../src/main/ipc/envelope.js';
 import { channels } from '../../src/shared/ipc.js';
-import type { SecretFindingWire } from '../../src/shared/wire-types.js';
+import type { SecretFindingWire } from '../../src/shared/wire-base.js';
 import { installWirebenchApi } from '../mocks/wirebench-api.js';
 
 const showToast = vi.hoisted(() => vi.fn());

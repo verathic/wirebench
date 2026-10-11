@@ -1,6 +1,6 @@
 import type { StoredCookie } from '@wirebench/engine';
 import { channels } from '../../shared/ipc.js';
-import type { StoredCookieWire } from '../../shared/wire-types.js';
+import type { StoredCookieWire } from '../../shared/wire-base.js';
 import type { CookieStore } from '../cookie-store.js';
 import { registerHandler } from './register.js';
 

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { registerWssChannels } from '../src/main/ipc/wss.js';
+import { registerWssChannels } from '../src/main/kinds/soap/channels/wss.js';
 
 const handlers = new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>();
 

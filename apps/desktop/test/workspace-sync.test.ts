@@ -83,7 +83,7 @@ function calcProject(envelope: string): Project {
       },
     ],
   });
-  return { ...createProject('Calc', { id: PROJECT_ID }), interfaces: [iface] };
+  return { ...createProject('Calc', { id: PROJECT_ID }), containers: { soap: [iface] } };
 }
 
 function share(overrides: Partial<GitShareSettings> = {}): Parameters<typeof saveShare>[1] {
@@ -299,7 +299,9 @@ describeGit('WorkspaceService — git sync', { timeout: 60_000 }, () => {
 
     const again = await openMachine(aRoot);
 
-    expect(again.service.hostFor(PROJECT_ID).requestSource(REQUEST_ID)?.envelopeXml).toBe('<Add>unsaved</Add>');
+    expect(again.service.hostFor(PROJECT_ID).kind('soap').requestSource(REQUEST_ID)?.envelopeXml).toBe(
+      '<Add>unsaved</Add>',
+    );
     expect(again.service.projectSnapshot(PROJECT_ID)?.dirty).toBe(true);
     expect(again.service.takeRestored().notices).toMatchObject([{ projectId: PROJECT_ID, status: 'restored' }]);
     // Unsaved means uncommitted: nothing was written into the shared tree for it.
@@ -352,7 +354,7 @@ describeGit('WorkspaceService — git sync', { timeout: 60_000 }, () => {
 
     const pulled = await b.service.sync()?.pull();
     expect(pulled).toMatchObject({ state: 'clean', behind: 0 });
-    expect(b.service.hostFor(PROJECT_ID).requestSource(REQUEST_ID)?.envelopeXml).toBe('<Add>2</Add>');
+    expect(b.service.hostFor(PROJECT_ID).kind('soap').requestSource(REQUEST_ID)?.envelopeXml).toBe('<Add>2</Add>');
     expect(b.pulled).toEqual([
       { workspaceId: workspace.id, projectIds: [PROJECT_ID], workspaceChanged: false, entityCount: 1 },
     ]);
@@ -374,7 +376,7 @@ describeGit('WorkspaceService — git sync', { timeout: 60_000 }, () => {
 
     const host = b.service.hostFor(PROJECT_ID);
     expect(host.snapshot()?.dirty).toBe(true);
-    expect(host.requestSource(REQUEST_ID)?.envelopeXml).toBe('<Add>local</Add>');
+    expect(host.kind('soap').requestSource(REQUEST_ID)?.envelopeXml).toBe('<Add>local</Add>');
     // At least once, and only ever for this project and this request: Windows' file watcher can
     // report the pull's one write twice, which reaches the host as a second identical notice.
     expect(b.projectOnDisk.length).toBeGreaterThan(0);

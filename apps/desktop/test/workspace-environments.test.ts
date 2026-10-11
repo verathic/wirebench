@@ -69,7 +69,7 @@ async function workspaceWithCalculator(): Promise<{
   await service.create('Workspace');
   const { projectId } = await service.addProject('Calc');
   const host = service.hostFor(projectId);
-  await host.addInterface({ source: { kind: 'url', url: primary.wsdlUrl } });
+  await host.kind('soap').addInterface({ source: { kind: 'url', url: primary.wsdlUrl } });
   await host.whenHydrated();
   const project = host.snapshot();
   return {
@@ -95,7 +95,7 @@ async function seedLinkedProject(name: string, properties: Record<string, string
   const dir = join(realpathSync(mkdtempSync(join(tmpdir(), 'wirebench-linked-'))), name);
   const host = new ProjectHost(engine);
   await host.create({ dir, name });
-  await host.addInterface({ source: { kind: 'url', url: primary.wsdlUrl } });
+  await host.kind('soap').addInterface({ source: { kind: 'url', url: primary.wsdlUrl } });
   await host.whenHydrated();
   const added = await host.mutate({ kind: 'add-environment', name: 'dev' });
   const environmentId = added.project.environments.find((environment) => environment.slug === 'dev')?.id as string;
@@ -133,10 +133,10 @@ describe('workspace environment routing', () => {
     });
 
     // Nothing is redirected until the environment is actually active.
-    expect(service.hostFor(projectId).endpointFor(requestId)).toBe(`${primary.url}/soap`);
+    expect(service.hostFor(projectId).kind('soap').endpointFor(requestId)).toBe(`${primary.url}/soap`);
 
     await service.setActiveEnvironment(environmentId);
-    expect(service.hostFor(projectId).endpointFor(requestId)).toBe(`${secondary.url}/soap`);
+    expect(service.hostFor(projectId).kind('soap').endpointFor(requestId)).toBe(`${secondary.url}/soap`);
     expect(service.hostFor(projectId).preflight(requestId).endpointSource).toBe('workspace-environment');
 
     await sendThroughHost(service, projectId, requestId);

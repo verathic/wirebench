@@ -15,8 +15,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { writeProtoDefinitionCache } from '../../../src/grpc/cache.js';
 import { createGrpcApi, createGrpcRequest } from '../../../src/grpc/model.js';
 import type { HttpExchange, HttpRequest } from '../../../src/http/types.js';
-import { DEFAULT_PROJECT_SETTINGS, DEFAULT_REQUEST_PROPERTIES, FORMAT_VERSION } from '../../../src/project/model.js';
-import type { Interface, OAuth2Auth, Project, SoapRequestDef } from '../../../src/project/model.js';
+import { DEFAULT_PROJECT_SETTINGS, FORMAT_VERSION } from '../../../src/project/model.js';
+import { DEFAULT_REQUEST_PROPERTIES } from '../../../src/soap/model.js';
+import type { OAuth2Auth, Project } from '../../../src/project/model.js';
+import type { Interface, SoapRequestDef } from '../../../src/soap/model.js';
 import { apiDefinitionDir } from '../../../src/project/paths.js';
 import { createApi, createRestRequest, entry } from '../../../src/rest/model.js';
 import type { RunContext } from '../../../src/run/context.js';
@@ -30,6 +32,7 @@ import type { ScriptSandbox } from '../../../src/script/sandbox/host.js';
 import { createWebhookCollection } from '../../../src/webhooks/model.js';
 import { normalizeWsa } from '../../../src/wsa/model.js';
 import { readProtoFixture } from '../../helpers/proto-fixtures.js';
+import { webhooksOf, withWebhooks } from '../../../src/webhooks/model.js';
 
 const { events, wire } = vi.hoisted(() => ({
   events: [] as string[],
@@ -256,31 +259,35 @@ function project(scripts?: RequestScripts): Project {
     settings: DEFAULT_PROJECT_SETTINGS,
     properties: {},
     disabledProperties: [],
-    interfaces: [iface],
-    apis: [api],
-    grpcApis: [grpcApi('Greeter', 'greeter', 2), grpcApi('Uncached', 'uncached', 3)],
-    wsApis: [],
+    containers: {
+      soap: [iface],
+      rest: [api],
+      grpc: [grpcApi('Greeter', 'greeter', 2), grpcApi('Uncached', 'uncached', 3)],
+    },
+
     sequences: [],
     mocks: [],
-    webhooks: createWebhookCollection({
-      target: 'https://receiver.example.test/hooks',
-      signing: {
-        mode: 'sign',
-        scheme: { kind: 'hmac', algorithm: 'sha256', encoding: 'hex', header: 'X-Signature' },
-        secretRef: 'ref-hooks',
-      },
-      requests: [
-        createRestRequest('Ping', {
-          id: 'req-hook',
-          slug: 'ping',
-          method: 'POST',
-          url: '/ping',
-          headers: [entry('X-Tenant', '${secret:tenant}')],
-        }),
-      ],
-    }),
+    protocols: {
+      rest: createWebhookCollection({
+        target: 'https://receiver.example.test/hooks',
+        signing: {
+          mode: 'sign',
+          scheme: { kind: 'hmac', algorithm: 'sha256', encoding: 'hex', header: 'X-Signature' },
+          secretRef: 'ref-hooks',
+        },
+        requests: [
+          createRestRequest('Ping', {
+            id: 'req-hook',
+            slug: 'ping',
+            method: 'POST',
+            url: '/ping',
+            headers: [entry('X-Tenant', '${secret:tenant}')],
+          }),
+        ],
+      }),
+    },
     environments: [],
-    wss: { outgoing: [], incoming: [], keystores: [] },
+    keystores: [],
   };
 }
 
@@ -412,7 +419,7 @@ describe('the order of operations in a REST send', () => {
 
   it('reads a webhook item’s signing secret before it fetches its OAuth2 token, as the app does', async () => {
     const base = project();
-    const p: Project = { ...base, webhooks: { ...base.webhooks!, auth: AUTH } };
+    const p = withWebhooks(base, { ...webhooksOf(base)!, auth: AUTH });
     await createRunSender(contextFor(p, false))(pick(p, 'Webhooks/Ping'));
     expect(events).toEqual(['secret secret:tenant', 'secret ref-hooks', 'secret ref-client', 'fetch token', 'send']);
   });

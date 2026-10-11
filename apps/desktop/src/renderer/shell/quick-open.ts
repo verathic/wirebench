@@ -8,7 +8,7 @@
  */
 
 import type { ResolvedHostWire } from '../../shared/ssh-wire.js';
-import type { InterfaceSummary, RequestWire } from '../../shared/wire-types.js';
+import type { InterfaceSummary, RequestWire } from '../../shared/kinds/soap/wire.js';
 
 /** One quick-open row. */
 export interface QuickOpenEntry {

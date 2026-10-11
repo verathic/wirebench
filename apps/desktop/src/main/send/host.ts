@@ -11,7 +11,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { failedRequestOf, findWebhookRequest, SIGNING_PSEUDO_REF_PREFIX } from '@wirebench/engine';
+import { failedRequestOf, findWebhookRequest, SIGNING_PSEUDO_REF_PREFIX, webhooksOf } from '@wirebench/engine';
 import type {
   AttemptedRequest,
   ClientIdentity,
@@ -41,7 +41,8 @@ import { recordSecretValue, redactSecretBytes, redactXml } from '../redact.js';
 import { restContractOf } from '../rest-contract.js';
 import { callbackUrlFor } from '../webhook-send.js';
 import { AD_HOC_ID } from './draft.js';
-import type { FailedExchangeWire, HistoryEntryWire, LogEntryWire } from '../../shared/wire-types.js';
+import type { HistoryEntryWire, LogEntryWire } from '../../shared/wire-types.js';
+import type { FailedExchangeWire } from '../../shared/wire-base.js';
 
 export interface DesktopSendDeps {
   readonly project: RequestChannelProject;
@@ -335,7 +336,7 @@ function restContractFor(deps: DesktopSendDeps): NonNullable<SendHost['contractF
 function callbackUrlOf(deps: DesktopSendDeps, send: DesktopSend, item: SelectedBase): string | undefined {
   const { projectId } = send;
   const located = deps.project.runContextFor?.(item.request.id, send.envId);
-  const webhooks = located?.project.webhooks;
+  const webhooks = located === undefined ? undefined : webhooksOf(located.project);
   if (
     projectId === undefined ||
     located === undefined ||
