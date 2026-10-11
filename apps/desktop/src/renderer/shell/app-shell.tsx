@@ -126,6 +126,9 @@ export function AppShell() {
 
   const sidebar = useUiStore((state) => state.sidebar);
   const consoleState = useUiStore((state) => state.console);
+  // The console's tabs (problems, HTTP log, WS-I) are about requests: the SSH area has none, so it
+  // gets the full height. Its open/closed state, size and tab are kept for the other areas.
+  const consoleShown = useUiStore((state) => state.sidebar.view !== 'ssh');
   const slideOver = useUiStore((state) => state.slideOver);
   // Each area keeps its own slide-over width.
   const slideOverWidth = useUiStore(slideOverWidthOf);
@@ -459,20 +462,22 @@ export function AppShell() {
                     <EditorArea />
                   </div>
                   {/* Same rationale as the sidebar's handle above: stays mounted while the console
-                    is collapsed. */}
-                  <PanelHandle
-                    testId="panel-handle-console"
-                    label={consoleState.visible ? 'Resize Console' : 'Show Console'}
-                    orientation="horizontal"
-                    valueNow={consoleState.visible ? consoleState.size : 0}
-                    valueMin={CONSOLE_MIN}
-                    valueMax={CONSOLE_MAX}
-                    onDrag={dragConsole}
-                    onDragEnd={endConsoleDrag}
-                    onStep={stepConsole}
-                    onDoubleClick={onDoubleClickConsoleHandle}
-                  />
-                  {consoleState.visible && (
+                    is collapsed (outside the SSH area, which has no console at all). */}
+                  {consoleShown && (
+                    <PanelHandle
+                      testId="panel-handle-console"
+                      label={consoleState.visible ? 'Resize Console' : 'Show Console'}
+                      orientation="horizontal"
+                      valueNow={consoleState.visible ? consoleState.size : 0}
+                      valueMin={CONSOLE_MIN}
+                      valueMax={CONSOLE_MAX}
+                      onDrag={dragConsole}
+                      onDragEnd={endConsoleDrag}
+                      onStep={stepConsole}
+                      onDoubleClick={onDoubleClickConsoleHandle}
+                    />
+                  )}
+                  {consoleShown && consoleState.visible && (
                     <div
                       data-testid="console-panel"
                       style={{ height: `${String(consoleState.size)}%` }}
