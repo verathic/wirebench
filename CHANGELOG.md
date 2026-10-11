@@ -16,6 +16,16 @@ All notable changes to this project are documented here. The format follows
   the request's new `settings.omitHeaders`, which the CLI and runs honour too, as do the cURL export
   and code generation. **Override** adds a typed header of the same name. Credentials and cookies stay
   masked, and unread, unless Show secrets is on (#346).
+- **Scripts on APIs, interfaces and folders.** An API, a SOAP interface and each REST or gRPC folder
+  can have a pre-request and a post-response script, which run around every request inside it: the
+  API's, then each folder's outermost first, then the request's own, in both phases. A pre-request
+  failure stops the send; a post-response failure lets the later scripts run and reports the first.
+  Each level lists its own secrets, is typed from its protocol's request and response, and is
+  type-checked by `wirebench run` before anything is sent. The API tab has a **Scripts** section, the
+  interface viewer a **Scripts** tab, and a folder **Scripts…** in its explorer menu; the response's
+  **Script** tab lists each script that ran under its level. The Postman importer puts a collection's
+  and its folders' scripts on the API and folders instead of copying them into each request. Project
+  format 9 (#334).
 - **Dynamic values.** `${$guid}` (or `${#Dynamic#guid}`) sends a fresh value with every request: UUIDs,
   Unix and ISO timestamps with offsets (`${$isoTimestamp(+1d)}`), random numbers
   (`${$randomInt(1,100)}`), and fake names, emails, addresses, phone numbers, companies, lorem text,
@@ -25,7 +35,12 @@ All notable changes to this project are documented here. The format follows
   `{{$timestamp}}`, `{{$randomInt}}` and the other common names now map onto them; a name with no
   generator keeps the import warning. Type `${$` in a body editor, or use **Get Data…**, to list them
   (#333).
-
+- **Variables in the editor.** Typing `${` in a request's URL, parameters, headers, auth fields or
+  body completes the names in scope, with each one's scope, and `${$` completes the dynamic values.
+  Hovering a reference shows its value (masked when it reads a secret) and scope, with a link to
+  edit it. A name that resolves to nothing is underlined where it is written. **Set as Variable…**
+  on text selected in a request or a response creates a variable in the scope you pick; in a
+  request, the selection becomes the reference (#340).
 - **The Code panel writes a request as code.** Besides `curl`, a SOAP or REST request can be shown
   as JavaScript fetch, Node.js axios, Python requests, Go net/http, Java HttpClient, Java OkHttp,
   C# HttpClient, PHP cURL, Ruby Net::HTTP, PowerShell Invoke-RestMethod or HTTPie, or as the
@@ -57,6 +72,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Breaking
 
+- **Project format 9.** `api.yaml`, `interface.yaml` and `folder.yaml` can carry `scripts`; a project
+  saved by this version cannot be opened by an older one, which would drop them and send without
+  them (#334).
+- **`@wirebench/engine`: a protocol's scripting facet has `levelTypes()`,** the generic types an API's,
+  interface's or folder's script is checked against. `ScriptedRequest` gains `outer` (its levels'
+  scripts, outermost first) and its own `scripts` is optional; `SentScripts` gains `levels` (#334).
 - **`@wirebench/engine`: `SendHost.issuedTokens` is `SendHost.protocols.soap.issuedTokens`.** A host
   lends each protocol what only it reads under its kind; `soapHostOf` and `withSoapHost` read and
   set SOAP's entry. History's WebSocket frames, event-stream rows and contract results are typed with

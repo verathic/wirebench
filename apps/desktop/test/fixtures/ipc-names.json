@@ -157,6 +157,7 @@
     "request.sendGrpc",
     "request.sendRest",
     "request.sendToEnvironments",
+    "request.variables",
     "request.wsClose",
     "request.wsSend",
     "script.clearValues",

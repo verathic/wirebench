@@ -1170,6 +1170,8 @@ export {
   secretNamesIn,
   unescapeExpansions,
 } from './project/properties.js';
+export { propertyReferences } from './project/references.js';
+export type { PropertyReference, PropertyReferenceForm } from './project/references.js';
 export { contractPorts, endpointsFromContract, endpointUrlFromContract } from './wsdl/contract-endpoints.js';
 export type { ContractPort } from './wsdl/contract-endpoints.js';
 export { expandSendInput } from './soap/expand.js';
