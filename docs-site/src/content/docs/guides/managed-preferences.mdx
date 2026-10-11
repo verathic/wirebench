@@ -8,7 +8,7 @@ import { Aside } from '@astrojs/starlight/components';
 On a machine IT manages, a **policy file** sets preferences the user cannot change: the proxy every
 send goes through, the CA bundle that adds your organization's trust anchors, the minimum TLS version,
 and whether Wirebench checks for updates. Every setting the file names is shown in
-**Preferences** as **Locked by policy**, and a note at the top of Preferences names the file.
+**Preferences** as **Managed**, and a note at the top of Preferences names the file.
 
 ## Where the file goes
 
@@ -64,7 +64,7 @@ it.
 
 ## What users see
 
-- Each locked setting is read-only and marked **Locked by policy**. The CA bundle's **Browse…** and
+- Each locked setting is read-only and marked **Managed**. The CA bundle's **Browse…** and
   **Clear** buttons are unavailable while it is locked.
 - **Reset section** restores the user's own values; locked values stay in force.
 - The user's own preferences file keeps only their own values. If the policy is removed, their

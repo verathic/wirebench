@@ -107,7 +107,7 @@ export function PreferencesEditor({ initialSection = 'http' }: PreferencesEditor
             data-testid="preferences-policy"
             className="mb-3 rounded-md border border-hairline px-3 py-2 text-sm text-fg-muted"
           >
-            Some settings are managed by your organization and marked “Locked by policy”. They come from{' '}
+            Some settings are managed by your organization and marked “Managed”. They come from{' '}
             <code className="font-mono">{policy.path}</code>.
             {policy.ignored.length > 0 && (
               <> The policy also names settings it cannot lock: {policy.ignored.join(', ')}.</>

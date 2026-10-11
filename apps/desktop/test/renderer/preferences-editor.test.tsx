@@ -304,7 +304,7 @@ describe('PreferencesEditor under a managed-preferences policy', () => {
     render(<PreferencesEditor initialSection="proxy" />);
     const mode = screen.getByTestId('proxy-mode');
     expect(mode.hasAttribute('disabled')).toBe(true);
-    expect(mode.closest('[data-locked]')?.textContent).toContain('Locked by policy');
+    expect(mode.closest('[data-locked]')?.textContent).toContain('Managed');
     const port = screen.getByTestId('proxy-port');
     expect(port.hasAttribute('disabled')).toBe(false);
     expect(port.closest('[data-locked]')).toBeNull();
