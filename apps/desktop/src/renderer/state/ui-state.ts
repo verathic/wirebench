@@ -79,6 +79,11 @@ export interface UiSnapshot {
     readonly size: number;
     /** The size to restore on expand, after a collapse; Task 9's collapse button reads this. */
     readonly lastSize: number;
+    /**
+     * The width the *other* size group last had: the SSH area keeps its own (it holds a short menu),
+     * every other view shares one. Swapped with `size` when the view crosses groups; absent until then.
+     */
+    readonly parkedSize?: number;
   };
   readonly console: {
     readonly visible: boolean;
@@ -200,7 +205,22 @@ function mergeSlideOver(stored: unknown, legacyCodeShell: unknown): UiSnapshot['
 function mergeSidebar(stored: unknown): UiSnapshot['sidebar'] {
   const merged = mergeSection(DEFAULT_UI_STATE.sidebar, stored);
   const lastSize = asRecord(stored)?.['lastSize'];
-  return { ...merged, lastSize: typeof lastSize === 'number' ? lastSize : merged.size };
+  const parkedSize = asRecord(stored)?.['parkedSize'];
+  const sidebar = { ...merged, lastSize: typeof lastSize === 'number' ? lastSize : merged.size };
+  if (typeof parkedSize === 'number') return { ...sidebar, parkedSize };
+  // Saved before the SSH area had its own width while showing it: that width was the shared one.
+  if (sidebar.view === 'ssh') {
+    return { ...sidebar, size: SSH_SIDEBAR_SIZE, lastSize: SSH_SIDEBAR_SIZE, parkedSize: sidebar.lastSize };
+  }
+  return sidebar;
+}
+
+/** The SSH area's sidebar holds a short menu, so it opens narrower than the views that hold trees. */
+export const SSH_SIDEBAR_SIZE = 12;
+
+/** Which width a view uses: the SSH area keeps its own, every other view shares one. */
+export function sidebarSizeGroup(view: SidebarView): 'ssh' | 'shared' {
+  return view === 'ssh' ? 'ssh' : 'shared';
 }
 
 /** The console's equivalent of {@link mergeSidebar}. */
