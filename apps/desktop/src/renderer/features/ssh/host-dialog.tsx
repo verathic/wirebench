@@ -45,9 +45,11 @@ function withField(ssh: SshSettingsWire, key: keyof SshSettingsWire, value: unkn
 interface FormProps {
   readonly file: HostsFileWire;
   readonly dialog: NonNullable<ReturnType<typeof useHostsStore.getState>['dialog']>;
+  /** Drawn inside the details panel rather than the dialog: a plain heading, no dialog title. */
+  readonly embedded?: boolean;
 }
 
-function HostForm({ file, dialog }: FormProps) {
+export function HostForm({ file, dialog, embedded = false }: FormProps) {
   const { save, closeDialog, problems, resolved } = useHostsStore();
   const isHost = dialog.mode === 'new-host' || dialog.mode === 'edit-host';
   const editing = dialog.mode === 'edit-host' || dialog.mode === 'edit-group';
@@ -108,8 +110,14 @@ function HostForm({ file, dialog }: FormProps) {
         if (valid) void submit();
       }}
     >
-      <Dialog.Title className="text-md font-medium text-fg-default">{label}</Dialog.Title>
-      <Dialog.Description className="sr-only">{`${label}: settings left on inherit come from the enclosing group.`}</Dialog.Description>
+      {embedded ? (
+        <h2 className="text-md font-medium text-fg-default">{label}</h2>
+      ) : (
+        <>
+          <Dialog.Title className="text-md font-medium text-fg-default">{label}</Dialog.Title>
+          <Dialog.Description className="sr-only">{`${label}: settings left on inherit come from the enclosing group.`}</Dialog.Description>
+        </>
+      )}
       <label className="flex flex-col gap-1 text-xs">
         <span className="text-fg-subtle">Name</span>
         <input
@@ -208,14 +216,17 @@ function HostForm({ file, dialog }: FormProps) {
   );
 }
 
-/** The host / group form. Each setting shows what it inherits and from which group; Override edits it here. */
+/**
+ * The host / group form. Each setting shows what it inherits and from which group; Override edits it here.
+ * Editing a host is the exception: its form opens in the details panel (`host-details.tsx`) instead.
+ */
 export function HostDialog() {
   const dialog = useHostsStore((s) => s.dialog);
   const file = useHostsStore((s) => s.file);
   const closeDialog = useHostsStore((s) => s.closeDialog);
   return (
     <Dialog.Root
-      open={dialog !== null}
+      open={dialog !== null && dialog.mode !== 'edit-host'}
       onOpenChange={(open) => {
         if (!open) closeDialog();
       }}
@@ -226,7 +237,9 @@ export function HostDialog() {
           data-testid="host-dialog"
           className="fixed top-1/2 left-1/2 max-h-[85vh] w-[34rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-md bg-surface-raised p-4 shadow-lg"
         >
-          {dialog !== null && <HostForm key={JSON.stringify(dialog)} file={file} dialog={dialog} />}
+          {dialog !== null && dialog.mode !== 'edit-host' && (
+            <HostForm key={JSON.stringify(dialog)} file={file} dialog={dialog} />
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

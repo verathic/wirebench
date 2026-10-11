@@ -212,6 +212,25 @@ describe('SshService', () => {
     expect(JSON.parse(readFileSync(knownHostsFile, 'utf8'))).toEqual([KEY]);
   });
 
+  it('lists trusted keys, and forgetting one makes the next connect ask again', async () => {
+    const { service, knownHostsFile } = make();
+    const s = sender(1);
+    expect(await service.knownHosts()).toEqual([]);
+    await expect(service.connect(as(s), CONNECT)).rejects.toMatchObject({ code: 'ssh-host-key-new' });
+    await service.trust(as(s), { ...KEY, replace: false });
+    expect(await service.knownHosts()).toEqual([KEY]);
+
+    await service.forgetHostKey({ host: KEY.host, keyType: KEY.keyType });
+    expect(JSON.parse(readFileSync(knownHostsFile, 'utf8'))).toEqual([]);
+    await expect(service.connect(as(s), CONNECT)).rejects.toMatchObject({ code: 'ssh-host-key-new' });
+  });
+
+  it('forgetting a key that is not trusted writes nothing', async () => {
+    const { service, knownHostsFile } = make();
+    await service.forgetHostKey({ host: 'nowhere:22', keyType: 'ssh-ed25519' });
+    expect(() => readFileSync(knownHostsFile)).toThrow();
+  });
+
   it('disposeAll forgets every refusal', async () => {
     const { service } = make();
     const s = sender(1);

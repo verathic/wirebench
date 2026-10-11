@@ -65,6 +65,8 @@ import { IdentityDialog } from '../features/sync/identity-dialog.js';
 import { ActivityBar } from './activity-bar.js';
 import { subscribeToMenuCommands, syncAppMenu } from './app-menu.js';
 import { CodePanel } from './code-panel.js';
+import { HostDetails, useHostDetailsShown } from '../features/ssh/host-details.js';
+import { useHostsStore } from '../features/ssh/hosts-store.js';
 import { CommandPalette } from './command-palette.js';
 import type { PaletteMode } from './command-palette.js';
 import { ConsolePanel } from './console-panel.js';
@@ -131,6 +133,15 @@ export function AppShell() {
   const setSlideOverWidth = useUiStore((state) => state.setSlideOverWidth);
   const toggleCode = useUiStore((state) => state.toggleCode);
   const closeCode = useUiStore((state) => state.closeCode);
+  // On the Hosts tab the slide-over holds the picked host instead of a request's code.
+  const hostDetailsShown = useHostDetailsShown();
+  const toggleHostDetails = useCallback(() => {
+    const hosts = useHostsStore.getState();
+    hosts.setDetailsOpen(!hosts.detailsOpen);
+  }, []);
+  const closeHostDetails = useCallback(() => {
+    useHostsStore.getState().setDetailsOpen(false);
+  }, []);
   const importDialogOpen = useUiStore((state) => state.importDialogOpen);
   const closeImportDialog = useUiStore((state) => state.closeImportDialog);
 
@@ -470,13 +481,23 @@ export function AppShell() {
                 there. The rail's Code icon and `view.toggleCode` reopen it. */}
             <SlideOver
               label="Code"
-              open={slideOver.open}
+              open={slideOver.open && !hostDetailsShown}
               width={slideOver.width}
               onWidthChange={setSlideOverWidth}
               onToggle={toggleCode}
               onClose={closeCode}
             >
               <CodePanel />
+            </SlideOver>
+            <SlideOver
+              label="Host details"
+              open={hostDetailsShown}
+              width={slideOver.width}
+              onWidthChange={setSlideOverWidth}
+              onToggle={toggleHostDetails}
+              onClose={closeHostDetails}
+            >
+              <HostDetails />
             </SlideOver>
           </div>
         )}

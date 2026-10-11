@@ -111,3 +111,17 @@ export function openTerminalFor(hostId: string): void {
   const title = hosts.resolved.find((h) => h.id === hostId)?.name ?? findHost(hosts.file, hostId)?.name ?? hostId;
   editors.open({ id, kind: 'ssh-terminal', title, hostId });
 }
+
+/**
+ * Opens the host's settings for editing in the details panel, bringing the Hosts tab to the front and
+ * picking the host first: the panel only shows there.
+ */
+export function editHost(hostId: string): void {
+  const editors = useEditorsStore.getState();
+  editors.showSet('ssh');
+  editors.showStart();
+  const hosts = useHostsStore.getState();
+  hosts.setHomeView('hosts');
+  hosts.selectHost(hostId);
+  hosts.openDialog({ mode: 'edit-host', id: hostId });
+}
