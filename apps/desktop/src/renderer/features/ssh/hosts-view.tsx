@@ -29,7 +29,8 @@ export function HostsView() {
     void refresh();
   }, [refresh]);
 
-  // Counted again whenever the menu is picked from, so a key trusted or a secret stored since shows.
+  // Counted again when the menu is picked from or the hosts are saved (a host's dialog can store a
+  // secret), so a key trusted or a secret stored since shows.
   useEffect(() => {
     void (async () => {
       const [names, known] = await Promise.all([ipc().ssh.secretNames(undefined), ipc().ssh.knownHosts(undefined)]);
@@ -38,7 +39,7 @@ export function HostsView() {
         ...(known.ok ? { knownHosts: known.value.entries.length } : {}),
       });
     })();
-  }, [homeView, homeShown]);
+  }, [homeView, homeShown, resolved]);
 
   const countOf = (id: SshHomeView): number | undefined =>
     id === 'hosts' ? resolved.length : id === 'keychain' ? counts.keychain : counts.knownHosts;
