@@ -71,6 +71,7 @@ import { ConsolePanel } from './console-panel.js';
 import { EditorArea } from './editor-area.js';
 import { ImportDialog } from '../features/explorer/import-dialog.js';
 import { FolderAuthDialog } from '../features/rest-api/folder-auth-dialog.js';
+import { FolderScriptsDialog } from '../features/scripts/folder-scripts-dialog.js';
 import { ImportCurlFromTarget } from '../features/request-editor/import-curl-from-target.js';
 import { PanelHandle } from './panel-handle.js';
 import { RightRail } from './right-rail.js';
@@ -491,6 +492,7 @@ export function AppShell() {
       />
       <ImportCurlFromTarget />
       <FolderAuthDialog />
+      <FolderScriptsDialog />
       <NewProjectDialog />
       <CreateWorkspaceDialog />
       <WorkspaceManageDialog />
