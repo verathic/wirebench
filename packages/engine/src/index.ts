@@ -1353,6 +1353,7 @@ export {
   createWorkspaceEnvironment,
   deleteShare,
   describeTreePath,
+  isProtectedEnvironment,
   linkedEnvironment,
   loadLocalState,
   loadShare,
