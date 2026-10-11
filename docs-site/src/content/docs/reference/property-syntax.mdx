@@ -134,6 +134,25 @@ outer `${...}` you can see and edit — not against an offset inside the propert
 the message always points at something in front of you.
 </Aside>
 
+## In the editor
+
+A request's URL, parameters, headers, form fields, auth fields and body help you write references.
+They resolve against the variables the request would be sent with: the active environment, the
+project, the workspace, globals and the session's current values.
+
+- **Completion.** Type `${` to list the names in scope, with each one's scope. A name hidden by a
+  nearer scope is inserted in its explicit form, `${#Project#name}`, so the reference reaches the
+  variable you picked. `${#` lists the scopes, and `${secret:` lists the secret names.
+- **Hover.** Point at a reference to see its value and scope, with a link to the page that edits it.
+  A value that reads a secret or an environment variable is always shown as `••••••`, even with
+  **Show secrets** on.
+- **Unresolved names.** A reference that resolves to nothing is underlined where it is written. In a
+  body it is also a warning marker. `${#Sequence#…}` values and names built from other references
+  are known only during a send, so they are never marked.
+- **Set as Variable…** Select text in a request or a response, then right-click. Name the variable
+  and pick its scope. In a request the selection becomes a reference to it; in a response, only the
+  variable is created.
+
 ## Disabled variables
 
 A property can be switched off without deleting it: its name appears in that scope's `disabled`
