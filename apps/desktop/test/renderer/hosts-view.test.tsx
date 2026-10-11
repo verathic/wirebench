@@ -13,6 +13,7 @@ vi.mock('../../src/renderer/state/ipc-client.js', () => ({
 }));
 import { HostsView } from '../../src/renderer/features/ssh/hosts-view.js';
 import { openTerminalFor } from '../../src/renderer/features/ssh/connect.js';
+import { HostDetails, sshCommandOf, useHostDetailsShown } from '../../src/renderer/features/ssh/host-details.js';
 import { SshHome } from '../../src/renderer/features/ssh/ssh-home.js';
 import { useHostsStore } from '../../src/renderer/features/ssh/hosts-store.js';
 import { useEditorsStore } from '../../src/renderer/state/editors.js';
@@ -362,5 +363,77 @@ describe('Hosts tab view', () => {
     render(<SshHome />);
     expect(screen.getByText('Add your first host')).toBeDefined();
     expect(screen.getByRole('button', { name: 'Import from SSH config' })).toBeDefined();
+  });
+});
+
+describe('Host details', () => {
+  beforeEach(() => {
+    useEditorsStore.getState().reset();
+    useEditorsStore.getState().showSet('ssh');
+    useHostsStore.setState({ selectedHostId: undefined, detailsOpen: false });
+  });
+
+  it('clicking a card picks it and asks for its details', async () => {
+    render(<SshHome />);
+    await userEvent.click(screen.getByTestId('host-row-a'));
+    expect(useHostsStore.getState()).toMatchObject({ selectedHostId: 'a', detailsOpen: true });
+    expect(screen.getByTestId('host-row-a').dataset['selected']).toBe('true');
+  });
+  it('shows where each setting comes from, the trusted key and the matching command', async () => {
+    useHostsStore.setState({
+      selectedHostId: 'a',
+      detailsOpen: true,
+      resolved: [
+        {
+          ...STATE.resolved[0]!,
+          incomplete: undefined,
+          ssh: {
+            ...defaults,
+            user: { value: 'deploy', from: { group: 'g' } },
+            auth: { value: { kind: 'key', secret: 'DEPLOY_KEY' }, from: 'host' },
+          },
+        },
+        STATE.resolved[1]!,
+      ],
+    });
+    render(<HostDetails />);
+    const details = screen.getByTestId('host-details');
+    expect(details.textContent).toContain('from Production');
+    expect(details.textContent).toContain('value on this machine');
+    expect(await screen.findByText('SHA256:abc')).toBeDefined();
+    expect(screen.getByText('ssh deploy@10.0.0.1')).toBeDefined();
+  });
+  it('an incomplete host says what it needs', () => {
+    useHostsStore.setState({ selectedHostId: 'a', detailsOpen: true });
+    render(<HostDetails />);
+    expect(screen.getByRole('alert').textContent).toContain('Needs a user to connect.');
+  });
+  it('shows only while the Hosts tab is in front and a host is picked', () => {
+    const shown = (): boolean => {
+      let value = false;
+      function Probe() {
+        value = useHostDetailsShown();
+        return null;
+      }
+      render(<Probe />);
+      cleanup();
+      return value;
+    };
+    expect(shown()).toBe(false);
+    useHostsStore.getState().selectHost('b');
+    expect(shown()).toBe(true);
+    openTerminalFor('b');
+    expect(shown()).toBe(false);
+    useEditorsStore.getState().showStart();
+    expect(shown()).toBe(true);
+    useHostsStore.getState().setDetailsOpen(false);
+    expect(shown()).toBe(false);
+  });
+  it('builds the ssh command with the port and jump host only when they differ', () => {
+    const host = {
+      ...STATE.resolved[1]!,
+      ssh: { ...defaults, port: { value: 2222, from: 'host' as const } },
+    };
+    expect(sshCommandOf(host, 'ops@bastion')).toBe('ssh -p 2222 -J ops@bastion beta.example');
   });
 });

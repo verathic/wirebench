@@ -4,7 +4,7 @@
  * the cards to what matches, opening folded sections and dropping empty ones. Click selects, arrows
  * move, double-click or Enter connects; Connect and ⋯ show on hover, right-click has the rest.
  */
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useRef, type KeyboardEvent } from 'react';
 import { ChevronRight, Plus, Server } from 'lucide-react';
 import { Button } from '../../components/button.js';
 import type { GroupEntryWire, HostEntryWire, HostsFileWire, ResolvedHostWire } from '../../../shared/ssh-wire.js';
@@ -217,7 +217,8 @@ export function HostCards({
   const selectedTags = useHostsStore((s) => s.selectedTags);
   const visibleHosts = useHostsStore((s) => s.visibleHosts);
   const openDialog = useHostsStore((s) => s.openDialog);
-  const [selected, setSelected] = useState<string>();
+  const selected = useHostsStore((s) => s.selectedHostId);
+  const selectHost = useHostsStore((s) => s.selectHost);
   const containerRef = useRef<HTMLDivElement>(null);
 
   if (file.groups.length === 0 && file.hosts.length === 0) {
@@ -287,7 +288,7 @@ export function HostCards({
     const target = nextCard(cards, from, e.key);
     e.preventDefault();
     if (target === undefined) return;
-    setSelected(target.dataset['hostCard']);
+    selectHost(target.dataset['hostCard']);
     target.focus();
   };
 
@@ -358,7 +359,7 @@ export function HostCards({
                     selected={selected === host.id}
                     tabbable={tabbableId === host.id}
                     onSelect={() => {
-                      setSelected(host.id);
+                      selectHost(host.id);
                     }}
                   />
                 ))}

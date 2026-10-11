@@ -1,0 +1,268 @@
+/**
+ * The selected host, in the right slide-over (where the Code panel shows for a request): how it
+ * connects and where each setting comes from, how it signs in and whether that secret has a value
+ * here, the host key trusted for it, and the `ssh` command that matches. Selecting a card on the
+ * Hosts tab opens it; the right rail's icon, its close icon and Escape put it away.
+ */
+import { useEffect, useState, type ReactNode } from 'react';
+import { Copy, Pencil, TriangleAlert } from 'lucide-react';
+import { Button } from '../../components/button.js';
+import type { ResolvedHostWire, SshKnownHostWire, SshSecretNameWire } from '../../../shared/ssh-wire.js';
+import { useEditorsStore } from '../../state/editors.js';
+import { ipc } from '../../state/ipc-client.js';
+import { openTerminalFor } from './connect.js';
+import { HostActionsButton } from './host-menus.js';
+import { findHost, flattenGroups, useHostsStore } from './hosts-store.js';
+import { sessionStatus } from './session-status.js';
+
+/** Whether the details slide-over is in front: the Hosts tab is showing, a host is picked, and it was not put away. */
+export function useHostDetailsShown(): boolean {
+  const homeInFront = useEditorsStore((s) => s.displayedSet === 'ssh' && s.activeId === undefined);
+  const onHosts = useHostsStore((s) => s.homeView === 'hosts');
+  const open = useHostsStore((s) => s.detailsOpen);
+  const exists = useHostsStore(
+    (s) => s.selectedHostId !== undefined && findHost(s.file, s.selectedHostId) !== undefined,
+  );
+  return homeInFront && onHosts && open && exists;
+}
+
+type Provenance = ResolvedHostWire['ssh']['port']['from'];
+
+function Row({ label, children }: { readonly label: string; readonly children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[6.5rem_1fr] items-baseline gap-2 py-1">
+      <dt className="text-xs text-fg-subtle">{label}</dt>
+      <dd className="flex min-w-0 items-baseline gap-2 text-sm text-fg-default">{children}</dd>
+    </div>
+  );
+}
+
+function Section({ title, children }: { readonly title: string; readonly children: ReactNode }) {
+  return (
+    <section aria-label={title} className="flex flex-col border-t border-hairline px-1 py-3">
+      <h3 className="mb-1 text-xs font-medium tracking-wider text-fg-subtle uppercase">{title}</h3>
+      <dl>{children}</dl>
+    </section>
+  );
+}
+
+function CopyButton({ text, label }: { readonly text: string; readonly label: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={() => {
+        void navigator.clipboard.writeText(text);
+      }}
+      className="ml-auto inline-flex size-5 shrink-0 items-center justify-center rounded text-fg-subtle hover:bg-surface-hover hover:text-fg-default"
+    >
+      <Copy size={12} aria-hidden="true" />
+    </button>
+  );
+}
+
+/** The `ssh` command line that reaches the host as configured, leaving out what is the default. */
+export function sshCommandOf(host: ResolvedHostWire, jumpAddress: string | undefined): string {
+  const parts = ['ssh'];
+  const port = host.ssh.port.value;
+  if (port !== 22) parts.push('-p', String(port));
+  if (jumpAddress !== undefined) parts.push('-J', jumpAddress);
+  const user = host.ssh.user.value;
+  parts.push(user === undefined ? host.address : `${user}@${host.address}`);
+  return parts.join(' ');
+}
+
+export function HostDetails() {
+  const selectedHostId = useHostsStore((s) => s.selectedHostId);
+  const file = useHostsStore((s) => s.file);
+  const resolved = useHostsStore((s) => s.resolved);
+  const openDialog = useHostsStore((s) => s.openDialog);
+  const session = useHostsStore((s) => (selectedHostId === undefined ? undefined : s.sessions[selectedHostId]));
+  const [knownHosts, setKnownHosts] = useState<readonly SshKnownHostWire[]>([]);
+  const [secrets, setSecrets] = useState<readonly SshSecretNameWire[]>([]);
+
+  // Read again per host: a key may have been trusted, or a secret stored, since the last one.
+  useEffect(() => {
+    void (async () => {
+      const [known, names] = await Promise.all([ipc().ssh.knownHosts(undefined), ipc().ssh.secretNames(undefined)]);
+      setKnownHosts(known.ok ? known.value.entries : []);
+      setSecrets(names.ok ? names.value.names : []);
+    })();
+  }, [selectedHostId, session?.state]);
+
+  const entry = selectedHostId === undefined ? undefined : findHost(file, selectedHostId);
+  if (entry === undefined) return null;
+  const host = resolved.find((h) => h.id === entry.id);
+  const groups = flattenGroups(file);
+  const groupName = (id: string): string => groups.find(({ group }) => group.id === id)?.group.name ?? id;
+  const status = sessionStatus(session);
+  const provenance = (from: Provenance): string =>
+    from === 'host' ? 'set on host' : from === 'default' ? 'default' : `from ${groupName(from.group)}`;
+  const path = host?.path.map(groupName).join(' / ');
+
+  const edit = (): void => {
+    openDialog({ mode: 'edit-host', id: entry.id });
+  };
+
+  const header = (
+    <div className="flex flex-col gap-3 px-1 py-3">
+      <div className="flex min-w-0 flex-col">
+        <h2 className="truncate text-md font-medium text-fg-default">{entry.name}</h2>
+        <p className="flex items-center gap-1.5 text-xs text-fg-subtle">
+          <span className={`size-2 shrink-0 rounded-full bg-current ${status.color}`} aria-hidden="true" />
+          <span>{status.label}</span>
+          {path !== undefined && path !== '' && <span className="truncate">· {path}</span>}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="primary"
+          onClick={() => {
+            openTerminalFor(entry.id);
+          }}
+        >
+          Connect
+        </Button>
+        <Button onClick={edit}>
+          <Pencil size={12} aria-hidden="true" /> Edit
+        </Button>
+        <HostActionsButton host={entry} className="ml-auto" />
+      </div>
+    </div>
+  );
+
+  if (host === undefined) {
+    return (
+      <div data-testid="host-details" className="flex flex-col">
+        {header}
+        <p className="border-t border-hairline px-1 py-3 text-sm text-fg-subtle">
+          This host could not be resolved; see the problems above the cards.
+        </p>
+      </div>
+    );
+  }
+
+  const auth = host.ssh.auth.value;
+  const secretState = (name: string): string => {
+    const found = secrets.find((s) => s.name === name);
+    if (found === undefined || (!found.local && !found.external)) return 'no value on this machine';
+    return found.local ? 'value on this machine' : 'from a secret source';
+  };
+  const jump = host.ssh.jump.value;
+  const jumpHost = jump === undefined ? undefined : resolved.find((h) => h.id === jump);
+  const jumpAddress =
+    jump === undefined
+      ? undefined
+      : jumpHost === undefined
+        ? jump
+        : `${jumpHost.ssh.user.value === undefined ? '' : `${jumpHost.ssh.user.value}@`}${jumpHost.address}${
+            jumpHost.ssh.port.value === 22 ? '' : `:${String(jumpHost.ssh.port.value)}`
+          }`;
+  const hostKey = `${host.address}:${String(host.ssh.port.value)}`;
+  const keys = knownHosts.filter((k) => k.host === hostKey);
+  const command = sshCommandOf(host, jumpAddress);
+  const muted = (text: string): ReactNode => <span className="truncate text-xs text-fg-subtle">{text}</span>;
+
+  return (
+    <div data-testid="host-details" className="flex flex-col">
+      {header}
+      {host.incomplete !== undefined && (
+        <div
+          role="alert"
+          className="mx-1 mb-3 flex items-center gap-2 rounded-md border border-status-warning px-3 py-2 text-sm text-fg-default"
+        >
+          <TriangleAlert size={14} aria-hidden="true" className="shrink-0 text-status-warning" />
+          <span className="flex-1">
+            {host.incomplete.field === 'user' ? 'Needs a user to connect.' : 'Needs a way to sign in.'}
+          </span>
+          <Button className="h-6 px-2 text-xs" onClick={edit}>
+            Edit
+          </Button>
+        </div>
+      )}
+      <Section title="Connection">
+        <Row label="Address">
+          <span className="truncate font-mono">{host.address}</span>
+          <CopyButton text={host.address} label="Copy address" />
+        </Row>
+        <Row label="Port">
+          <span className="font-mono">{host.ssh.port.value}</span>
+          {muted(provenance(host.ssh.port.from))}
+        </Row>
+        <Row label="User">
+          <span className="truncate font-mono">{host.ssh.user.value ?? '—'}</span>
+          {host.ssh.user.value !== undefined && muted(provenance(host.ssh.user.from))}
+        </Row>
+        <Row label="Jump host">
+          <span className="truncate">{jump === undefined ? '—' : (jumpHost?.name ?? jump)}</span>
+          {jump !== undefined && muted(provenance(host.ssh.jump.from))}
+        </Row>
+      </Section>
+      <Section title="Sign-in">
+        {auth === undefined ? (
+          <Row label="Method">
+            <span className="text-fg-subtle">not set</span>
+          </Row>
+        ) : (
+          <>
+            <Row label="Method">
+              <span>{auth.kind === 'agent' ? 'SSH agent' : auth.kind === 'key' ? 'Private key' : 'Password'}</span>
+              {muted(provenance(host.ssh.auth.from))}
+            </Row>
+            {auth.kind !== 'agent' && (
+              <Row label={auth.kind === 'key' ? 'Key secret' : 'Secret'}>
+                <span className="truncate font-mono">{auth.secret}</span>
+                {muted(secretState(auth.secret))}
+              </Row>
+            )}
+            {auth.kind === 'key' && auth.passphraseSecret !== undefined && (
+              <Row label="Passphrase">
+                <span className="truncate font-mono">{auth.passphraseSecret}</span>
+                {muted(secretState(auth.passphraseSecret))}
+              </Row>
+            )}
+          </>
+        )}
+      </Section>
+      <Section title="Host key">
+        {keys.length === 0 ? (
+          <p className="py-1 text-sm text-fg-subtle">Not trusted yet: the first connection asks.</p>
+        ) : (
+          keys.map((key) => (
+            <Row key={key.keyType} label={key.keyType}>
+              <span className="font-mono text-xs break-all">{key.fingerprint}</span>
+            </Row>
+          ))
+        )}
+      </Section>
+      <Section title="Timing">
+        <Row label="Keep-alive">
+          <span>{host.ssh.keepAlive.value}s</span>
+          {muted(provenance(host.ssh.keepAlive.from))}
+        </Row>
+        <Row label="Timeout">
+          <span>{host.ssh.connectTimeout.value}s</span>
+          {muted(provenance(host.ssh.connectTimeout.from))}
+        </Row>
+      </Section>
+      {host.tags.length > 0 && (
+        <Section title="Tags">
+          <div className="flex flex-wrap gap-1 py-1">
+            {host.tags.map((tag) => (
+              <span key={tag} className="rounded-full border border-hairline px-2 text-xs text-fg-subtle">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </Section>
+      )}
+      <Section title="Command">
+        <div className="flex items-start gap-2 rounded-md bg-surface-sunken px-2 py-1.5">
+          <code className="min-w-0 flex-1 font-mono text-xs break-all text-fg-default">{command}</code>
+          <CopyButton text={command} label="Copy command" />
+        </div>
+      </Section>
+    </div>
+  );
+}

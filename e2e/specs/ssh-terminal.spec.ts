@@ -60,6 +60,12 @@ test('connect to a host, trust its key, type, see the echo, end the session', as
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
 
+  // Picking the card shows its details on the right; Escape puts them away.
+  await page.getByTestId('host-row-box').click();
+  await expect(page.getByTestId('host-details')).toContainText(`ssh -p ${String(fixture.port)} tester@127.0.0.1`);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('host-details')).toBeHidden();
+
   await page.getByTestId('host-row-box').dblclick();
   const trust = page.getByTestId('trust-dialog');
   await expect(trust).toBeVisible({ timeout: 30_000 });
