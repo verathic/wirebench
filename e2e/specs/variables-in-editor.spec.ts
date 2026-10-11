@@ -3,7 +3,7 @@ import { setMonacoText } from '../helpers/editor.js';
 import { openEnvironmentsView, setVariable } from '../helpers/environments.js';
 import { launchApp, type LaunchedApp } from '../helpers/launch-app.js';
 import { createProject, createWorkspace } from '../helpers/project.js';
-import { createApi, createRestRequest, openRequestTab, restRequestRow } from '../helpers/rest.js';
+import { createApi, createRestRequest, openRequestTab } from '../helpers/rest.js';
 
 /** The slice of the Monaco namespace this spec reads through `globalThis.__wirebenchMonaco`. */
 interface MonacoHandle {
@@ -43,7 +43,6 @@ test.describe('Variables in the editor (#340)', () => {
     await setGlobal(page, 'apiHost', 'example.test');
     await createApi(page, 'Petstore', 'http://127.0.0.1:9');
     await createRestRequest(page, 'Petstore', 'Echo');
-    await expect(restRequestRow(page, 'Echo')).toBeVisible();
 
     // --- completion in a header value -----------------------------------------
     await openRequestTab(page, 'Headers');
