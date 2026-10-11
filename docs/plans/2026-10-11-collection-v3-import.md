@@ -48,12 +48,11 @@ issue #349. One commit per task, each after
 
 ## Task 5: desktop
 
-- `opencollection-tree.ts`: the walk takes an include rule, and `readCollectionFolder` uses it for
-  v3 (root checked by `checkedImportSource`, root not a link).
 - `dialogs.openFolder` records a read pick. A new `api.importPostmanFolder` channel: the request is
-  `{target, source: {kind: 'folder'|'file', path}}`, and the response is shaped like the
-  folder-collection one plus environments. The handler places the REST, gRPC and WebSocket APIs
-  and applies the variable plan.
+  `{target, path, name?}`, where `path` is a folder or a `.resources/definition.yaml`. The handler
+  checks the path with `checkedImportSource`, walks it with the engine's `readCollectionV3Folder`,
+  places the REST, gRPC and WebSocket APIs and applies the variable plan. The response carries the
+  counts, the environments and the report.
 - Import… dialog: a `Folder…` button, the `postman-v3` format, and a result summary.
 - Tests: main handler unit tests with a temp folder, wire schema sync, and a dialog unit test.
 
