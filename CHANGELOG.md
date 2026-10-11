@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The Code panel writes a request as code.** Besides `curl`, a SOAP or REST request can be shown
+  as JavaScript fetch, Node.js axios, Python requests, Go net/http, Java HttpClient, Java OkHttp,
+  C# HttpClient, PHP cURL, Ruby Net::HTTP, PowerShell Invoke-RestMethod or HTTPie, or as the
+  `wirebench run` line that sends the saved request. Each snippet is built from the resolved send, so
+  it matches the wire. A credential is read from the `WIREBENCH_SECRET_*` variable the CLI reads,
+  never written out, unless Show secrets is on. Indent, redirects and timeout are set per language,
+  and the language picked last is remembered (#337).
 - **A container of a kind this build cannot open stays in the explorer.** It shows as a dimmed row,
   at its place among the project's containers, whose tooltip and only menu item say why: the kind
   is switched off, or this version of Wirebench does not know it. Its files are never rewritten, a
